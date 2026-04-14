@@ -977,10 +977,9 @@ module.exports = class StankBot {
             if (isXpCommand) {
                 const totalXp = (this.stankboard[msg.author.id] && this.stankboard[msg.author.id].xp) || 0;
                 const totalPunish = (this.stankboard[msg.author.id] && this.stankboard[msg.author.id].punishments) || 0;
-                const username = this.getUsername(msg);
                 const xpStr = Number(totalXp).toLocaleString();
                 const punStr = Number(totalPunish).toLocaleString();
-                const replyText = `reply to ${username}\`\`\`\nstank points: ${xpStr}\npunishment points: ${punStr}\n\`\`\``;
+                const replyText = `\`\`\`\nstank points: ${xpStr}\npunishment points: ${punStr}\n\`\`\``;
                 this.sendBotReply(msg.channel_id, replyText, msg.id);
             } else if (isBoardCommand) {
                 this.sendBotReply(msg.channel_id, this.getScoreTemplate());
