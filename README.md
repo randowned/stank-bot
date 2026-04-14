@@ -1,35 +1,65 @@
 ![](Stank.gif)
 
-# StankScanner
+# StankBot
 
-**StankScanner** is a custom [BetterDiscord](https://betterdiscord.app/) plugin built specifically for tracking community sticker chains in the [Maphra Discord Server](https://discord.gg/maphra).
+**StankBot** is a custom [BetterDiscord](https://betterdiscord.app/) plugin built for tracking community sticker chains in the [Maphra Discord Server](https://discord.gg/maphra).
 
-It actively listens to the `#maphra-worship` channel for "Stank" sticker chains and updates the Server Bio and your Nickname dynamically when a new record is broken!
+It listens to the `#maphra-worship` channel for "Stank" sticker chains, awards XP and punishment points, and dynamically updates your Server Bio and Nickname when records are broken.
+
+## 🎮 The Game
+
+Players cooperate to build the longest chain of "Stank" stickers in `#worship`. Each **unique user** can contribute once per chain. The chain breaks when anyone posts a non-sticker message.
+
+| Action | Points |
+|---|---|
+| Start a new chain (1st sticker after break) | +100 XP, become **slayer** |
+| First-ever sticker contribution (lifetime) | +50 XP bonus |
+| Valid unique chain contribution | +25 XP |
+| Stank emoji reaction on a sticker | +5 XP |
+| Break the chain | +3× chain length punishment, become **goat** |
+| Chat during a broken chain | +1× chain length punishment |
+| Break chain then start the next one | +50 flat punishment (cheating!) |
+
+## ⚙️ Commands
+
+| Command | Description |
+|---|---|
+| `!stank-board` | The leaderboard |
+| `!stank-points` | Your Stank and Punishment points |
+| `!stank-help` | Help message with rules |
+
+### Admin Commands (bot owner only)
+
+| Command | Description |
+|---|---|
+| `!stank-record-test` | Preview record announcement |
+| `!stank-cheater-test` | Preview cheater caught message |
+| `!stank-board-reset` | Reset all board data |
+| `!stank-board-reload` | Reset and reload from channel history |
 
 ## 🌟 Features
 
-- **Chain Tracking**: Calculates the longest unbroken chain of purely "Stank" stickers sent by unique users.
-- **Dynamic Updates**: Automatically updates your Server Bio and Server Nickname (e.g. `Randowned ({ongoing}/{record})`) with the current scores.
-- **Auto-Reply Listener**: Listens for the command `!stankscore` sends the current scores in a customizable template both in DMs or in #memes channel if enabled.
-- **Customziation & Settings**: Enable/disable #memes channel interactions. Customize message and Bio templates.
+- **Chain Tracking**: Tracks the longest unbroken chain of Stank stickers by unique users.
+- **XP & Punishment System**: Awards and punishes players based on their contributions and chain-breaking behavior.
+- **Anti-Cheat**: Detects and punishes users who break a chain then immediately start the next one.
+- **History Scraping**: Reconstructs chain state from channel history on startup.
+- **Dynamic Updates**: Auto-updates your Server Bio and Nickname (e.g. `Username (10/32)`) with current scores.
+- **Auto-Reply**: Responds to commands in DMs, dev thread, and #memes (configurable).
+- **Customization**: Configurable templates for Bio, Nickname, record announcements, and board layout.
 
 ![](screenshot-1.png) ![](screenshot-2.png)
 
-## 🚀 Installation for BetterDiscord
-
-This plugin is exclusively built for **BetterDiscord**. You must be using the Discord Desktop client.
+## 🚀 Installation
 
 1. Download and install [BetterDiscord](https://betterdiscord.app/).
-2. Open Discord and click the gear icon to open **User Settings**.
-3. Scroll down the left sidebar to the **BetterDiscord** section and click on **Plugins**.
-4. Click the **"Open Plugins Folder"** button at the top to open `%appdata%\BetterDiscord\plugins`.
-5. Download `StankScanner.plugin.js` from this repository and drop it into that plugins folder.
-6. Return to the **Plugins** menu in Discord—you should see **StankScanner** appear in the list.
-7. Toggle the switch to **Enable** it!
+2. Open Discord → **User Settings** → **BetterDiscord** → **Plugins**.
+3. Click **"Open Plugins Folder"** to open `%appdata%\BetterDiscord\plugins`.
+4. Drop `StankBot.plugin.js` into the folder.
+5. Enable **StankBot** in the Plugins menu.
 
 ## ⚠️ Important
 
-> **Self-Bot Warning:** Automatically replying to other users (the Auto-Reply Listener ping feature) relies on your user account sending API requests without manual keyboard input, which goes against Discord's standard TOS regarding self-bots. Use such features at your own risk.
+> **Self-Bot Warning:** Auto-replying to other users relies on your user account sending API requests without manual input, which goes against Discord's TOS regarding self-bots. Use at your own risk.
 
 ---
 
