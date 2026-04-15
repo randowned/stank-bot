@@ -10,22 +10,27 @@ It listens to the `#altar` channel for "Stank" sticker chains, awards Stank Poin
 
 Players cooperate to build the longest chain of "Stank" stickers in `#altar`. Each **unique user** can contribute once per chain. The chain breaks when anyone posts a non-sticker message.
 
+Rankings are based on **net Stank Points** (earned SP minus punishment points).
+
 | Action | Points |
 |---|---|
-| Start a new chain (1st sticker after break) | +100 SP, become **slayer** |
+| Start a new chain (1st sticker after break) | +100 SP, become **Slayer** |
 | First-ever sticker contribution (lifetime) | +50 SP bonus |
 | Valid unique chain contribution | +25 SP |
 | Stank emoji reaction on a sticker | +5 SP |
-| Break the chain | +3× chain length punishment, become **goat** |
+| Break the chain | +3× chain length punishment, become **Goat** |
 | Chat during a broken chain | +1× chain length punishment |
 | Break chain then start the next one | +50 flat punishment (cheating!) |
+
+> **Anti-Cheat:** If the chain breaker immediately starts the next chain, they receive the cheating penalty and **no SP**. The next legitimate contributor inherits the chain starter bonus (+100 SP) and the **Slayer** title.
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `!stank-board` | The leaderboard |
-| `!stank-points` | Your Stank and Punishment points |
+| `!stank-board` | The leaderboard (ranked by net SP) |
+| `!stank-points` | Your Stank Points and rank |
+| `!stank-points <rank>` | Look up a player by rank |
 | `!stank-help` | Help message with rules |
 
 ### Admin Commands (bot owner only)
@@ -39,13 +44,14 @@ Players cooperate to build the longest chain of "Stank" stickers in `#altar`. Ea
 
 ## Features
 
+- **Net Score Ranking**: Players ranked by `earned SP - punishment points`. Breakdown shown in `!stank-points`.
 - **Chain Tracking**: Tracks the longest unbroken chain of Stank stickers by unique users.
-- **SP & Punishment System**: Awards and punishes players based on their contributions and chain-breaking behavior.
-- **Anti-Cheat**: Detects and punishes users who break a chain then immediately start the next one.
+- **Anti-Cheat**: Detects cheaters who break then restart a chain. Bonus transfers to the next legitimate contributor.
 - **History Scraping**: Reconstructs chain state from channel history on startup.
 - **Dynamic Updates**: Auto-updates your Server Bio and Nickname (e.g. `Username (10/32)`) with current scores.
-- **Command Channels**: Configurable allowlist of channel IDs for command auto-replies. DMs always work. Threads under listed channels are included.
-- **Announcement Channels**: Separate allowlist for record-broken and cheater-caught announcements. Template-driven — leave a template empty to disable that announcement.
+- **Command Channels**: Configurable allowlist of channel IDs for command auto-replies. DMs always work.
+- **Announcement Channels**: Separate allowlist for record-broken and cheater-caught announcements. `!stank-help` works in both command and announcement channels.
+- **Logging**: Persistent log file (`StankBot.log`) in the plugins folder with ISO timestamps and session separators.
 - **Customization**: Configurable templates for Bio, Nickname, board layout, record announcements, and cheater caught messages.
 
 ## Installation

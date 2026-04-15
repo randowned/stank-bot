@@ -2,7 +2,7 @@
  * @name StankBot
  * @author randowned
  * @description Maphra community #altar management bot.
- * @version 2.1.2
+ * @version 2.2.0
  */
 
 module.exports = class StankBot {
@@ -46,6 +46,34 @@ module.exports = class StankBot {
         const channel = this.ChannelStore.getChannel(channelId);
         if (!channel) return false;
         return allowedChannels.includes(channelId);
+    }
+
+    getPointsResponse(callerId, rankParam) {
+        const sorted = Object.entries(this.stankboard).map(([id, u]) => ({ id, ...u, net: (u.xp || 0) - (u.punishments || 0) })).sort((a, b) => b.net - a.net);
+        let targetId, targetRank;
+
+        if (rankParam) {
+            const requestedRank = parseInt(rankParam, 10);
+            if (isNaN(requestedRank) || requestedRank < 1 || requestedRank > sorted.length) {
+                return "```\nInvalid rank. Use 1-" + sorted.length + "\n```";
+            }
+            targetRank = requestedRank;
+            targetId = sorted[requestedRank - 1].id;
+        } else {
+            const idx = sorted.findIndex(u => u.id === callerId);
+            if (idx === -1) return "```\nYou have no Stank Points yet.\n```";
+            targetRank = idx + 1;
+            targetId = callerId;
+        }
+
+        const entry = this.stankboard[targetId];
+        if (!entry) return "```\nUser not found.\n```";
+        const xp = entry.xp || 0;
+        const pun = entry.punishments || 0;
+        const net = xp - pun;
+        const name = entry.username || "Unknown";
+        const breakdown = "\nBreakdown: " + Number(xp).toLocaleString() + " earned - " + Number(pun).toLocaleString() + " penalty";
+        return "```\nRank: " + targetRank + "\nPlayer: " + name + "\nStank Points: " + Number(net).toLocaleString() + breakdown + "\n```";
     }
 
     getToken() {
@@ -140,7 +168,7 @@ module.exports = class StankBot {
             this.syncConfigFromDisk();
 
             // Load Settings
-            this.defaultTemplate = "```\n{stankBoard}\n```";
+            this.defaultTemplate = "```\n# Stank Board (!stank-board)\n\nChain record: {record}\nOngoing chain: {ongoing}\n\n{stankBoard}\n```";
             this.defaultBioTemplate = "Current :Stank: record: {record}\nOngoing :Stank: chain: {ongoing}";
             const savedSettings = BdApi.Data.load("StankBot", "settings") || {};
             this.settings = Object.assign({
@@ -149,7 +177,7 @@ module.exports = class StankBot {
                 autoReplyChannelIds: "1483628334490587336\n1493190417703895051",
                 announcementChannelIds: "1483628334490587336",
                 nicknameTemplate: "Randowned ({ongoing}/{record})",
-                recordTemplate: "```\nnew record chain: {record}\n\n{stankBoard}\n```",
+                recordTemplate: "```\n# Stank RECORD!\n\nNew chain record: {record}\nThe Slayer (chain-starter): {chainStarterServerNickname}\n\n{stankBoard}\n```",
                 cheaterTemplate: "{username} - penalty! - 50 punishment points awarded!",
                 scoreTemplate: this.defaultTemplate,
                 bioTemplate: this.defaultBioTemplate
@@ -174,6 +202,7 @@ module.exports = class StankBot {
             this.lastBrokenChainLength = BdApi.Data.load("StankBot", "lastBrokenChainLength") || 0;
             this.newSlayerId = BdApi.Data.load("StankBot", "newSlayerId") || null;
             this.newGoatId = BdApi.Data.load("StankBot", "newGoatId") || null;
+            this.lastChainWasCheaterStart = BdApi.Data.load("StankBot", "lastChainWasCheaterStart") || false;
 
             // Wait for the Bio to sync before we ever listen to a single chat message
             const bioDataLoaded = await this.fetchInitialBio();
@@ -212,18 +241,12 @@ module.exports = class StankBot {
                         message.content = this.getRecordAnnouncementTemplate();
                     } else if ((text === "!stank-help" || text === "/stank-help") && isAllowed) {
                         message.content = this.getHelpTemplate();
-                    } else if ((text === "!stank-points" || text === "/stank-points") && isAllowed) {
+                    } else if ((text.startsWith("!stank-points") || text.startsWith("/stank-points")) && isAllowed) {
                         const me = this.UserStore.getCurrentUser();
                         if (me) {
-                            const xp = (this.stankboard[me.id] && this.stankboard[me.id].xp) || 0;
-                            const pun = (this.stankboard[me.id] && this.stankboard[me.id].punishments) || 0;
-                            const stankSorted = Object.entries(this.stankboard).map(([id, u]) => ({ id, ...u })).sort((a, b) => b.xp - a.xp);
-                            const punSorted = Object.entries(this.stankboard).map(([id, u]) => ({ id, ...u })).filter(u => (u.punishments || 0) > 0).sort((a, b) => (b.punishments || 0) - (a.punishments || 0));
-                            const stankRank = stankSorted.findIndex(u => u.id === me.id);
-                            const punRank = punSorted.findIndex(u => u.id === me.id);
-                            const stankRankStr = stankRank !== -1 ? (stankRank + 1) : "N/A";
-                            const punRankStr = punRank !== -1 ? (punRank + 1) : "N/A";
-                            message.content = `\`\`\`\nstank points: ${Number(xp).toLocaleString()}, rank: ${stankRankStr}\npunishment points: ${Number(pun).toLocaleString()}, rank: ${punRankStr}\n\`\`\``;
+                            const parts = text.split(/\s+/);
+                            const rankParam = parts.length > 1 ? parts[1] : null;
+                            message.content = this.getPointsResponse(me.id, rankParam);
                         }
                     } else if (text === "!stank-cheater-test" || text === "/stank-cheater-test") {
                         const testUser = this.UserStore?.getCurrentUser();
@@ -288,7 +311,7 @@ module.exports = class StankBot {
     }
 
     generateStankBoardAscii() {
-        const defaultBoardTemplate = "chain record: {record}\nongoing chain: {ongoing}\n\n# Stank Rankings (top {stankRowsLimit})\nnew slayer: {slayerRank}, {slayerName}, {slayerXp} Stank Points\n{stankRankingsTable}\n\n# Punishment Rankings (top {punishRowsLimit})\nnew goat: {goatRank}, {goatName}, {goatPunish} Punishment Points\n{punishmentRankingsTable}";
+        const defaultBoardTemplate = "# Stank Rankings (top {stankRowsLimit})\nlast slayer: {slayerRank}, {slayerName}, {slayerSP} SP\nlast goat: {goatRank}, {goatName}, {goatSP} PP\n\n{stankRankingsTable}";
         let tmpl = this.settings.boardLayoutTemplate || defaultBoardTemplate;
 
         const GuildMemberStore = BdApi.Webpack.getStore("GuildMemberStore");
@@ -307,67 +330,55 @@ module.exports = class StankBot {
         }
 
         const stankRowsLimit = parseInt(this.settings.stankRankingRows, 10) || 5;
-        const punishRowsLimit = parseInt(this.settings.punishmentRankingRows, 10) || 5;
 
-        const stankArr = Object.entries(this.stankboard).map(([id, u]) => ({ id, ...u })).sort((a, b) => b.xp - a.xp);
+        // Sort by net score (xp - punishments), stored separately
+        const stankArr = Object.entries(this.stankboard).map(([id, u]) => ({
+            id, ...u,
+            net: (u.xp || 0) - (u.punishments || 0)
+        })).sort((a, b) => b.net - a.net);
 
         let slayerName = "Unknown";
         let slayerRank = "N/A";
-        let slayerXp = 0;
+        let slayerSP = 0;
         if (this.newSlayerId && this.stankboard[this.newSlayerId]) {
             slayerName = this.stankboard[this.newSlayerId].username;
             const idx = stankArr.findIndex(u => u.id === this.newSlayerId);
-            if (idx !== -1) { slayerRank = idx + 1; slayerXp = stankArr[idx].xp; }
+            if (idx !== -1) { slayerRank = idx + 1; slayerSP = stankArr[idx].net; }
         }
-
-        const punishArr = Object.entries(this.stankboard)
-            .map(([id, u]) => ({ id, ...u }))
-            .filter(u => (u.punishments || 0) > 0)
-            .sort((a, b) => (b.punishments || 0) - (a.punishments || 0));
 
         let goatName = "None";
         let goatRank = "N/A";
-        let goatPunish = 0;
+        let goatSP = 0;
         if (this.newGoatId && this.stankboard[this.newGoatId]) {
             goatName = this.stankboard[this.newGoatId].username;
-            const idx = punishArr.findIndex(u => u.id === this.newGoatId);
-            if (idx !== -1) { goatRank = idx + 1; goatPunish = punishArr[idx].punishments || 0; }
+            const idx = stankArr.findIndex(u => u.id === this.newGoatId);
+            if (idx !== -1) { goatRank = idx + 1; goatSP = stankArr[idx].net; }
         }
 
         tmpl = this.applyCommonReplacements(tmpl);
         tmpl = tmpl.replace(/{stankRowsLimit}/g, stankRowsLimit);
         tmpl = tmpl.replace(/{slayerRank}/g, slayerRank);
         tmpl = tmpl.replace(/{slayerName}/g, slayerName);
-        tmpl = tmpl.replace(/{slayerXp}/g, Number(slayerXp).toLocaleString());
-        tmpl = tmpl.replace(/{punishRowsLimit}/g, punishRowsLimit);
+        tmpl = tmpl.replace(/{slayerSP}/g, Number(slayerSP).toLocaleString());
         tmpl = tmpl.replace(/{goatRank}/g, goatRank);
         tmpl = tmpl.replace(/{goatName}/g, goatName);
-        tmpl = tmpl.replace(/{goatPunish}/g, Number(goatPunish).toLocaleString());
+        tmpl = tmpl.replace(/{goatSP}/g, Number(goatSP).toLocaleString());
 
-        // Stank Table
+        // Stank Table - single unified ranking by net score
         let stankTableStr = "";
         const stankTopN = stankArr.slice(0, stankRowsLimit);
         for (let i = 0; i < stankTopN.length; i++) {
             const rank = (i + 1).toString().padEnd(3, " ");
             const user = (stankTopN[i].username || "Unknown").substring(0, 20).padEnd(20, " ");
-            const xp = Number(stankTopN[i].xp).toLocaleString();
-            stankTableStr += `${rank} | ${user} | ${xp} Stank Points\n`;
+            const net = Number(stankTopN[i].net).toLocaleString();
+            const pun = stankTopN[i].punishments || 0;
+            stankTableStr += `${rank} | ${user} | ${net} Stank Points\n`;
         }
         if (stankTopN.length === 0) stankTableStr += "No records yet.\n";
-        // Trim trailing newline securely
         tmpl = tmpl.replace(/{stankRankingsTable}/g, stankTableStr.replace(/\n$/, ""));
-
-        // Punishment Table
-        let punishTableStr = "";
-        const punTopN = punishArr.slice(0, punishRowsLimit);
-        for (let i = 0; i < punTopN.length; i++) {
-            const rank = (i + 1).toString().padEnd(3, " ");
-            const user = (punTopN[i].username || "Unknown").substring(0, 20).padEnd(20, " ");
-            const pun = Number(punTopN[i].punishments || 0).toLocaleString();
-            punishTableStr += `${rank} | ${user} | ${pun} Punishment Points\n`;
-        }
-        if (punTopN.length === 0) punishTableStr += "No records yet.\n";
-        tmpl = tmpl.replace(/{punishmentRankingsTable}/g, punishTableStr.replace(/\n$/, ""));
+        // Keep backward compat for punishment table placeholder
+        tmpl = tmpl.replace(/{punishmentRankingsTable}/g, "");
+        tmpl = tmpl.replace(/{punishRowsLimit}/g, "");
 
         return tmpl;
     }
@@ -750,7 +761,8 @@ module.exports = class StankBot {
 
 ## Commands - only in #stankbot
 !stank-board - the leaderboard
-!stank-points - user's Stank and Punishment points
+!stank-points - your Stank Points and rank
+!stank-points <rank> - look up a player by rank
 !stank-help - this help message
 
 ## Stank Points
@@ -767,8 +779,6 @@ module.exports = class StankBot {
     }
 
     updateBio() {
-        const bioContent = `${this.getBioTemplate()}\n\nyt@randowned\nu/randowned`;
-
         const token = this.getToken();
         BdApi.Net.fetch(`https://discord.com/api/v9/guilds/${this.MAPHRA_GUILD_ID}/profile/@me`, {
             method: "PATCH",
@@ -776,7 +786,7 @@ module.exports = class StankBot {
                 "Content-Type": "application/json",
                 "Authorization": token
             },
-            body: JSON.stringify({ bio: bioContent })
+            body: JSON.stringify({ bio: this.getBioTemplate() })
         })
             .then(async res => {
                 if (res.ok) {
@@ -903,6 +913,8 @@ module.exports = class StankBot {
                     // Anti-cheat: if the chain breaker immediately starts the next chain
                     if (this.newGoatId && authorId === this.newGoatId) {
                         isCheater = true;
+                        this.lastChainWasCheaterStart = true;
+                        BdApi.Data.save("StankBot", "lastChainWasCheaterStart", true);
                         this.awardPunishment(authorId, username, 50);
                         this.toast(`ðŸš¨ Cheater detected! ${username} +50 punishment`);
                         this.sendCheaterMessage(authorId, username);
@@ -914,13 +926,19 @@ module.exports = class StankBot {
                         xpToAward = 100;
                         this.newSlayerId = authorId;
                         BdApi.Data.save("StankBot", "newSlayerId", this.newSlayerId);
+                        this.lastChainWasCheaterStart = false;
+                        BdApi.Data.save("StankBot", "lastChainWasCheaterStart", false);
                     }
                 }
 
-                // First legitimate contributor after a cheater inherits slayer title
-                if (!isCheater && this.newSlayerId === null) {
+                // First legitimate contributor after a cheater inherits slayer title + chain starter bonus
+                if (!isCheater && this.lastChainWasCheaterStart) {
+                    xpToAward = 100;
                     this.newSlayerId = authorId;
                     BdApi.Data.save("StankBot", "newSlayerId", this.newSlayerId);
+                    this.lastChainWasCheaterStart = false;
+                    BdApi.Data.save("StankBot", "lastChainWasCheaterStart", false);
+                    this.toast("Chain starter bonus transferred from cheater!");
                 }
 
                 if (isFirstEver && !isCheater) {
@@ -1010,7 +1028,7 @@ module.exports = class StankBot {
             match("!stank-record-test") || match("!stank-cheater-test")) return;
 
         let isBoardCommand = match("!stank-board");
-        let isXpCommand = match("!stank-points");
+        let isXpCommand = rawContent === "!stank-points" || rawContent.startsWith("!stank-points ");
         let isHelpCommand = match("!stank-help");
 
         if (!isBoardCommand && !isXpCommand && !isHelpCommand) return;
@@ -1025,17 +1043,9 @@ module.exports = class StankBot {
 
         if (shootReply) {
             if (isXpCommand) {
-                const totalXp = (this.stankboard[msg.author.id] && this.stankboard[msg.author.id].xp) || 0;
-                const totalPunish = (this.stankboard[msg.author.id] && this.stankboard[msg.author.id].punishments) || 0;
-                const xpStr = Number(totalXp).toLocaleString();
-                const punStr = Number(totalPunish).toLocaleString();
-                const stankSorted = Object.entries(this.stankboard).map(([id, u]) => ({ id, ...u })).sort((a, b) => b.xp - a.xp);
-                const punSorted = Object.entries(this.stankboard).map(([id, u]) => ({ id, ...u })).filter(u => (u.punishments || 0) > 0).sort((a, b) => (b.punishments || 0) - (a.punishments || 0));
-                const stankRank = stankSorted.findIndex(u => u.id === msg.author.id);
-                const punRank = punSorted.findIndex(u => u.id === msg.author.id);
-                const stankRankStr = stankRank !== -1 ? (stankRank + 1) : "N/A";
-                const punRankStr = punRank !== -1 ? (punRank + 1) : "N/A";
-                const replyText = `\`\`\`\nstank points: ${xpStr}, rank: ${stankRankStr}\npunishment points: ${punStr}, rank: ${punRankStr}\n\`\`\``;
+                const parts = rawContent.split(/\s+/);
+                const rankParam = parts.length > 1 ? parts[1] : null;
+                const replyText = this.getPointsResponse(msg.author.id, rankParam);
                 this.sendBotReply(msg.channel_id, replyText, msg.id);
             } else if (isBoardCommand) {
                 this.sendBotReply(msg.channel_id, this.getScoreTemplate());
@@ -1201,7 +1211,6 @@ module.exports = class StankBot {
         const sTemplates = createSection("Templates");
 
         this._addNumberInput(sTemplates, "Stank ranking rows:", "stankRankingRows", 5);
-        this._addNumberInput(sTemplates, "Punishment ranking rows:", "punishmentRankingRows", 5);
 
         this._addTextarea(sTemplates, "Bio layout",
             this.settings.bioTemplate || this.defaultBioTemplate, "55px",
@@ -1218,11 +1227,11 @@ module.exports = class StankBot {
                 this.updateBio();
             });
 
-        const defaultBoardTemplate = "chain record: {record}\nongoing chain: {ongoing}\n\n# Stank Rankings (top {stankRowsLimit})\nnew slayer: {slayerRank}, {slayerName}, {slayerXp} Stank Points\n{stankRankingsTable}\n\n# Punishment Rankings (top {punishRowsLimit})\nnew goat: {goatRank}, {goatName}, {goatPunish} Punishment Points\n{punishmentRankingsTable}";
+        const defaultBoardTemplate = "# Stank Rankings (top {stankRowsLimit})\nlast slayer: {slayerRank}, {slayerName}, {slayerSP} SP\nlast goat: {goatRank}, {goatName}, {goatSP} PP\n\n{stankRankingsTable}";
 
         this._addTextarea(sTemplates, "Leaderboard layout ({stankBoard})",
             this.settings.boardLayoutTemplate || defaultBoardTemplate, "140px",
-            "Internal table structure for {stankBoard}. Vars: {record}, {ongoing}, {stankRowsLimit}, {slayerRank}, {slayerName}, {slayerXp}, {punishRowsLimit}, {goatRank}, {goatName}, {goatPunish}, {stankRankingsTable}, {punishmentRankingsTable}",
+            "Layout for {stankBoard}. Vars: {record}, {ongoing}, {stankRowsLimit}, {slayerRank}, {slayerName}, {slayerSP}, {goatRank}, {goatName}, {goatSP}, {stankRankingsTable}",
             (val) => {
                 this.settings.boardLayoutTemplate = val;
                 BdApi.Data.save("StankBot", "settings", this.settings);
