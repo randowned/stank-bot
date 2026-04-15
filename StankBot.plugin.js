@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @name StankBot
  * @author randowned
  * @description Maphra community #altar management bot.
@@ -12,10 +12,10 @@ module.exports = class StankBot {
         if (bdUI && bdUI.showToast) {
             bdUI.showToast(msg, { type: type, timeout: timeout });
         }
-        if (!skipLog) this._log(msg, isError ? "ERROR" : "INFO");
+        if (!skipLog) this.log(msg, isError ? "ERROR" : "INFO");
     }
 
-    _log(msg, level = "INFO") {
+    log(msg, level = "INFO") {
         try {
             if (!this._logPath) {
                 this._logPath = require("path").join(BdApi.Plugins.folder, "StankBot.log");
@@ -27,7 +27,7 @@ module.exports = class StankBot {
         }
     }
 
-    _logSeparator() {
+    logSeparator() {
         try {
             if (!this._logPath) {
                 this._logPath = require("path").join(BdApi.Plugins.folder, "StankBot.log");
@@ -36,6 +36,16 @@ module.exports = class StankBot {
         } catch (e) {
             this.toast("Log write failed: " + e.message, true, 5000, true);
         }
+    }
+
+    isChannelAllowed(channelId, includeAnnouncement = false) {
+        const commandChannels = (this.settings.autoReplyChannelIds || "").split("\n").map(s => s.trim()).filter(Boolean);
+        const announcementChannels = includeAnnouncement ? (this.settings.announcementChannelIds || "").split("\n").map(s => s.trim()).filter(Boolean) : [];
+        const allowedChannels = [...new Set([...commandChannels, ...announcementChannels])];
+        if (!this.ChannelStore) return false;
+        const channel = this.ChannelStore.getChannel(channelId);
+        if (!channel) return false;
+        return allowedChannels.includes(channelId);
     }
 
     getToken() {
@@ -77,7 +87,7 @@ module.exports = class StankBot {
         return cleaned || "Randowned";
     }
 
-    _syncConfigFromDisk() {
+    syncConfigFromDisk() {
         try {
             const fs = require("fs");
             const configPath = require("path").join(BdApi.Plugins.folder, "StankBot.config.json");
@@ -112,7 +122,7 @@ module.exports = class StankBot {
                 `);
             }
 
-            this._logSeparator();
+            this.logSeparator();
             this.toast("Starting...", false);
             this.MAPHRA_GUILD_ID = "1482266782306799646";
             this.ALTAR_CHANNEL_ID = "1489889364392546375";
@@ -127,7 +137,7 @@ module.exports = class StankBot {
             this.AuthStore = BdApi.Webpack.getStore("AuthenticationStore");
 
             // Sync BdApi's in-memory cache with the actual config.json file on disk
-            this._syncConfigFromDisk();
+            this.syncConfigFromDisk();
 
             // Load Settings
             this.defaultTemplate = "```\n{stankBoard}\n```";
@@ -195,13 +205,14 @@ module.exports = class StankBot {
                 const [channelId, message] = args;
                 if (message && message.content) {
                     const text = message.content.trim();
-                    if (text === "!stank-board" || text === "/stank-board") {
+                    const isAllowed = this.isChannelAllowed(channelId, text.includes("stank-help"));
+                    if ((text === "!stank-board" || text === "/stank-board") && isAllowed) {
                         message.content = this.getScoreTemplate();
                     } else if (text === "!stank-record-test" || text === "/stank-record-test") {
                         message.content = this.getRecordAnnouncementTemplate();
-                    } else if (text === "!stank-help" || text === "/stank-help") {
+                    } else if ((text === "!stank-help" || text === "/stank-help") && isAllowed) {
                         message.content = this.getHelpTemplate();
-                    } else if (text === "!stank-points" || text === "/stank-points") {
+                    } else if ((text === "!stank-points" || text === "/stank-points") && isAllowed) {
                         const me = this.UserStore.getCurrentUser();
                         if (me) {
                             const xp = (this.stankboard[me.id] && this.stankboard[me.id].xp) || 0;
@@ -735,23 +746,23 @@ module.exports = class StankBot {
 
     getHelpTemplate() {
         return `\`\`\`markdown
-# StankBot
+# StankBot (!stank-help)
 
-# Commands
+## Commands - only in #stankbot
 !stank-board - the leaderboard
 !stank-points - user's Stank and Punishment points
 !stank-help - this help message
 
-# Stank Points
-- 100 SP new Stank chain starter - the new slayer
--  50 SP first Stank chain contribution
--  25 SP valid Stank sticker contribution
--   5 SP Stank emoji reaction on Stank sticker
+## Stank Points
+- 100 SP: new Stank chain starter - the new **Slayer**
+-  50 SP: first Stank chain contribution (new player)
+-  25 SP: valid Stank sticker contribution (once per user per chain)
+-   5 SP: Stank emoji reaction on Stank sticker
 
-# Punishment Points
-- 3x chain length: chain breaker - the new goat
+## Punishment Points
+- 3x chain length: chain breaker - the new **Goat**
 - 1x chain length: chatting or posting a non-Stank
-- 50 flat: breaking the chain then starting the next one (cheating!)
+-         50 flat: breaking the chain then starting the next one (cheating!)
 \`\`\``;
     }
 
@@ -994,7 +1005,7 @@ module.exports = class StankBot {
         const rawContent = msg.content.trim();
         const match = (cmd) => this.settings.exactCommandMatch ? (rawContent === cmd) : msg.content.includes(cmd);
 
-        // Admin commands â€” silently ignore from non-admin users
+        // Admin commands; silently ignore from non-admin users
         if (match("!stank-board-reset") || match("!stank-board-reload") ||
             match("!stank-record-test") || match("!stank-cheater-test")) return;
 
@@ -1004,18 +1015,8 @@ module.exports = class StankBot {
 
         if (!isBoardCommand && !isXpCommand && !isHelpCommand) return;
 
-
-
-        // Native check: Direct Messages and Group Chats do not have a guildId attached to the payload
         const isDM = !msg.guild_id;
-        const allowedChannels = (this.settings.autoReplyChannelIds || "").split("\n").map(s => s.trim()).filter(Boolean);
-        let isAllowlisted = allowedChannels.includes(msg.channel_id);
-        if (!isAllowlisted && this.ChannelStore) {
-            const channel = this.ChannelStore.getChannel(msg.channel_id);
-            if (channel && channel.parent_id && allowedChannels.includes(channel.parent_id)) {
-                isAllowlisted = true;
-            }
-        }
+        const isAllowlisted = this.isChannelAllowed(msg.channel_id, isHelpCommand);
 
         let shootReply = false;
         if (isDM || isAllowlisted) {
@@ -1044,7 +1045,7 @@ module.exports = class StankBot {
         }
     }
 
-    // â”€â”€â”€ Settings Panel Factory Helpers â”€â”€â”€
+    // Settings Panel Factory Helpers
 
     _addNote(parent, text) {
         const note = document.createElement("div");
@@ -1147,7 +1148,7 @@ module.exports = class StankBot {
         if (note) this._addNote(parent, note);
     }
 
-    // â”€â”€â”€ Settings Panel â”€â”€â”€
+    // Settings Panel
 
     getSettingsPanel() {
         const panel = document.createElement("div");
@@ -1168,7 +1169,7 @@ module.exports = class StankBot {
             return section;
         };
 
-        // â”€â”€ Core â”€â”€
+        // Core
         const sCore = createSection("Behavior");
 
         this._addCheckbox(sCore, "Sync server nickname with chain", "enableNicknameSync",
@@ -1196,7 +1197,7 @@ module.exports = class StankBot {
                 this.toast("Announcement channels updated!");
             });
 
-        // â”€â”€ Templates â”€â”€
+        // Templates
         const sTemplates = createSection("Templates");
 
         this._addNumberInput(sTemplates, "Stank ranking rows:", "stankRankingRows", 5);
