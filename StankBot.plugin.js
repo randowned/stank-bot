@@ -832,7 +832,7 @@ module.exports = class StankBot {
                 const user = this.UserStore?.getUser(userId);
                 const username = memberInfo?.nick || user?.globalName || user?.username || "Unknown";
                 this.awardXp(userId, username, 5);
-                this.toast(`+5 SP â†’ ${username} (reaction)`);
+                this.toast(`+5 SP -> ${username} (reaction)`);
             }
         } catch (e) {
             this.toast(`Reaction error: ${e.message}`, true);
@@ -878,7 +878,7 @@ module.exports = class StankBot {
                 return;
             } else {
                 this.ongoingChain += 1;
-                this.toast(`Chain +1 â†’ ${this.ongoingChain}`);
+                this.toast(`Chain +1 -> ${this.ongoingChain}`);
 
                 this.addStankReaction(msg.channel_id, msg.id);
                 this.chainUniqueUsers.push(authorId);
@@ -918,7 +918,7 @@ module.exports = class StankBot {
 
                 if (xpToAward > 0) {
                     this.awardXp(authorId, username, xpToAward);
-                    this.toast(`+${xpToAward} SP â†’ ${username}${isFirstEver ? ' (first sticker!)' : ''}`);
+                    this.toast(`+${xpToAward} SP -> ${username}${isFirstEver ? ' (first sticker!)' : ''}`);
                 }
                 if (this.stankboard[authorId]) {
                     this.stankboard[authorId].hasPostedSticker = true;
@@ -945,7 +945,7 @@ module.exports = class StankBot {
                 if (authorId) {
                     const penalty = 3 * this.lastBrokenChainLength;
                     this.awardPunishment(authorId, username, penalty);
-                    this.toast(`${username} broke the chain â†’ +${penalty} punishment`);
+                    this.toast(`${username} broke the chain -> +${penalty} punishment`);
                     BdApi.Data.save("StankBot", "lastPunishedMessageId", msg.id);
                 }
 
@@ -972,7 +972,7 @@ module.exports = class StankBot {
                     const penalty = 1 * this.lastBrokenChainLength;
                     if (penalty > 0) {
                         this.awardPunishment(authorId, username, penalty);
-                        this.toast(`${username} chatting penalty â†’ +${penalty} punishment`);
+                        this.toast(`${username} chatting penalty -> +${penalty} punishment`);
                         BdApi.Data.save("StankBot", "lastPunishedMessageId", msg.id);
                     }
                 }
