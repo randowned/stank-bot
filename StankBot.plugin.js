@@ -2,7 +2,7 @@
  * @name StankBot
  * @author randowned
  * @description Maphra community #altar management bot.
- * @version 2.1.0
+ * @version 2.1.1
  */
 
 module.exports = class StankBot {
@@ -92,6 +92,7 @@ module.exports = class StankBot {
             this.MAPHRA_GUILD_ID = "1482266782306799646";
             this.ALTAR_CHANNEL_ID = "1489889364392546375";
             this.STANK_EMOJI = "<a:Stank:1487854129349922816>";
+            this.CHEATER_CAUGHT_GIF = "https://tenor.com/view/bh187-austin-powers-spotlight-search-light-busted-gif-19285562";
             this.BOT_OWNER_ID = "129508601730564096";
 
             this.UserStore = BdApi.Webpack.getStore("UserStore");
@@ -114,7 +115,7 @@ module.exports = class StankBot {
                 announcementChannelIds: "1483628334490587336",
                 nicknameTemplate: "Randowned ({ongoing}/{record})",
                 recordTemplate: "```\nnew record chain: {record}\n\n{stankBoard}\n```",
-                cheaterTemplate: "https://tenor.com/view/bh187-austin-powers-spotlight-search-light-busted-gif-19285562\n{username} - penalty! - 50 punishment points awarded!",
+                cheaterTemplate: "{username} - penalty! - 50 punishment points awarded!",
                 scoreTemplate: this.defaultTemplate,
                 bioTemplate: this.defaultBioTemplate
             }, savedSettings);
@@ -681,10 +682,12 @@ module.exports = class StankBot {
         const displayName = (userId === this.BOT_OWNER_ID) ? this.cleanBotOwnerNick() : username;
         const message = cheaterTmpl.replace(/{username}/g, displayName);
         if (targetChannelId) {
+            this.sendBotReply(targetChannelId, this.CHEATER_CAUGHT_GIF);
             this.sendBotReply(targetChannelId, message);
         } else {
             const channels = (this.settings.announcementChannelIds || "").split("\n").map(s => s.trim()).filter(Boolean);
             for (const ch of channels) {
+                this.sendBotReply(ch, this.CHEATER_CAUGHT_GIF);
                 this.sendBotReply(ch, message);
             }
         }
@@ -1221,7 +1224,7 @@ module.exports = class StankBot {
 
         this._addTextarea(sTemplates, "Cheater caught announcement",
             this.settings.cheaterTemplate || "", "55px",
-            "Leave empty to disable. Vars: {username}",
+            "Text sent after the GIF. Leave empty to disable. Vars: {username}",
             (val) => {
                 this.settings.cheaterTemplate = val;
                 BdApi.Data.save("StankBot", "settings", this.settings);
