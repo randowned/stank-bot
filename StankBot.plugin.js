@@ -204,6 +204,7 @@ module.exports = class StankBot {
             this.recordChain = null;
             this.ongoingChain = null;
             this.chainUniqueUsers = [];
+            this.currentChainMessageIds = new Set();
             this.lastBrokenChainLength = BdApi.Data.load("StankBot", "lastBrokenChainLength") || 0;
             this.newSlayerId = BdApi.Data.load("StankBot", "newSlayerId") || null;
             this.newGoatId = BdApi.Data.load("StankBot", "newGoatId") || null;
@@ -544,6 +545,7 @@ module.exports = class StankBot {
                 const uniqueUsers = new Set();
                 latestGroup.messages.forEach(m => uniqueUsers.add(m.author.id));
                 this.chainUniqueUsers = Array.from(uniqueUsers);
+                this.currentChainMessageIds = new Set(latestGroup.messages.map(m => m.id));
                 this.ongoingChain = this.chainUniqueUsers.length;
 
                 const recentGap = allGroups.slice().reverse().find(g => g.type === "GAP");
@@ -861,15 +863,12 @@ module.exports = class StankBot {
             if (event.channelId !== this.ALTAR_CHANNEL_ID) return;
             const emojiName = event.emoji?.name?.toLowerCase() || "";
             if (emojiName.includes("stank") || event.emoji?.id === "1487854129349922816") {
+                // Only award on Stank stickers that belong to the current ongoing chain.
+                if (!this.currentChainMessageIds.has(event.messageId)) return;
                 const userId = event.userId;
                 const emojiKey = event.emoji?.id || event.emoji?.name || "";
                 const reactionKey = `${event.messageId}:${userId}:${emojiKey}`;
                 if (this.processedReactions.has(reactionKey)) return;
-                // Evict the oldest 100 entries in one shot when the cap is hit
-                // (Set preserves insertion order, so slicing from index 100 keeps the newest).
-                if (this.processedReactions.size >= 5000) {
-                    this.processedReactions = new Set(Array.from(this.processedReactions).slice(100));
-                }
                 this.processedReactions.add(reactionKey);
                 BdApi.Data.save("StankBot", "processedReactions", Array.from(this.processedReactions));
                 const GuildMemberStore = BdApi.Webpack.getStore("GuildMemberStore");
@@ -933,6 +932,9 @@ module.exports = class StankBot {
         if (isStank) {
             const authorId = msg.author?.id;
             if (!authorId) return;
+
+            // Track every ongoing-chain Stank sticker so reactions on them are reward-eligible.
+            this.currentChainMessageIds.add(msg.id);
 
             const recentlyPosted = this.chainUniqueUsers.includes(authorId);
             const username = this.getUsername(msg);
@@ -1039,6 +1041,9 @@ module.exports = class StankBot {
 
                 this.ongoingChain = 0;
                 this.chainUniqueUsers = [];
+                this.currentChainMessageIds.clear();
+                this.processedReactions.clear();
+                BdApi.Data.save("StankBot", "processedReactions", []);
                 stateChanged = true;
             } else {
                 // ALREADY BROKEN CHAIN, CHATTING PUNISHMENT

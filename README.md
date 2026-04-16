@@ -17,7 +17,7 @@ Rankings are based on **net Stank Points** (earned SP minus punishment points).
 | Start a new chain (1st sticker after break) | +100 SP, become **Slayer** |
 | First-ever sticker contribution (lifetime) | +50 SP bonus |
 | Valid unique chain contribution | +25 SP |
-| Stank emoji reaction on a sticker | +5 SP |
+| Stank emoji reaction on an ongoing-chain sticker | +5 SP (once per user per sticker) |
 | Break the chain | +3× chain length punishment, become **Goat** |
 | Chat during a broken chain | +1× chain length punishment |
 | Break chain then start the next one | +50 flat punishment (cheating!) |
