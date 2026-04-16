@@ -194,6 +194,11 @@ module.exports = class StankBot {
             BdApi.Data.save("StankBot", "settings", this.settings);
 
             this.stankboard = BdApi.Data.load("StankBot", "stankboard") || {};
+            // Dedupe cache for reactions (messageId:userId:emojiKey). Persisted so plugin
+            // updates/reloads don't re-award past reactions. Kept as a Set in memory for
+            // O(1) has/add/delete; serialized as an array on disk (insertion order preserved).
+            const savedReactionKeys = BdApi.Data.load("StankBot", "processedReactions") || [];
+            this.processedReactions = new Set(Array.isArray(savedReactionKeys) ? savedReactionKeys : []);
 
             // We entirely remove the defaults. They must be fetched from the API.
             this.recordChain = null;
@@ -222,9 +227,11 @@ module.exports = class StankBot {
             // ONLY activate the plugin listeners if the Bio and History data were successfully synced and confirmed
             this.onMessageCreate = this.onMessageCreate.bind(this);
             this.onMessageReactionAdd = this.onMessageReactionAdd.bind(this);
+            this.onMessageReactionRemove = this.onMessageReactionRemove.bind(this);
             if (this.Dispatcher) {
                 this.Dispatcher.subscribe("MESSAGE_CREATE", this.onMessageCreate);
                 this.Dispatcher.subscribe("MESSAGE_REACTION_ADD", this.onMessageReactionAdd);
+                this.Dispatcher.subscribe("MESSAGE_REACTION_REMOVE", this.onMessageReactionRemove);
                 this.toast("Hooks active.", false, 10000);
             } else {
                 this.toast("Hook failed: Dispatcher not found!", true, 10000);
@@ -678,6 +685,7 @@ module.exports = class StankBot {
         if (this.Dispatcher) {
             this.Dispatcher.unsubscribe("MESSAGE_CREATE", this.onMessageCreate);
             this.Dispatcher.unsubscribe("MESSAGE_REACTION_ADD", this.onMessageReactionAdd);
+            this.Dispatcher.unsubscribe("MESSAGE_REACTION_REMOVE", this.onMessageReactionRemove);
         }
         BdApi.Patcher.unpatchAll("StankBot");
 
@@ -854,6 +862,17 @@ module.exports = class StankBot {
             const emojiName = event.emoji?.name?.toLowerCase() || "";
             if (emojiName.includes("stank") || event.emoji?.id === "1487854129349922816") {
                 const userId = event.userId;
+                const emojiKey = event.emoji?.id || event.emoji?.name || "";
+                const reactionKey = `${event.messageId}:${userId}:${emojiKey}`;
+                if (this.processedReactions.has(reactionKey)) return;
+                // Evict oldest entries (Set preserves insertion order) when over the cap.
+                while (this.processedReactions.size >= 5000) {
+                    const oldestKey = this.processedReactions.values().next().value;
+                    if (oldestKey === undefined) break;
+                    this.processedReactions.delete(oldestKey);
+                }
+                this.processedReactions.add(reactionKey);
+                BdApi.Data.save("StankBot", "processedReactions", Array.from(this.processedReactions));
                 const GuildMemberStore = BdApi.Webpack.getStore("GuildMemberStore");
                 const memberInfo = GuildMemberStore ? GuildMemberStore.getMember(this.MAPHRA_GUILD_ID, userId) : null;
                 const user = this.UserStore?.getUser(userId);
@@ -863,6 +882,27 @@ module.exports = class StankBot {
             }
         } catch (e) {
             this.toast(`Reaction error: ${e.message}`, true);
+        }
+    }
+
+    onMessageReactionRemove(event) {
+        try {
+            if (!event) return;
+            if (event.channelId !== this.ALTAR_CHANNEL_ID) return;
+            // Only the plugin operator is allowed to remove+re-add to re-earn SP.
+            // For everyone else, leaving the dedupe key in place blocks remove+re-add exploits.
+            const me = this.UserStore?.getCurrentUser();
+            if (!me || event.userId !== me.id) return;
+            const emojiName = event.emoji?.name?.toLowerCase() || "";
+            if (emojiName.includes("stank") || event.emoji?.id === "1487854129349922816") {
+                const emojiKey = event.emoji?.id || event.emoji?.name || "";
+                const reactionKey = `${event.messageId}:${event.userId}:${emojiKey}`;
+                if (this.processedReactions.delete(reactionKey)) {
+                    BdApi.Data.save("StankBot", "processedReactions", Array.from(this.processedReactions));
+                }
+            }
+        } catch (e) {
+            this.toast(`Reaction remove error: ${e.message}`, true);
         }
     }
 
