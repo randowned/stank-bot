@@ -184,8 +184,8 @@ module.exports = class StankBot {
             if (!this.logPath) {
                 this.logPath = require("path").join(BdApi.Plugins.folder, "StankBot.log");
             }
-            const timestamp = new Date().toISOString();
-            require("fs").writeFileSync(this.logPath, "[" + timestamp + "] [" + level + "] " + msg + "\n", { flag: "a" });
+            
+            require("fs").writeFileSync(this.logPath, "[" + this.getTimestamp() + "] [" + level + "] " + msg + "\n", { flag: "a" });
         } catch (e) {
             this.toast("Log write failed: " + e.message, true, 5000, true);
         }
@@ -196,7 +196,7 @@ module.exports = class StankBot {
             if (!this.logPath) {
                 this.logPath = require("path").join(BdApi.Plugins.folder, "StankBot.log");
             }
-            require("fs").writeFileSync(this.logPath, "\n--- " + new Date().toISOString() + " ---\n\n", { flag: "a" });
+            require("fs").writeFileSync(this.logPath, "\n--- " + this.getTimestamp() + " ---\n\n", { flag: "a" });
         } catch (e) {
             this.toast("Log write failed: " + e.message, true, 5000, true);
         }
@@ -226,6 +226,16 @@ module.exports = class StankBot {
         } catch (e) {
             return "```\nFailed to read log: " + e.message + "\n```";
         }
+    }
+
+    getISODateTime() {
+        var date = new Date();
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+    }
+
+    getTimestamp(date) {
+        date ||= this.getISODateTime();
+        return date.toISOString().replace("T", " ").replace("Z", "");
     }
 
     isChannelAllowed(channelId, includeAnnouncement = false) {
