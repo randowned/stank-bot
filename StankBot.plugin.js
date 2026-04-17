@@ -2,7 +2,7 @@
  * @name StankBot
  * @author randowned
  * @description Maphra Discord community #altar management bot.
- * @version 3.3.0
+ * @version 3.3.1
  */
 
 module.exports = class StankBot {
@@ -12,7 +12,7 @@ module.exports = class StankBot {
     static SP_REACTION         = 1;    // SP per Stank emoji reaction
     static SP_BREAK_BASE       = 25;   // Base penalty for breaking the chain
     static SP_BREAK_PER_STANK  = 2;    // Additional penalty per stank in the broken chain
-    static RESTANK_COOLDOWN_MS = 10 * 60 * 1000;  // 5-minute per-Stanker restank cooldown
+    static RESTANK_COOLDOWN_MS = 20 * 60 * 1000;  // 20-minute per-Stanker restank cooldown
     static RESET_TARGETS       = [7, 15, 23];
     static RESET_WARNING_MINS  = [30, 5];
 
@@ -918,7 +918,7 @@ module.exports = class StankBot {
 - 25 + (chain length × 2) PP: chain breaker (posting non-Stank messages in #altar during an ongoing chain)
 
 ## Cooldown
-- Same Stanker cannot Stank again for 10 minutes (per-Stanker cooldown per chain)
+- Same Stanker cannot Stank again for 20 minutes (per-Stanker cooldown per chain)
 \`\`\``;
 
         return this.applyCommonReplacements(tmpl);
