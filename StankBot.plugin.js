@@ -2,7 +2,7 @@
  * @name StankBot
  * @author randowned
  * @description Maphra Discord community #altar management bot.
- * @version 3.4.0
+ * @version 3.5.0
  */
 
 module.exports = class StankBot {
@@ -37,8 +37,10 @@ module.exports = class StankBot {
             this.syncConfigFromDisk();
 
             // Load Settings
-            this.defaultTemplate = "\n# :Stank: Stank Board :Stank:\n\n```\n🔗 Chain record: {record} stanks / {recordUnique} unique\n⛓️ Ongoing chain: {ongoing} stanks / {ongoingUnique} unique\n⏳ Next reset in: {nextResetIn}\n\n{stankBoard}\n```";
-            this.defaultBioTemplate = "Current :Stank: record: {record} Stanks / {recordUnique} unique Stanks\nOngoing :Stank: chain: {ongoing} stanks / {ongoingUnique} unique";
+            this.defaultNicknameTemplate = "Randowned ({current}/{record})";
+            this.defaultTemplate = "\n# :Stank: Stank Board :Stank:\n```\n🏋️ All-time record: {alltimeRecord} stanks / {alltimeRecordUnique} unique\n🔗 Session record: {record} stanks / {recordUnique} unique\n⛓️ Current chain: {current} stanks / {currentUnique} unique\n⏳ Next session starts in: {nextResetIn}\n\n{stankBoard}\n```";
+            this.defaultBioTemplate = "Current :Stank: record: {record} Stanks / {recordUnique} unique Stanks\nCurrent :Stank: chain: {current} stanks / {currentUnique} unique";
+            this.defaultRecordTemplate = "\n# :Stank: Stank RECORD! :Stank:\n```\n🏋️ All-time: {alltimeRecord} stanks / {alltimeRecordUnique} unique\n🔗 Session: {record} stanks / {recordUnique} unique\n🏃‍➡️ Chain starter: {chainStarterName} [{chainStarterSP} SP]\n\n{stankBoard}\n```";
             this.defaultBoardTemplate = "# Stank Rankings (top {stankRowsLimit})\n\n" +
                 "⏳ Next board reset in: {nextResetIn}\n\n" +
                 "🏃‍➡️ Chain starter: {chainStarterName} [{chainStarterSP} SP]\n\n" +
@@ -52,12 +54,14 @@ module.exports = class StankBot {
                 autoReplyChannelIds: "1483628334490587336\n1493190417703895051",
                 announcementChannelIds: "1483628334490587336",
                 dmAllowlistUserIds: "",
-                nicknameTemplate: "Randowned ({ongoing}/{record})",
-                recordTemplate: "```\n# Stank RECORD!\n\nNew chain record: {record} stanks / {recordUnique} unique\nThe Slayer (chain-starter): {chainStarterName}\n\n{stankBoard}\n```",
+                nicknameTemplate: this.defaulttNicknameTemplate,
+                recordTemplate: this.defaultRecordTemplate,
                 scoreTemplate: this.defaultTemplate,
                 bioTemplate: this.defaultBioTemplate,
                 recordChain: 0,
                 recordChainUnique: 0,
+                alltimeRecord: 0,
+                alltimeRecordUnique: 0,
                 boardUpdateIntervalSeconds: 10
             }, savedSettings);
 
@@ -66,12 +70,18 @@ module.exports = class StankBot {
             if (isNaN(this.settings.recordChain) || this.settings.recordChain < 0) this.settings.recordChain = 0;
             this.settings.recordChainUnique = parseInt(this.settings.recordChainUnique, 10);
             if (isNaN(this.settings.recordChainUnique) || this.settings.recordChainUnique < 0) this.settings.recordChainUnique = 0;
+            this.settings.alltimeRecord = parseInt(this.settings.alltimeRecord, 10);
+            if (isNaN(this.settings.alltimeRecord) || this.settings.alltimeRecord < 0) this.settings.alltimeRecord = 0;
+            this.settings.alltimeRecordUnique = parseInt(this.settings.alltimeRecordUnique, 10);
+            if (isNaN(this.settings.alltimeRecordUnique) || this.settings.alltimeRecordUnique < 0) this.settings.alltimeRecordUnique = 0;
 
             BdApi.Data.save("StankBot", "settings", this.settings);
 
             this.stankboard = BdApi.Data.load("StankBot", "stankboard") || {};
             this.recordChain = this.settings.recordChain;
             this.recordChainUnique = this.settings.recordChainUnique;
+            this.alltimeRecord = this.settings.alltimeRecord;
+            this.alltimeRecordUnique = this.settings.alltimeRecordUnique;
             // Dedupe cache for reactions (messageId:userId:emojiKey). Persisted so plugin
             // updates/reloads don't re-award past reactions. Kept as a Set in memory for
             // O(1) has/add/delete; serialized as an array on disk (insertion order preserved).
@@ -79,7 +89,7 @@ module.exports = class StankBot {
             this.processedReactions = new Set(Array.isArray(savedReactionKeys) ? savedReactionKeys : []);
 
             // Chain state — all rebuilt from history on startup.
-            this.ongoingChain = null;        // total valid stanks in current chain
+            this.currentChain = null;        // total valid stanks in current chain
             this.chainUniqueUsers = [];      // unique user IDs (for unique-stanker count)
             this.currentChainMessageIds = new Set();
             this.seenMsgIds = new Set();
@@ -104,7 +114,7 @@ module.exports = class StankBot {
             }
 
             // Next, heavily synchronize the active full set natively from the #altar history deeply
-            await this.syncOngoingChainFromHistory();
+            await this.syncCurrentChainFromHistory();
 
             // Synchronize the server nickname on startup!
             this.updateNickname();
@@ -157,7 +167,7 @@ module.exports = class StankBot {
                         message.content = "board reloading...";
                         const reloadChannelId = channelId;
                         (async () => {
-                            await this.syncOngoingChainFromHistory();
+                            await this.syncCurrentChainFromHistory();
                             this.updateBio();
                             this.updateNickname();
                             this.sendBotReply(reloadChannelId, `\`\`\`\nboard reloaded\n\n${this.generateStankBoardAscii()}\n\`\`\``);
@@ -510,13 +520,23 @@ module.exports = class StankBot {
         if (this.stankboard[userId].punishments === undefined) this.stankboard[userId].punishments = 0;
     }
 
-    applyCommonReplacements(tmpl) {
+    applyCommonReplacements(tmpl, options = {}) {
         this.updateNextResetCountdown();
+
+        const recordValue = options.record !== undefined ? options.record : (this.recordChain !== null ? this.recordChain : 0);
+        const recordUniqueValue = options.recordUnique !== undefined ? options.recordUnique : (this.recordChainUnique !== null ? this.recordChainUnique : 0);
+        const alltimeRecordValue = options.alltimeRecord !== undefined ? options.alltimeRecord : (this.alltimeRecord !== null ? this.alltimeRecord : 0);
+        const alltimeRecordUniqueValue = options.alltimeRecordUnique !== undefined ? options.alltimeRecordUnique : (this.alltimeRecordUnique !== null ? this.alltimeRecordUnique : 0);
+
         return tmpl
-            .replace(/{record}/g, this.recordChain !== null ? this.recordChain : 0)
-            .replace(/{recordUnique}/g, this.recordChainUnique !== null ? this.recordChainUnique : 0)
-            .replace(/{ongoing}/g, this.ongoingChain !== null ? this.ongoingChain : 0)
+            .replace(/{record}/g, recordValue)
+            .replace(/{recordUnique}/g, recordUniqueValue)
+            .replace(/{alltimeRecord}/g, alltimeRecordValue)
+            .replace(/{alltimeRecordUnique}/g, alltimeRecordUniqueValue)
+            .replace(/{ongoing}/g, this.currentChain !== null ? this.currentChain : 0)
+            .replace(/{current}/g, this.currentChain !== null ? this.currentChain : 0)
             .replace(/{ongoingUnique}/g, this.chainUniqueUsers ? this.chainUniqueUsers.length : 0)
+            .replace(/{currentUnique}/g, this.chainUniqueUsers ? this.chainUniqueUsers.length : 0)
             .replace(/{nextResetIn}/g, this.nextResetIn || "0h0m")
             .replace(/:Stank:/g, this.STANK_EMOJI);
     }
@@ -563,7 +583,7 @@ module.exports = class StankBot {
         this.lastBrokenChainLength = 0;
         this.recordChain = 0;
         this.recordChainUnique = 0;
-        this.ongoingChain = 0;
+        this.currentChain = 0;
         this.chainUniqueUsers = [];
         this.currentChainMessageIds = new Set();
         this.seenMsgIds = new Set();
@@ -640,7 +660,7 @@ module.exports = class StankBot {
         return tmpl;
     }
 
-    async syncOngoingChainFromHistory() {
+    async syncCurrentChainFromHistory() {
         try {
             this.toast("Syncing chain from history...");
 
@@ -775,7 +795,7 @@ module.exports = class StankBot {
                     this.lastStankTimestamps[m.author.id] = ts;
                 }
 
-                this.ongoingChain       = position;
+                this.currentChain       = position;
                 this.chainUniqueUsers   = uniqueUserIds;
                 this.currentChainMessageIds = new Set(latestGroup.messages.map(m => m.id));
 
@@ -789,8 +809,8 @@ module.exports = class StankBot {
                     BdApi.Data.save("StankBot", "chainStarterId", this.chainStarterId);
                 }
             } else {
-                // Latest group is a GAP — no ongoing chain
-                this.ongoingChain   = 0;
+                // Latest group is a GAP — no current chain
+                this.currentChain   = 0;
                 this.chainUniqueUsers = [];
                 this.lastChainContributorId = null;
                 this.lastChainContributorUsername = null;
@@ -802,9 +822,9 @@ module.exports = class StankBot {
                 }
             }
 
-            if (this.ongoingChain > this.recordChain ||
-                (this.ongoingChain === this.recordChain && this.chainUniqueUsers.length > this.recordChainUnique)) {
-                this.recordChain = this.ongoingChain;
+            if (this.currentChain > this.recordChain ||
+                (this.currentChain === this.recordChain && this.chainUniqueUsers.length > this.recordChainUnique)) {
+                this.recordChain = this.currentChain;
                 this.recordChainUnique = this.chainUniqueUsers.length;
                 this.settings.recordChain = this.recordChain;
                 this.settings.recordChainUnique = this.recordChainUnique;
@@ -821,7 +841,7 @@ module.exports = class StankBot {
                 BdApi.Data.save("StankBot", "stankboard", this.stankboard);
             }
 
-            this.toast(`Synced! Chain: ${this.ongoingChain} stanks / ${this.chainUniqueUsers.length} unique`, false, 8000);
+            this.toast(`Synced! Chain: ${this.currentChain} stanks / ${this.chainUniqueUsers.length} unique`, false, 8000);
             return true;
         } catch (e) {
             this.toast(`History sync failed: ${e.toString()}`, true);
@@ -882,7 +902,7 @@ module.exports = class StankBot {
         let targetNick = "Randowned";
 
         if (this.settings.enableNicknameSync) {
-            targetNick = this.applyCommonReplacements(this.settings.nicknameTemplate || "Randowned ({ongoing}/{record})");
+            targetNick = this.applyCommonReplacements(this.settings.nicknameTemplate || "Randowned ({current}/{record})");
         }
 
         const token = this.getToken();
@@ -914,8 +934,13 @@ module.exports = class StankBot {
         return this.applyCommonReplacements(this.settings.bioTemplate || this.defaultBioTemplate);
     }
 
-    getRecordAnnouncementTemplate() {
-        let tmpl = this.applyCommonReplacements(this.settings.recordTemplate || "```\nnew record chain: {record}\n\n{stankBoard}\n```");
+    getRecordAnnouncementTemplate(options = {}) {
+        let tmpl = this.applyCommonReplacements(this.settings.recordTemplate, {
+            record: options.record !== undefined ? options.record : this.recordChain,
+            recordUnique: options.recordUnique !== undefined ? options.recordUnique : this.recordChainUnique,
+            alltimeRecord: options.alltimeRecord !== undefined ? options.alltimeRecord : this.alltimeRecord,
+            alltimeRecordUnique: options.alltimeRecordUnique !== undefined ? options.alltimeRecordUnique : this.alltimeRecordUnique
+        });
 
         let chainStarterName = "Unknown";
         if (this.chainStarterId) {
@@ -927,6 +952,7 @@ module.exports = class StankBot {
                 chainStarterName = this.stankboard[this.chainStarterId].username;
             }
         }
+
         tmpl = tmpl.replace(/{chainStarterName}/g, chainStarterName);
         tmpl = tmpl.replace(/{stankBoard}/g, this.generateStankBoardAscii());
 
@@ -946,10 +972,10 @@ module.exports = class StankBot {
 - 10 + #-1 SP   valid Stank sticker (streak bonus based on position in chain)
 -      +15 SP   chain starter bonus (first stank)
 -      +15 SP   retroactive bonus to the last poster when chain breaks
--       +1 SP   Stank emoji reaction on an ongoing-chain sticker (once per Stanker per sticker)
+-       +1 SP   Stank emoji reaction on a current-chain sticker (once per Stanker per sticker)
 
 ## Punishment Points
-- 25 + (chain length × 2) PP: chain breaker (posting non-Stank messages in #altar during an ongoing chain)
+- 25 + (chain length × 2) PP: chain breaker (posting non-Stank messages in #altar during a current chain)
 
 ## Cooldown
 - Same Stanker cannot Stank again for 20 minutes (per-Stanker cooldown per chain)
@@ -1034,7 +1060,7 @@ module.exports = class StankBot {
             if (event.channelId !== this.ALTAR_CHANNEL_ID) return;
             const emojiName = event.emoji?.name?.toLowerCase() || "";
             if (emojiName.includes("stank") || event.emoji?.id === "1487854129349922816") {
-                // Only award on Stank stickers that belong to the current ongoing chain.
+                // Only award on Stank stickers that belong to the current chain.
                 if (!this.currentChainMessageIds.has(event.messageId)) return;
                 const userId = event.userId;
                 const emojiKey = event.emoji?.id || event.emoji?.name || "";
@@ -1081,7 +1107,7 @@ module.exports = class StankBot {
 
         // Detect our own board messages to capture the message ID
         const me = this.UserStore?.getCurrentUser();
-        if (me && msg.author?.id === me.id && msg.content) {
+        if (me && msg.author?.id === me.id && msg.content && this.settings.boardUpdateIntervalSeconds > 0) {
             const header = (this.settings.scoreTemplate || this.defaultTemplate)
                 .split("\n")
                 .find(line => line.trim() !== "") || "";
@@ -1146,7 +1172,7 @@ module.exports = class StankBot {
             this.currentChainMessageIds.add(msg.id);
 
             // Valid stank — advance chain
-            this.ongoingChain += 1;
+            this.currentChain += 1;
 
             // Valid & unique stank — track for the record unique stanks
             const isUnique = !this.chainUniqueUsers.includes(authorId);
@@ -1158,8 +1184,8 @@ module.exports = class StankBot {
 
             this.addStankReaction(msg.channel_id, msg.id);
 
-            let xp = StankBot.SP_FLAT + (this.ongoingChain - 1);
-            if (this.ongoingChain === 1) {
+            let xp = StankBot.SP_FLAT + (this.currentChain - 1);
+            if (this.currentChain === 1) {
                 xp += StankBot.SP_STARTER_BONUS;
                 this.chainStarterId = authorId;
                 BdApi.Data.save("StankBot", "chainStarterId", this.chainStarterId);
@@ -1170,13 +1196,13 @@ module.exports = class StankBot {
             if (isUnique) {
                 this.toast(`+${xp} SP -> ${username} (unique Stank #${this.chainUniqueUsers.length})`);
             } else {
-                this.toast(`+${xp} SP -> ${username} (Stank #${this.ongoingChain})`);
+                this.toast(`+${xp} SP -> ${username} (Stank #${this.currentChain})`);
             }
             
             BdApi.Data.save("StankBot", "lastXpMessageId", msg.id);
             stateChanged = true;
 
-        } else if (this.ongoingChain > 0 || this.chainUniqueUsers.length > 0) {
+        } else if (this.currentChain > 0 || this.chainUniqueUsers.length > 0) {
             // Chain break
             const authorId = msg.author?.id;
             const username = this.getUsername(authorId);
@@ -1188,7 +1214,7 @@ module.exports = class StankBot {
             }
 
             // Punish chain breaker
-            const brokenLength = this.ongoingChain;
+            const brokenLength = this.currentChain;
             this.lastBrokenChainLength = brokenLength;
             BdApi.Data.save("StankBot", "lastBrokenChainLength", this.lastBrokenChainLength);
 
@@ -1207,16 +1233,45 @@ module.exports = class StankBot {
             }
 
             // Record check
-            if (this.ongoingChain > this.recordChain ||
-                (this.ongoingChain === this.recordChain && this.chainUniqueUsers.length > this.recordChainUnique)) {
-                this.recordChain = this.ongoingChain;
+            const previousRecordChain = this.recordChain;
+            const previousRecordChainUnique = this.recordChainUnique;
+            const previousAlltimeRecord = this.alltimeRecord;
+            const previousAlltimeRecordUnique = this.alltimeRecordUnique;
+            const recordHighlight = { stanks: false, unique: false };
+            const alltimeHighlight = { stanks: false, unique: false };
+            if (this.currentChain > this.recordChain ||
+                (this.currentChain === this.recordChain && this.chainUniqueUsers.length > this.recordChainUnique)) {
+                this.recordChain = this.currentChain;
                 this.recordChainUnique = this.chainUniqueUsers.length;
                 this.settings.recordChain = this.recordChain;
                 this.settings.recordChainUnique = this.recordChainUnique;
+                if (this.currentChain > previousRecordChain) {
+                    recordHighlight.stanks = true;
+                } else {
+                    recordHighlight.unique = true;
+                }
+
+                if (this.recordChain > this.alltimeRecord ||
+                    (this.recordChain === this.alltimeRecord && this.recordChainUnique > this.alltimeRecordUnique)) {
+                    this.alltimeRecord = this.recordChain;
+                    this.alltimeRecordUnique = this.recordChainUnique;
+                    this.settings.alltimeRecord = this.alltimeRecord;
+                    this.settings.alltimeRecordUnique = this.alltimeRecordUnique;
+                    if (this.recordChain > previousAlltimeRecord) {
+                        alltimeHighlight.stanks = true;
+                    } else {
+                        alltimeHighlight.unique = true;
+                    }
+                }
                 BdApi.Data.save("StankBot", "settings", this.settings);
                 if ((this.settings.recordTemplate || "").trim()) {
                     this.toast(`🎉 New record! Announcing...`);
-                    const announcement = this.getRecordAnnouncementTemplate();
+                    const announcement = this.getRecordAnnouncementTemplate({
+                        record: recordHighlight.stanks ? `**${this.recordChain}**` : this.recordChain,
+                        recordUnique: recordHighlight.unique ? `**${this.recordChainUnique}**` : this.recordChainUnique,
+                        alltimeRecord: alltimeHighlight.stanks ? `**${this.alltimeRecord}**` : this.alltimeRecord,
+                        alltimeRecordUnique: alltimeHighlight.unique ? `**${this.alltimeRecordUnique}**` : this.alltimeRecordUnique
+                    });
                     this.dispatchOutgoingMessage("announcement", announcement);
                 } else {
                     this.toast(`🎉 New record! (no announcement template)`);
@@ -1224,7 +1279,7 @@ module.exports = class StankBot {
             }
 
             // Reset chain state
-            this.ongoingChain = 0;
+            this.currentChain = 0;
             this.chainUniqueUsers = [];
             this.currentChainMessageIds.clear();
             this.seenMsgIds.clear();
@@ -1290,7 +1345,7 @@ module.exports = class StankBot {
                 this.resetBoard();
                 this.sendBotReply(msg.channel_id, "board reloading...", msg.id);
                 (async () => {
-                    await this.syncOngoingChainFromHistory();
+                    await this.syncCurrentChainFromHistory();
                     this.updateBio();
                     this.updateNickname();
                     this.sendBotReply(msg.channel_id, `\`\`\`\nboard reloaded\n\n${this.generateStankBoardAscii()}\n\`\`\``);
@@ -1496,10 +1551,10 @@ module.exports = class StankBot {
 
         this._addTextarea(sTemplates, "Bio layout",
             this.settings.bioTemplate || this.defaultBioTemplate, "55px",
-            "Your Discord server bio. Must contain {record} and {ongoing}. Syncs on change.",
+            "Your Discord server bio. Must contain {record} and {current}. Syncs on change.",
             (val, e) => {
-                if (!val.includes("{record}") || !val.includes("{ongoing}")) {
-                    this.toast("Bio template must contain both {record} and {ongoing}!", true);
+                if (!val.includes("{record}") || !val.includes("{current}")) {
+                    this.toast("Bio template must contain both {record} and {current}!", true);
                     e.target.value = this.settings.bioTemplate || this.defaultBioTemplate;
                     return;
                 }
@@ -1511,7 +1566,7 @@ module.exports = class StankBot {
 
         this._addTextarea(sTemplates, "Leaderboard layout ({stankBoard})",
             this.settings.boardLayoutTemplate || this.defaultBoardTemplate, "140px",
-            "Layout for {stankBoard}. Vars: {record}, {recordUnique}, {ongoing}, {ongoingUnique}, {stankRowsLimit}, {chainStarterRank}, {chainStarterName}, {chainStarterSP}, {chainbreakerName}, {chainbreakerPunishments}, {stankRankingsTable}",
+            "Layout for {stankBoard}. Vars: {record}, {recordUnique}, {current}, {currentUnique}, {stankRowsLimit}, {chainStarterRank}, {chainStarterName}, {chainStarterSP}, {chainbreakerName}, {chainbreakerPunishments}, {stankRankingsTable}",
             (val) => {
                 this.settings.boardLayoutTemplate = val;
                 BdApi.Data.save("StankBot", "settings", this.settings);
@@ -1520,7 +1575,7 @@ module.exports = class StankBot {
 
         this._addTextarea(sTemplates, "Board reply format",
             this.settings.scoreTemplate || this.defaultTemplate, "55px",
-            "Reply layout for !stank-board. Vars: {record}, {recordUnique}, {ongoing}, {ongoingUnique}, {stankBoard}, :Stank:",
+            "Reply layout for !stank-board. Vars: {record}, {recordUnique}, {current}, {currentUnique}, {stankBoard}, :Stank:",
             (val) => {
                 this.settings.scoreTemplate = val;
                 BdApi.Data.save("StankBot", "settings", this.settings);
@@ -1537,8 +1592,8 @@ module.exports = class StankBot {
             });
 
         this._addTextInput(sTemplates, "Nickname format",
-            this.settings.nicknameTemplate || "Randowned ({ongoing}/{record})",
-            "Used when nickname sync is on. Vars: {record}, {ongoing}",
+            this.settings.nicknameTemplate || "Randowned ({current}/{record})",
+            "Used when nickname sync is on. Vars: {record}, {current}",
             (val) => {
                 this.settings.nicknameTemplate = val;
                 BdApi.Data.save("StankBot", "settings", this.settings);
