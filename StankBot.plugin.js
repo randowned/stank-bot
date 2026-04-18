@@ -839,7 +839,6 @@ module.exports = class StankBot {
             this.boardUpdateInterval = setInterval(() => {
                 if (this.lastBoardMessageId && this.lastBoardChannelId) {
                     this.MessageActions.editMessage(this.lastBoardChannelId, this.lastBoardMessageId, { content: this.getScoreTemplate() });
-                    this.log(`✅ Board updated.`);
                 }
             }, intervalSeconds * 1000);
             if (showToast) this.toast(`🔄 Board auto-update: every ${intervalSeconds}s`);
