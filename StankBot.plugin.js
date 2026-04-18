@@ -2,7 +2,7 @@
  * @name StankBot
  * @author randowned
  * @description Maphra Discord community #altar management bot.
- * @version 3.3.1
+ * @version 3.3.2
  */
 
 module.exports = class StankBot {
@@ -90,7 +90,7 @@ module.exports = class StankBot {
 
             this.autoResetTimer = null;
             this.autoResetWarningTimers = [];
-            this.nextResetIn = "00:00";
+            this.nextResetIn = "0h0m";
             this.nextResetTimestamp = null;
 
             // Next, heavily synchronize the active full set natively from the #altar history deeply
@@ -277,9 +277,8 @@ module.exports = class StankBot {
             }
         }
 
-        const message = this.applyCommonReplacements(text);
         for (const channelId of channelSet) {
-            this.sendBotReply(channelId, message, replyToMessageId);
+            this.sendBotReply(channelId, text, replyToMessageId);
         }
     }
 
@@ -337,7 +336,7 @@ module.exports = class StankBot {
         if (remainingMs < 0) remainingMs = 0;
         const hours = Math.floor(remainingMs / 3600000);
         const minutes = Math.floor((remainingMs % 3600000) / 60000);
-        this.nextResetIn = String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
+        this.nextResetIn = `${hours}h${minutes}m`;
     }
 
     clearAutoResetWarningTimers() {
@@ -504,7 +503,7 @@ module.exports = class StankBot {
             .replace(/{recordUnique}/g, this.recordChainUnique !== null ? this.recordChainUnique : 0)
             .replace(/{ongoing}/g, this.ongoingChain !== null ? this.ongoingChain : 0)
             .replace(/{ongoingUnique}/g, this.chainUniqueUsers ? this.chainUniqueUsers.length : 0)
-            .replace(/{nextResetIn}/g, this.nextResetIn || "00:00")
+            .replace(/{nextResetIn}/g, this.nextResetIn || "0h0m")
             .replace(/:Stank:/g, this.STANK_EMOJI);
     }
 
@@ -1089,6 +1088,8 @@ module.exports = class StankBot {
                 return;
             }
 
+            this.lastStankTimestamps[authorId] = msgTs;
+
             // Valid stank — track for reaction eligibility
             this.currentChainMessageIds.add(msg.id);
 
@@ -1100,7 +1101,6 @@ module.exports = class StankBot {
             if (isUnique)
                 this.chainUniqueUsers.push(authorId);
                 
-            this.lastStankTimestamps[authorId] = msgTs;
             this.lastChainContributorId = authorId;
             this.lastChainContributorUsername = username;
 
@@ -1146,13 +1146,12 @@ module.exports = class StankBot {
                 this.toast(`💥 ${username} broke chain of ${brokenLength} → -${penalty} PP`);
                 BdApi.Data.save("StankBot", "lastPunishedMessageId", msg.id);
 
-                const message = this.applyCommonReplacements(`💥 **${username}** broke the Stank chain at **${brokenLength}** stanks! (-${penalty} PP)`);
-                this.dispatchOutgoingMessage("announcement", this.AUSTIN_POWERS_GIF);
-                
+                this.dispatchOutgoingMessage("announcement", this.AUSTIN_POWERS_GIF);                
                 // delay next message so that the GIF is processed first.
                 setTimeout(() => {
+                    const message = this.applyCommonReplacements(`💥 **${username}** broke the Stank chain at **${brokenLength}** stanks! (-${penalty} PP)`);
                     this.dispatchOutgoingMessage("announcement", message);
-                }, 250);
+                }, 500);
             }
 
             // Record check
