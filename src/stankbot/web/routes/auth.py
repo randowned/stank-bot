@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import secrets
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -23,6 +23,16 @@ from stankbot.web.deps import get_config
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 log = logging.getLogger(__name__)
+
+
+def _is_safe_redirect(url: str) -> bool:
+    """Return True only for relative paths with no scheme or host component.
+
+    Rejects protocol-relative URLs like ``//evil.com`` that start with ``/``
+    but resolve to an external host.
+    """
+    parsed = urlparse(url)
+    return url.startswith("/") and not parsed.scheme and not parsed.netloc
 
 _AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
 _TOKEN_URL = "https://discord.com/api/oauth2/token"
@@ -42,7 +52,7 @@ async def login(
         )
     state = secrets.token_urlsafe(24)
     request.session["oauth_state"] = state
-    if next and next.startswith("/"):
+    if next and _is_safe_redirect(next):
         request.session["oauth_next"] = next
     params = {
         "client_id": str(config.discord_app_id),

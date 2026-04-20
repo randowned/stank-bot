@@ -16,6 +16,7 @@ from stankbot.web.deps import (
     get_templates,
     guild_name_for,
     player_names_for,
+    require_guild_member,
 )
 
 router = APIRouter(tags=["history"])
@@ -27,6 +28,7 @@ async def chains_index(
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_guild_id),
     limit: int = 50,
+    _user: dict = Depends(require_guild_member),
 ) -> HTMLResponse:
     stmt = (
         select(Chain)
@@ -57,6 +59,7 @@ async def chain_detail(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_guild_id),
+    _user: dict = Depends(require_guild_member),
 ) -> HTMLResponse:
     summary = await history_service.chain_summary(session, guild_id, chain_id)
     uids: set[int] = set()
@@ -83,6 +86,7 @@ async def sessions_index(
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_guild_id),
     limit: int = 50,
+    _user: dict = Depends(require_guild_member),
 ) -> HTMLResponse:
     stmt = (
         select(Event.id, Event.created_at)
@@ -113,6 +117,7 @@ async def session_detail(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_guild_id),
+    _user: dict = Depends(require_guild_member),
 ) -> HTMLResponse:
     summary = await history_service.session_summary(session, guild_id, session_id)
     uids: set[int] = set()

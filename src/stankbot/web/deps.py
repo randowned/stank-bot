@@ -58,6 +58,20 @@ class _LoginRedirect(HTTPException):
         self.response = response
 
 
+class _NotInGuild(HTTPException):
+    """Carries a 403 TemplateResponse for users who are not guild members."""
+
+    def __init__(self, response: Any) -> None:
+        super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail="not in guild")
+        self.response = response
+
+
+def _is_guild_member(request: Request, guild_id: int) -> bool:
+    """Return True if the session user is a member of the given guild."""
+    guilds = request.session.get("guilds", [])
+    return any(int(g.get("id", 0)) == guild_id for g in guilds)
+
+
 def require_login(request: Request) -> dict[str, Any]:
     user = current_user(request)
     if user is None:
@@ -73,6 +87,35 @@ def require_login(request: Request) -> dict[str, Any]:
             )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="login required"
+        )
+    return user
+
+
+def require_guild_member(request: Request) -> dict[str, Any]:
+    """Dependency for public dashboard routes.
+
+    Redirects unauthenticated visitors to ``/`` (which shows the login UI).
+    Raises ``_NotInGuild`` (rendered as ``unauthorized.html``) for users who
+    are logged in but not a member of the configured guild.
+    """
+    user = current_user(request)
+    if user is None:
+        next_url = str(request.url.path)
+        if request.url.query:
+            next_url += f"?{request.url.query}"
+        raise _LoginRedirect(
+            RedirectResponse(url=f"/auth/login?next={quote(next_url)}", status_code=302)
+        )
+    config: AppConfig = request.app.state.config
+    if not _is_guild_member(request, config.default_guild_id):
+        templates = get_templates(request)
+        raise _NotInGuild(
+            templates.TemplateResponse(
+                request,
+                "unauthorized.html",
+                {"request": request, "user": user},
+                status_code=403,
+            )
         )
     return user
 
@@ -125,9 +168,20 @@ async def require_guild_admin(
     guild_id = config.default_guild_id
 
     guilds = request.session.get("guilds", [])
+    def _unauthorized() -> _NotInGuild:
+        templates = get_templates(request)
+        return _NotInGuild(
+            templates.TemplateResponse(
+                request,
+                "unauthorized.html",
+                {"request": request, "user": user},
+                status_code=403,
+            )
+        )
+
     match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
     if match is None:
-        raise HTTPException(status_code=403, detail="not in guild")
+        raise _unauthorized()
 
     perms = int(match.get("permissions", 0))
     has_manage_guild = bool(perms & 0x20)
@@ -140,5 +194,5 @@ async def require_guild_admin(
         has_manage_guild=has_manage_guild,
     )
     if not is_admin:
-        raise HTTPException(status_code=403, detail="not an admin of this guild")
+        raise _unauthorized()
     return user

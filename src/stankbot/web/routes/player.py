@@ -14,14 +14,14 @@ from stankbot.web.deps import (
     get_db,
     get_guild_id,
     get_templates,
-    require_login,
+    require_guild_member,
 )
 
 router = APIRouter(tags=["player"])
 
 
 @router.get("/me", response_class=HTMLResponse)
-async def my_profile(user: dict = Depends(require_login)) -> RedirectResponse:
+async def my_profile(user: dict = Depends(require_guild_member)) -> RedirectResponse:
     return RedirectResponse(f"/player/{user['id']}", status_code=303)
 
 
@@ -31,6 +31,7 @@ async def player_profile(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_guild_id),
+    _user: dict = Depends(require_guild_member),
 ) -> HTMLResponse:
     session_svc = SessionService(session)
     current_session = await session_svc.current(guild_id)

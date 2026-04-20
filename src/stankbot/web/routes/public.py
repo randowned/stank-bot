@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services.board_service import build_board_state
-from stankbot.web.deps import current_user, get_db, get_guild_id, get_templates
+from stankbot.web.deps import (
+    _is_guild_member,
+    current_user,
+    get_db,
+    get_guild_id,
+    get_templates,
+)
 
 router = APIRouter(tags=["public"])
 
@@ -20,6 +26,22 @@ async def board(
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_guild_id),
 ) -> HTMLResponse:
+    templates = get_templates(request)
+    user = current_user(request)
+
+    if user is None:
+        return templates.TemplateResponse(
+            request, "login.html", {"request": request, "user": None}
+        )
+
+    if not _is_guild_member(request, guild_id):
+        return templates.TemplateResponse(
+            request,
+            "unauthorized.html",
+            {"request": request, "user": user},
+            status_code=403,
+        )
+
     guild = await guilds_repo.get(session, guild_id)
     altar = await altars_repo.primary(session, guild_id)
     if altar is None:
@@ -30,13 +52,12 @@ async def board(
         guild_name=(guild.name if guild else f"Guild {guild_id}"),
         altar=altar,
     )
-    templates = get_templates(request)
     return templates.TemplateResponse(
         request,
         "board.html",
         {
             "request": request,
-            "user": current_user(request),
+            "user": user,
             "state": state,
         },
     )

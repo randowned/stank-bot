@@ -123,22 +123,24 @@ NEW_SESSION_EMBED: dict[str, Any] = {
         {
             "name": "\U0001f3c5 Last session",
             "value": (
-                "\U0001f3c6 Leader   {session_top_player} \u00b7 **{session_top_sp} SP**\n"
-                "\U0001f480 Breaker   {session_top_breaker} \u00b7 **{session_top_breaker_pp} PP**\n"
-                "\U0001f517 Record   {prev_session_record} / {prev_session_record_unique} unique"
+                "\U0001f517 Stanks {prev_session_record} / {prev_session_record_unique} unique\n"
+                "\U0001f3c6 Leader \u00b7 {session_top_player} \u00b7 **{session_top_sp} SP**\n"
+                "\U0001f480 Breaker \u00b7 {session_top_breaker} \u00b7 **{session_top_breaker_pp} PP**"
             ),
             "inline": False,
         },
+        {"name": "\u200b", "value": "\u200b", "inline": False},
+        {"name": "\u23f3 Next reset", "value": "{next_reset_in}", "inline": False},
+        {"name": "\u200b", "value": "\u200b", "inline": False},
         {
             "name": "\U0001f451 All-time",
             "value": (
-                "\U0001f517 Chain   {alltime_record} / {alltime_record_unique} unique\n"
-                "\u2728 Top SP   {alltime_top_sp_player} \u00b7 **{alltime_top_sp} SP**\n"
-                "\U0001f480 Top PP   {alltime_top_pp_player} \u00b7 **{alltime_top_pp} PP**"
+                "\U0001f517 Stanks {alltime_record} / {alltime_record_unique} unique\n"
+                "\u2728 Leader \u00b7 {alltime_top_sp_player} \u00b7 **{alltime_top_sp} SP**\n"
+                "\U0001f480 Breaker \u00b7 {alltime_top_pp_player} \u00b7 **{alltime_top_pp} PP**"
             ),
             "inline": False,
         },
-        {"name": "\u23f3 Next reset", "value": "{next_reset_in}", "inline": False},
     ],
 }
 

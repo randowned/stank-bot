@@ -241,15 +241,25 @@ async def _build_rollover_embed(
     all_sp_name, all_sp = await embed_builders.alltime_top_sp(session, guild_id)
     all_pp_name, all_pp = await embed_builders.alltime_top_pp(session, guild_id)
 
+    stank_emoji = embed_builders.resolve_stank_emoji(None, altar)
     continuity_summary = (
-        "The chain continues — keep the pressure on."
+        f"The chain continues — keep the pressure on. {stank_emoji}"
         if continues
         else "Fresh start — who claims position 1?"
     )
 
+    from stankbot.db.repositories import events as events_repo
+
+    ended_seq = (
+        await events_repo.count_session_starts(session, guild_id, up_to_id=ended_id)
+        if ended_id is not None
+        else 0
+    )
+    new_seq = ended_seq + 1 if new_id is not None else 0
+
     vars_ = embed_builders.NewSessionVars(
-        new_session_number=new_id or 0,
-        ended_session_number=ended_id or 0,
+        new_session_number=new_seq,
+        ended_session_number=ended_seq,
         chain_continuity_summary=continuity_summary,
         session_top_player=prev_top_sp_name,
         session_top_sp=prev_top_sp,

@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
 from stankbot.config import AppConfig
-from stankbot.web.deps import _LoginRedirect
+from stankbot.web.deps import _LoginRedirect, _NotInGuild
 from stankbot.web.routes import admin, auth, history, player, public
 
 log = logging.getLogger(__name__)
@@ -59,6 +59,10 @@ def build_app(
 
     @app.exception_handler(_LoginRedirect)
     async def _login_redirect_handler(_: Request, exc: _LoginRedirect):
+        return exc.response
+
+    @app.exception_handler(_NotInGuild)
+    async def _not_in_guild_handler(_: Request, exc: _NotInGuild):
         return exc.response
 
     @app.get("/healthz", include_in_schema=False)

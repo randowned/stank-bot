@@ -83,6 +83,21 @@ async def session_event_ids(session: AsyncSession, guild_id: int) -> list[int]:
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def count_session_starts(
+    session: AsyncSession, guild_id: int, *, up_to_id: int
+) -> int:
+    """Return how many SESSION_START events exist for the guild with id <= up_to_id.
+
+    Used to convert raw event IDs into sequential session numbers.
+    """
+    stmt = select(func.count()).where(
+        Event.guild_id == guild_id,
+        Event.type == EventType.SESSION_START,
+        Event.id <= up_to_id,
+    )
+    return (await session.execute(stmt)).scalar_one()
+
+
 async def sp_pp_totals(
     session: AsyncSession,
     guild_id: int,
