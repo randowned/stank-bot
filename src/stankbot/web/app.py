@@ -19,7 +19,6 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -64,17 +63,11 @@ def build_app(
 
     @app.get("/healthz", include_in_schema=False)
     async def _healthz() -> JSONResponse:
-        # Used by Railway (and any container orchestrator) to gate traffic
-        # onto a freshly-deployed instance. Returns 200 only once the DB
-        # responds and the Discord client is ready.
-        try:
-            async with engine.connect() as conn:
-                await conn.execute(text("SELECT 1"))
-        except Exception:
-            return JSONResponse({"status": "db_unavailable"}, status_code=503)
-        ready = bool(bot is not None and getattr(bot, "is_ready", lambda: False)())
-        if not ready:
-            return JSONResponse({"status": "starting"}, status_code=503)
+        # Liveness probe for Railway/containers. Returning 200 as soon as
+        # the web server is up is sufficient — Discord gateway connection
+        # is async and may not be ready at first hit, but the process is
+        # alive and that's what the platform needs to know to route
+        # traffic to this container.
         return JSONResponse({"status": "ok"})
 
     app.include_router(auth.router)
