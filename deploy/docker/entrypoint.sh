@@ -3,11 +3,12 @@
 # mounts volumes as root), then drop to the stankbot user.
 set -e
 
+echo "[entrypoint] chown /data"
 chown -R stankbot:stankbot /data 2>/dev/null || true
 
-# Apply DB migrations before handing off to the bot. Runs as the
-# stankbot user so the SQLite file ends up owned correctly.
+echo "[entrypoint] alembic upgrade head"
 cd /app
 gosu stankbot alembic upgrade head
 
+echo "[entrypoint] exec $*"
 exec gosu stankbot "$@"

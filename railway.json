@@ -5,7 +5,6 @@
     "dockerfilePath": "deploy/docker/Dockerfile"
   },
   "deploy": {
-    "startCommand": "python -m stankbot",
     "healthcheckPath": "/healthz",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
