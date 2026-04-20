@@ -53,7 +53,6 @@ class Keys(StrEnum):
     CHAIN_CONTINUES_ACROSS_SESSIONS = "chain_continues_across_sessions"
     # Display
     STANK_RANKING_ROWS = "stank_ranking_rows"
-    BOARD_UPDATE_INTERVAL_SECONDS = "board_update_interval_seconds"
     # Templates (full embed descriptors — code-managed, not user-editable)
     BOARD_EMBED = "board_embed"
     RECORD_EMBED = "record_embed"
@@ -79,7 +78,6 @@ DEFAULTS: dict[str, Any] = {
     Keys.RESET_WARNING_MINUTES: [30, 5],
     Keys.CHAIN_CONTINUES_ACROSS_SESSIONS: True,
     Keys.STANK_RANKING_ROWS: 5,
-    Keys.BOARD_UPDATE_INTERVAL_SECONDS: 10,
     Keys.ENABLE_REACTION_BONUS: True,
     Keys.MAINTENANCE_MODE: False,
     # Embed templates are seeded per guild on install (see

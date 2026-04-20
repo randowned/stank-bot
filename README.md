@@ -2,7 +2,7 @@
 
 # StankBot
 
-**StankBot** is a server-side Discord Application that tracks "Stank" sticker chains in community servers. It's the ground-up Python rewrite of the original BetterDiscord plugin — a real bot user, slash commands, durable storage, per-server configuration, and a web dashboard.
+**StankBot** is a Discord Application that tracks "Stank" sticker chains in community servers. It runs as a real bot user with slash commands, durable storage, per-server configuration, and a web dashboard.
 
 ## What the bot does
 
@@ -151,6 +151,7 @@ CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 
 ## Web dashboard
 
+
 - `/` — public leaderboard + chain state.
 - `/me` → `/player/{user_id}` — your stats, badges, history.
 - `/history/chains` · `/history/chain/{id}` — chain browser + replay.
@@ -158,17 +159,3 @@ CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 - `/admin/settings` — scoring / reset / feature toggles.
 - `/admin/altar` · `/admin/roles` · `/admin/audit` — wiring + audit trail.
 
-## Migrating from v1
-
-v1 was a BetterDiscord client-side plugin bound to one user's client session. v2 is a real Discord Application — **they do not share storage**. The supported migration is a clean cutover:
-
-1. Stop the v1 plugin.
-2. Invite the v2 bot.
-3. Configure altars / channels / roles.
-4. Run `/stank-admin rebuild-from-history` to replay the altar channel from the beginning. Rebuild is idempotent — safe to re-run.
-
-There is no v1 → v2 data importer. Channel history is the source of truth.
-
-## License
-
-See `LICENSE`.

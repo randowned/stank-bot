@@ -27,31 +27,22 @@ BOARD_EMBED: dict[str, Any] = {
     "author": {"name": "StankBot", "url": "{board_url}"},
     "fields": [
         {
-            "name": "\U0001f3cb\ufe0f All-time",
-            "value": "{alltime_record} / {alltime_record_unique} unique",
-            "inline": True,
+            "name": "\U0001f4ca Records",
+            "value": (
+                "\U0001f3cb\ufe0f All-time   {alltime_record} / {alltime_record_unique} unique\n"
+                "\U0001f517 Session   {record} / {record_unique} unique\n"
+                "\u23f3 Next reset   {next_reset_in}"
+            ),
+            "inline": False,
         },
         {
-            "name": "\U0001f517 Session",
-            "value": "{record} / {record_unique} unique",
-            "inline": True,
+            "name": "\U0001f465 Titles",
+            "value": (
+                "\U0001f3c3\u200d\u27a1\ufe0f Chain starter   {chain_starter_name} \u00b7 **{chain_starter_sp} SP**\n"
+                "\U0001f480 The Chainbreaker   {chainbreaker_name} \u00b7 **{chainbreaker_punishments} PP**"
+            ),
+            "inline": False,
         },
-        {
-            "name": "\u23f3 Next reset",
-            "value": "{next_reset_in}",
-            "inline": True,
-        },
-        {
-            "name": "\U0001f3c3\u200d\u27a1\ufe0f Chain starter",
-            "value": "{chain_starter_name} \u00b7 **{chain_starter_sp} SP**",
-            "inline": True,
-        },
-        {
-            "name": "\U0001f480 The Chainbreaker",
-            "value": "{chainbreaker_name} \u00b7 **{chainbreaker_sp} SP** \u00b7 **{chainbreaker_punishments} PP**",
-            "inline": True,
-        },
-        {"name": "\u200b", "value": "\u200b", "inline": True},
         {
             "name": "\U0001f3c6 Top {stank_rows_limit}",
             "value": "{stank_rankings_table}",
@@ -74,19 +65,17 @@ RECORD_EMBED: dict[str, Any] = {
     "author": {"name": "StankBot", "url": "{board_url}"},
     "fields": [
         {
-            "name": "\U0001f451 All-time",
-            "value": "{alltime_marker}{alltime_record} / {alltime_record_unique} unique{alltime_marker}",
-            "inline": True,
-        },
-        {
-            "name": "\U0001f517 This session",
-            "value": "{session_marker}{record} / {record_unique} unique{session_marker}",
-            "inline": True,
+            "name": "\U0001f4ca Records",
+            "value": (
+                "\U0001f451 All-time   {alltime_marker}{alltime_record} / {alltime_record_unique} unique{alltime_marker}\n"
+                "\U0001f517 This session   {session_marker}{record} / {record_unique} unique{session_marker}"
+            ),
+            "inline": False,
         },
         {
             "name": "\U0001f3c3\u200d\u27a1\ufe0f Chain starter",
             "value": "{chain_starter_name} \u00b7 **{chain_starter_sp} SP**",
-            "inline": True,
+            "inline": False,
         },
     ],
 }
@@ -132,34 +121,22 @@ NEW_SESSION_EMBED: dict[str, Any] = {
     "author": {"name": "StankBot", "url": "{board_url}"},
     "fields": [
         {
-            "name": "\U0001f3c6 Last session leader",
-            "value": "{session_top_player} \u00b7 **{session_top_sp} SP**",
-            "inline": True,
+            "name": "\U0001f3c5 Last session",
+            "value": (
+                "\U0001f3c6 Leader   {session_top_player} \u00b7 **{session_top_sp} SP**\n"
+                "\U0001f480 Breaker   {session_top_breaker} \u00b7 **{session_top_breaker_pp} PP**\n"
+                "\U0001f517 Record   {prev_session_record} / {prev_session_record_unique} unique"
+            ),
+            "inline": False,
         },
         {
-            "name": "\U0001f480 Last session breaker",
-            "value": "{session_top_breaker} \u00b7 **{session_top_breaker_pp} PP**",
-            "inline": True,
-        },
-        {
-            "name": "\U0001f517 Last session record",
-            "value": "{prev_session_record} / {prev_session_record_unique} unique",
-            "inline": True,
-        },
-        {
-            "name": "\U0001f451 All-time chain",
-            "value": "{alltime_record} / {alltime_record_unique} unique",
-            "inline": True,
-        },
-        {
-            "name": "\u2728 All-time top SP",
-            "value": "{alltime_top_sp_player} \u00b7 **{alltime_top_sp} SP**",
-            "inline": True,
-        },
-        {
-            "name": "\U0001f480 All-time top PP",
-            "value": "{alltime_top_pp_player} \u00b7 **{alltime_top_pp} PP**",
-            "inline": True,
+            "name": "\U0001f451 All-time",
+            "value": (
+                "\U0001f517 Chain   {alltime_record} / {alltime_record_unique} unique\n"
+                "\u2728 Top SP   {alltime_top_sp_player} \u00b7 **{alltime_top_sp} SP**\n"
+                "\U0001f480 Top PP   {alltime_top_pp_player} \u00b7 **{alltime_top_pp} PP**"
+            ),
+            "inline": False,
         },
         {"name": "\u23f3 Next reset", "value": "{next_reset_in}", "inline": False},
     ],

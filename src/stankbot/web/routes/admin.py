@@ -76,7 +76,6 @@ async def settings_save(
         Keys.PP_BREAK_PER_STANK,
         Keys.RESTANK_COOLDOWN_SECONDS,
         Keys.STANK_RANKING_ROWS,
-        Keys.BOARD_UPDATE_INTERVAL_SECONDS,
     ):
         raw = form.get(str(key))
         if raw is not None and str(raw).strip():
