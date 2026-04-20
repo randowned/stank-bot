@@ -134,7 +134,7 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
         if interaction.guild is None:
             return
         url = self.bot.config.oauth_redirect_uri.rsplit("/", 2)[0]
-        url = f"{url}/g/{interaction.guild.id}/admin"
+        url = f"{url}/admin/settings"
         await interaction.response.send_message(
             f"Dashboard: {url}", ephemeral=True
         )

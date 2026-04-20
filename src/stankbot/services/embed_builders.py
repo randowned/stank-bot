@@ -57,14 +57,15 @@ def sticker_url(altar: Altar | None) -> str:
 
 
 def board_url_for(oauth_redirect_uri: str, guild_id: int) -> str:
-    """Build the public board URL for this guild from the OAuth redirect.
+    """Build the public board URL from the OAuth redirect.
 
     OAuth redirect looks like ``http://host/auth/callback`` — strip the
-    last two path segments to recover the site root, then append the
-    guild-scoped board path.
+    last two path segments to recover the site root. The dashboard is
+    single-guild now so ``/`` is the board; ``guild_id`` is kept in the
+    signature for call-site compatibility.
     """
-    root = oauth_redirect_uri.rsplit("/", 2)[0]
-    return f"{root}/g/{guild_id}/board"
+    del guild_id
+    return oauth_redirect_uri.rsplit("/", 2)[0] + "/"
 
 
 def altar_channel_mention(channel_id: int | None) -> str:

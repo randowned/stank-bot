@@ -151,14 +151,12 @@ CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 
 ## Web dashboard
 
-- `/` — guild list.
-- `/g/{guild_id}/board` — public leaderboard + chain state.
-- `/g/{guild_id}/me` → `/g/{guild_id}/player/{user_id}` — your stats, badges, history.
-- `/g/{guild_id}/history/chains` · `/chain/{id}` — chain browser + replay.
-- `/g/{guild_id}/history/sessions` · `/session/{id}` — session browser + summary.
-- `/g/{guild_id}/admin/settings` — scoring / reset / feature toggles.
-- `/g/{guild_id}/admin/templates` — embed editor with HTMX live preview.
-- `/g/{guild_id}/admin/altars` · `/roles` · `/audit` — wiring + audit trail.
+- `/` — public leaderboard + chain state.
+- `/me` → `/player/{user_id}` — your stats, badges, history.
+- `/history/chains` · `/history/chain/{id}` — chain browser + replay.
+- `/history/sessions` · `/history/session/{id}` — session browser + summary.
+- `/admin/settings` — scoring / reset / feature toggles.
+- `/admin/altar` · `/admin/roles` · `/admin/audit` — wiring + audit trail.
 
 ## Migrating from v1
 
