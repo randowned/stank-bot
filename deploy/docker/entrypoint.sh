@@ -6,12 +6,12 @@ set -e
 echo "[entrypoint] chown /data"
 chown -R stankbot:stankbot /data 2>/dev/null || true
 
-# Railway injects a random PORT env var and expects the service to bind
-# to it. Use it if present; otherwise fall back to the Dockerfile's 8000.
-if [ -n "$PORT" ]; then
-    export WEB_BIND="0.0.0.0:$PORT"
-    echo "[entrypoint] using Railway PORT=$PORT (WEB_BIND=$WEB_BIND)"
-fi
+# The Dockerfile exposes port 8000 and Railway's public domain is
+# configured to target 8000. Don't auto-switch to $PORT — Railway's
+# injected PORT doesn't always match the routed port and caused
+# "connection refused" 502s when uvicorn bound to a mismatched port.
+export WEB_BIND="0.0.0.0:8000"
+echo "[entrypoint] WEB_BIND=$WEB_BIND"
 
 echo "[entrypoint] alembic upgrade head"
 cd /app
