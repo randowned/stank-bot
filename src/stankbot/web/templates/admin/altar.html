@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Altar — {{ guild_name }}{% endblock %}
+{% block content %}
+{% include "admin/_nav.html" %}
+<div class="panel">
+  <h1>🪨 Altar</h1>
+  <p class="muted">One altar per server. Configure it via <code>/stank-admin altar set</code> — the reaction emoji you pick is also what renders as <code>{stank_emoji}</code> in board and announcement embeds.</p>
+  {% if altar %}
+  <table>
+    <tbody>
+      <tr><th>Channel</th><td><code>{{ altar.channel_id }}</code></td></tr>
+      <tr><th>Sticker pattern</th><td><code>{{ altar.sticker_name_pattern }}</code></td></tr>
+      <tr><th>Reaction emoji</th><td>{% if altar.reaction_emoji_id %}<code>&lt;{% if altar.reaction_emoji_animated %}a{% endif %}:{{ altar.reaction_emoji_name }}:{{ altar.reaction_emoji_id }}&gt;</code>{% elif altar.reaction_emoji_name %}{{ altar.reaction_emoji_name }}{% else %}—{% endif %}</td></tr>
+      <tr><th>{stank_emoji}</th><td><code>{{ altar.display_name or '—' }}</code></td></tr>
+      <tr><th>Enabled</th><td>{% if altar.enabled %}✅{% else %}⛔{% endif %}</td></tr>
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No altar configured yet. Run <code>/stank-admin altar set</code> in Discord.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -2,84 +2,163 @@
 
 # StankBot
 
-**StankBot** is a custom [BetterDiscord](https://betterdiscord.app/) plugin built for tracking community sticker chains in the [Maphra Discord Server](https://discord.gg/maphra).
+**StankBot** is a server-side Discord Application that tracks "Stank" sticker chains in community servers. It's the ground-up Python rewrite of the original BetterDiscord plugin — a real bot user, slash commands, durable storage, per-server configuration, and a web dashboard.
 
-It listens to the `#altar` channel for "Stank" sticker chains, awards Stank Points and Punishment Points, and dynamically updates your Server Bio and Nickname when the current or record chain lengths are changed.
+## What the bot does
 
-## The Game
+Players cooperate to build the longest chain of a designated sticker in a designated channel (the **altar**). The chain breaks when anyone posts a non-sticker message. Players earn Stank Points (SP) for contributing and Punishment Points (PP) for breaking chains.
 
-Players cooperate to build the longest chain of "Stank" stickers in `#altar`. The chain breaks when anyone posts a non-sticker message.
-
-Rankings are based on **net Stank Points** (earned SP minus punishment points).
+Rankings are **net SP** (earned SP minus PP).
 
 | Action | Points |
 |---|---|
-| Chain starter (first stank) | +10 + 15 SP bonus = **+25 SP**, become **Slayer** |
-| Each subsequent valid stank (position N) | +10 + (N−1) SP |
-| Last poster when chain breaks (excluding the chainbreaker) | +15 SP retroactive finish bonus |
-| Stank emoji reaction on ongoing-chain sticker | +1 SP (once per user per sticker) |
-| Break the chain | −(25 + chain length × 2) PP |
+| Chain starter (first stank in a new chain) | +10 SP base + 15 SP starter bonus |
+| Each subsequent stank at position *N* | +10 SP base + (N−1) SP position bonus |
+| Last contributor when a chain breaks (not the breaker) | +15 SP finish bonus |
+| React to an in-chain sticker with the altar emoji | +1 SP (once per user per message) |
+| Break the chain | −(25 + chain_length × 2) PP |
 
-> **Cooldown:** The same user cannot stank again for **10 minutes** within a chain. Cooldowns reset when the chain breaks.
+All values are per-guild defaults, editable on the web dashboard. The same user cannot stank twice within the configurable cooldown (default 10 minutes).
 
-> **The Chainbreaker:** The leaderboard footer highlights the player with the highest all-time punishment points.
+Sessions roll over on a cron (default 07:00 / 15:00 / 23:00 UTC) with configurable warning minutes. Chain continuity across sessions is on by default — the live chain survives the session boundary.
 
-## Commands
+## Feature highlights
 
-| Command | Description |
+- **Slash commands only.** Every user reply is ephemeral unless it's an announcement.
+- **Rich embed rendering** for the board, record announcements, and session transitions — no ASCII code blocks.
+- **Multi-guild from day one.** Every row keyed by guild id.
+- **Event-sourced.** Every SP/PP change is an immutable event row. Player totals, session summaries, and records are derived — `rebuild-from-history` can always reconstruct them.
+- **Multi-altar per guild.** Run a themed event (Halloween sticker, Founders Day) alongside the normal chain with its own scoring overrides and a `custom_event_key` tag on every emitted event.
+- **Achievements / badges** derived from the event log — First Stank, Centurion, Finisher, Chainbreaker, Comeback Kid, Perfect Session, Streaker.
+- **Web dashboard** (FastAPI + Jinja2 + HTMX) with Discord OAuth — public board, player profiles, chain/session history, admin pages with live embed-template preview.
+
+## Running it yourself
+
+### Local dev (Windows)
+
+Requires Python 3.12 and [`uv`](https://github.com/astral-sh/uv).
+
+```powershell
+winget install Python.Python.3.12
+winget install astral-sh.uv
+git clone <this-repo>
+cd stank-bot
+uv venv
+uv sync
+cp .env.example .env.local   # fill in tokens
+uv run alembic upgrade head
+uv run python -m stankbot
+```
+
+The bot connects outbound to Discord's Gateway (WebSocket over 443) — no inbound ports, no public URL, no tunnel needed. The dashboard binds to `127.0.0.1:8000` by default.
+
+### Linux VPS (systemd)
+
+`deploy/systemd/stankbot.service` runs `python -m stankbot` in a project-local venv with `EnvironmentFile=/etc/stankbot/stankbot.env` for secrets. Works with either root systemd (`/etc/systemd/system/`) or user systemd (`~/.config/systemd/user/` + `loginctl enable-linger`).
+
+### Docker
+
+```
+docker compose up -d
+```
+
+Data persists in `./data/` (SQLite by default).
+
+## Creating the bot user
+
+1. Discord Developer Portal → Applications → StankBot (App ID `1494266000064122930`).
+2. **Bot** → *Reset Token* → copy into `DISCORD_TOKEN`.
+3. Enable **Message Content Intent** and **Server Members Intent**. Presence intent is off.
+4. **OAuth2 → URL Generator**: scopes `bot` + `applications.commands`; permissions Send Messages, Embed Links, Read Message History, Add Reactions, Use External Stickers, Manage Messages.
+5. Open the generated URL, pick your guild, authorize.
+6. In the Developer Portal, add your dashboard URL + `/auth/callback` to **OAuth2 → Redirects** so web login works.
+7. Leave the **Interactions Endpoint URL** field empty — v2 uses the Gateway, not webhook interactions.
+
+## Configuration
+
+Environment (see `.env.example`):
+
+| Var | Purpose |
 |---|---|
-| `!stank-board` | The leaderboard (ranked by net SP) |
-| `!stank-points` | Your Stank Points and rank |
-| `!stank-points <rank>` | Look up a player by rank |
-| `!stank-help` | Help message with rules |
+| `DISCORD_TOKEN` | Bot token |
+| `DISCORD_APP_ID` | Application id (default `1494266000064122930`) |
+| `DATABASE_URL` | SQLAlchemy URL, e.g. `sqlite+aiosqlite:///./data/stankbot.db` |
+| `OWNER_ID` | Your Discord user id — bypass permission checks |
+| `LOG_LEVEL` | `INFO` / `DEBUG` |
+| `ENABLE_WEB` | `true` to run the dashboard in the same process |
+| `WEB_HOST` / `WEB_PORT` | Dashboard bind (defaults `127.0.0.1:8000`) |
+| `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` / `OAUTH_REDIRECT_URI` | Dashboard login |
+| `GUILD_IDS` | Comma-separated guild ids for instant slash sync during dev |
+| `SESSION_SECRET` | Cookie signing secret for the dashboard |
 
-### Admin Commands (bot owner only)
+Everything else — scoring tuning, reset hours, embed templates, feature toggles — lives on the web dashboard.
 
-| Command | Description |
+## First-time guild setup
+
+```
+/stank-admin altars add channel:#altar sticker:<sticker_id>
+/stank-admin channels add purpose:commands       channel:#bot-commands
+/stank-admin channels add purpose:announcements  channel:#general
+/stank-admin admin-roles add role:@Mods
+/stank-admin rebuild-from-history        # optional — replay existing chat
+```
+
+## Command reference
+
+### User (`/stank …`)
+
+| Command | What it does |
 |---|---|
-| `!stank-record-test` | Preview record announcement |
-| `!stank-new-session` | End the current session (wipes SP/PP and session records) without breaking the chain |
-| `!stank-board-reset` | Full wipe: scoreboard, records, **and** the ongoing chain |
-| `!stank-board-reload` | Full wipe and replay from channel history |
+| `/stank board` | Rich embed of the current chain, records, rankings. |
+| `/stank points [rank] [user]` | Your (or target's) SP / PP / chains / badges. |
+| `/stank cooldown` | Seconds left before you can stank again. |
+| `/stank help` | Rules + scoring table. |
+| `/stank history me` | Your per-session trend. |
+| `/stank history user <user>` | Same for a target user. |
+| `/stank history chain <id>` | Chain replay. |
+| `/stank history session <id>` | Session summary. |
 
-## Features
+### Admin (`/stank-admin …`) — requires admin role or Manage Guild
 
-- **Net Score Ranking**: Players ranked by `earned SP - punishment points`. Breakdown shown in `!stank-points`.
-- **Chain Tracking**: Tracks the longest unbroken chain of Stank stickers. Displays total stanks and unique stanker count.
+| Command | What it does |
+|---|---|
+| `/stank-admin dashboard` | Posts the dashboard URL for this guild. |
+| `/stank-admin new-session` | End current session, start next; chain persists. |
+| `/stank-admin reset` | Wipe chain / events / records (destructive, confirmation). |
+| `/stank-admin rebuild-from-history` | Wipe + replay altar channel history (destructive). |
+| `/stank-admin record-test` | Ephemeral preview of the record announcement. |
+| `/stank-admin log [lines]` | Tail recent bot log. |
+| `/stank-admin config view` | Read-only snapshot of current settings. |
+| `/stank-admin channels add\|remove` | Wire command / announcement channels. |
+| `/stank-admin admin-roles add\|remove\|list` | Manage admin roles. |
+| `/stank-admin altars add\|remove\|list` | Register / remove altars. |
 
-## v3 Highlights
+Template bodies, scoring overrides, reset hours, and achievement tuning are web-only — `/stank-admin config view` surfaces the current values but does not edit them.
 
-- **Automatic session schedule**: Sessions end automatically at **7:00**, **15:00**, and **23:00** local time. Session end wipes SP/PP and session records but **keeps the ongoing chain alive** — chain length, unique stankers, chain starter, and per-user cooldowns all carry over. Session records restart at the continuing chain's current length. Use `!stank-board-reset` if you need to wipe the chain too.
-- **Announcement support**: Session-end events are announced through configured announcement channels.
-- **Countdown display**: `{nextResetIn}` is available in board templates to show time until the next session.
-- **Persistent scheduling**: Session timers survive plugin reloads and continue logging schedules.
-- **Improved reset handling**: Manual `!stank-board-reset` and bot board reloads still do a full wipe (chain included) for when you really need to start fresh.
-- **Position-based XP**: Each stank earns more SP as the chain grows — position N earns `10 + (N−1)` SP.
-- **Retroactive Finish Bonus**: When the chain breaks, +15 SP goes to the most recent valid stanker who is **not** the chainbreaker. The chain is walked backwards to skip any trailing stanks by the breaker themselves; if the whole chain was the breaker, no bonus is awarded.
-- **Per-user Cooldown**: 5-minute cooldown per user prevents spam-stanking; violations get a callout with the time remaining.
-- **The Chainbreaker**: Board footer shows the player with the highest all-time punishment points.
-- **History Scraping**: Reconstructs chain state from channel history on startup, including cooldown tracking.
-- **Automated Sessions**: Sessions end three times daily at **7:00**, **15:00**, and **23:00** local time. The scoreboard resets; the chain keeps going.
-- **Session Announcements**: New-session announcements are posted to configured announcement channels.
-- **Next Session Countdown**: Default board templates include `{nextResetIn}` so the next session-start time is visible.
-- **Dynamic Updates**: Auto-updates your Server Bio and Nickname (e.g. `Username (10/32)`) with current scores.
-- **Command Channels**: Configurable allowlist of channel IDs for command auto-replies. DMs always work.
-- **Announcement Channels**: Separate allowlist for record-broken announcements. `!stank-help` works in both command and announcement channels.
-- **Logging**: Persistent log file (`StankBot.log`) in the plugins folder with ISO timestamps and session separators. Auto-reset scheduling and trigger events are logged for easier confirmation.
-- **Customization**: Configurable templates for Bio, Nickname, board layout, and record announcements.
+CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 
-## Installation
+## Web dashboard
 
-1. Download and install [BetterDiscord](https://betterdiscord.app/).
-2. Open Discord → **User Settings** → **BetterDiscord** → **Plugins**.
-3. Click **"Open Plugins Folder"** to open `%appdata%\BetterDiscord\plugins`.
-4. Drop `StankBot.plugin.js` into the folder.
-5. Enable **StankBot** in the Plugins menu.
+- `/` — guild list.
+- `/g/{guild_id}/board` — public leaderboard + chain state.
+- `/g/{guild_id}/me` → `/g/{guild_id}/player/{user_id}` — your stats, badges, history.
+- `/g/{guild_id}/history/chains` · `/chain/{id}` — chain browser + replay.
+- `/g/{guild_id}/history/sessions` · `/session/{id}` — session browser + summary.
+- `/g/{guild_id}/admin/settings` — scoring / reset / feature toggles.
+- `/g/{guild_id}/admin/templates` — embed editor with HTMX live preview.
+- `/g/{guild_id}/admin/altars` · `/roles` · `/audit` — wiring + audit trail.
 
-## Important
+## Migrating from v1
 
-> **Self-Bot Warning:** Auto-replying to other users relies on your user account sending API requests without manual input, which goes against Discord's TOS regarding self-bots. Use at your own risk.
+v1 was a BetterDiscord client-side plugin bound to one user's client session. v2 is a real Discord Application — **they do not share storage**. The supported migration is a clean cutover:
 
----
+1. Stop the v1 plugin.
+2. Invite the v2 bot.
+3. Configure altars / channels / roles.
+4. Run `/stank-admin rebuild-from-history` to replay the altar channel from the beginning. Rebuild is idempotent — safe to re-run.
 
-*Developed for the Maphra Discord Community.*
+There is no v1 → v2 data importer. Channel history is the source of truth.
+
+## License
+
+See `LICENSE`.

@@ -1,0 +1,11 @@
+{% set _path = request.url.path %}
+<nav class="admin-nav">
+  {% for href, label in [
+    ('/g/' ~ guild_id ~ '/admin/settings', 'Settings'),
+    ('/g/' ~ guild_id ~ '/admin/altar', 'Altar'),
+    ('/g/' ~ guild_id ~ '/admin/roles', 'Admins'),
+    ('/g/' ~ guild_id ~ '/admin/audit', 'Audit log'),
+  ] %}
+    <a href="{{ href }}"{% if _path == href %} class="active"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>

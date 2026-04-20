@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Settings — {{ guild_name }}{% endblock %}
+{% block content %}
+{% include "admin/_nav.html" %}
+<div class="panel">
+  <h1>⚙️ Guild settings</h1>
+  <p class="muted">Slash commands stay narrow; detailed tuning lives here. All changes are live.</p>
+</div>
+
+<form method="post" action="/g/{{ guild_id }}/admin/settings">
+  <div class="panel">
+    <h2>Scoring</h2>
+    <div class="grid">
+      {% for k in ['sp_flat','sp_position_bonus','sp_starter_bonus','sp_finish_bonus','sp_reaction','pp_break_base','pp_break_per_stank','restank_cooldown_seconds'] %}
+      <div>
+        <label for="{{ k }}">{{ k }}</label>
+        <input id="{{ k }}" name="{{ k }}" type="number" value="{{ settings[k] }}">
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Sessions</h2>
+    <div class="grid">
+      <div>
+        <label for="reset_hours_utc">Reset hours (UTC, comma-separated)</label>
+        <input id="reset_hours_utc" name="reset_hours_utc"
+               value="{{ settings.reset_hours_utc|join(',') }}">
+      </div>
+      <div>
+        <label for="reset_warning_minutes">Warning minutes (comma-separated)</label>
+        <input id="reset_warning_minutes" name="reset_warning_minutes"
+               value="{{ settings.reset_warning_minutes|join(',') }}">
+      </div>
+      <div>
+        <label><input type="checkbox" name="chain_continues_across_sessions"
+               {% if settings.chain_continues_across_sessions %}checked{% endif %}>
+          Chain continues across sessions</label>
+      </div>
+      <div>
+        <label><input type="checkbox" name="enable_reaction_bonus"
+               {% if settings.enable_reaction_bonus %}checked{% endif %}>
+          Reaction bonus</label>
+      </div>
+      <div>
+        <label><input type="checkbox" name="maintenance_mode"
+               {% if settings.maintenance_mode %}checked{% endif %}>
+          Maintenance mode (silences bot for non-admins)</label>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Display</h2>
+    <div class="grid">
+      <div>
+        <label for="stank_ranking_rows">Ranking rows</label>
+        <input id="stank_ranking_rows" name="stank_ranking_rows" type="number"
+               value="{{ settings.stank_ranking_rows }}">
+      </div>
+      <div>
+        <label for="board_update_interval_seconds">Board update interval (s)</label>
+        <input id="board_update_interval_seconds" name="board_update_interval_seconds"
+               type="number" value="{{ settings.board_update_interval_seconds }}">
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <button type="submit">Save settings</button>
+  </div>
+</form>
+{% endblock %}

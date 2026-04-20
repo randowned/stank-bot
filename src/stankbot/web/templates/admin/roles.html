@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Admins — {{ guild_name }}{% endblock %}
+{% block content %}
+{% include "admin/_nav.html" %}
+<div class="panel">
+  <h1>🛡️ Admin roles</h1>
+  <p class="muted">Members with any of these roles can run <code>/stank-admin</code> commands. Manage via <code>/stank-admin admin-roles</code>.</p>
+  {% if role_ids %}
+    <ul>
+      {% for rid in role_ids %}<li><code>{{ rid }}</code></li>{% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Only <em>Manage Guild</em> permission holders are admins right now.</p>
+  {% endif %}
+</div>
+<div class="panel">
+  <h1>👤 Admin users</h1>
+  <p class="muted">Specific users granted admin — additive on top of roles. Manage via <code>/stank-admin admin-users</code>.</p>
+  {% if user_ids %}
+    <ul>
+      {% for uid in user_ids %}<li>{{ names.get(uid, uid) }} <span class="muted"><code>{{ uid }}</code></span></li>{% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No individual admin users configured.</p>
+  {% endif %}
+</div>
+{% endblock %}

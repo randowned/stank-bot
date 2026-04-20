@@ -1,0 +1,16 @@
+# Local / small-deploy compose. For production on a cPanel host prefer the
+# systemd unit in ../systemd/.
+
+services:
+  stankbot:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: stankbot
+    restart: unless-stopped
+    env_file:
+      - ../../.env
+    volumes:
+      - ../../data:/data
+    ports:
+      - "8000:8000"

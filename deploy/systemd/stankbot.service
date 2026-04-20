@@ -1,0 +1,40 @@
+; StankBot systemd unit — primary production deployment.
+;
+; Root install:
+;     sudo cp stankbot.service /etc/systemd/system/
+;     sudo systemctl daemon-reload
+;     sudo systemctl enable --now stankbot
+;
+; User-level install (cPanel / shared hosts without root):
+;     mkdir -p ~/.config/systemd/user
+;     cp stankbot.service ~/.config/systemd/user/
+;     loginctl enable-linger "$USER"
+;     systemctl --user daemon-reload
+;     systemctl --user enable --now stankbot
+;
+; Override ``User=``, ``WorkingDirectory=``, and ``EnvironmentFile=`` paths
+; to match your host.
+
+[Unit]
+Description=StankBot — Discord application for the Maphra community
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stankbot
+WorkingDirectory=/opt/stankbot
+EnvironmentFile=/etc/stankbot/stankbot.env
+ExecStart=/opt/stankbot/.venv/bin/python -m stankbot
+Restart=on-failure
+RestartSec=5s
+# Light hardening — tighten further once the host is locked down.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

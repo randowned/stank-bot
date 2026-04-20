@@ -1,1 +1,32 @@
 .claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local data / secrets
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+logs/
+*.log
+
+# Tooling
+uv.lock
+.coverage
+htmlcov/
+
+# IDE
+.idea/
+.vscode/

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}StankBot{% endblock %}
+{% block content %}
+<div class="panel">
+  <h1><img src="/static/Stank.gif" alt="Stank" class="stank-icon"> StankBot</h1>
+  <p class="muted">
+    A Discord chain-and-scoring game with session resets, achievements,
+    and per-guild configuration.
+  </p>
+  {% if not user %}
+    <p><a href="/auth/login">Login with Discord</a> to view your stats and manage servers where you're an admin.</p>
+  {% endif %}
+</div>
+
+{% if user and guilds %}
+<div class="panel">
+  <h2>Your servers</h2>
+  <ul>
+    {% for g in guilds %}
+      <li>
+        <a href="/g/{{ g.id }}/board">{{ g.name }}</a>
+        <span class="muted">(id {{ g.id }})</span>
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}
