@@ -17,7 +17,9 @@ import secrets
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -59,6 +61,21 @@ def build_app(
     @app.exception_handler(_LoginRedirect)
     async def _login_redirect_handler(_: Request, exc: _LoginRedirect):
         return exc.response
+
+    @app.get("/healthz", include_in_schema=False)
+    async def _healthz() -> JSONResponse:
+        # Used by Railway (and any container orchestrator) to gate traffic
+        # onto a freshly-deployed instance. Returns 200 only once the DB
+        # responds and the Discord client is ready.
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        except Exception:
+            return JSONResponse({"status": "db_unavailable"}, status_code=503)
+        ready = bool(bot is not None and getattr(bot, "is_ready", lambda: False)())
+        if not ready:
+            return JSONResponse({"status": "starting"}, status_code=503)
+        return JSONResponse({"status": "ok"})
 
     app.include_router(auth.router)
     app.include_router(public.router)

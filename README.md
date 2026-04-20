@@ -64,6 +64,18 @@ docker compose up -d
 
 Data persists in `./data/` (SQLite by default).
 
+### Railway (auto-deploy from GitHub)
+
+`railway.json` at the repo root points Railway at `deploy/docker/Dockerfile`. Every push to `main` triggers a build and rolling deploy. One-time setup in the Railway UI:
+
+1. New project → Deploy from GitHub repo → pick this repo, branch `main`.
+2. Add a **Volume** mounted at `/data` — the Dockerfile already bakes `DATABASE_URL=sqlite+aiosqlite:////data/stankbot.db` against it, so SQLite survives redeploys.
+3. Set the same env vars you use locally: `DISCORD_TOKEN`, `DISCORD_APP_ID`, `WEB_SECRET_KEY`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `GUILD_IDS`, etc.
+4. Expose port `8000`; Railway mints a public URL for the dashboard. Add `<that URL>/auth/callback` to the Discord OAuth2 redirects list.
+5. Keep replicas at **1** — Discord only allows one gateway connection per shard.
+
+Deploys are gated on the `/healthz` endpoint, which returns 200 only when the DB is reachable and the Discord client is `is_ready()`. On redeploy, Railway sends SIGTERM; the bot cancels scheduled jobs, closes the gateway cleanly, and disposes the engine before exiting. APScheduler jobs are rebuilt from guild settings on each boot, so no schedule state is lost.
+
 ## Creating the bot user
 
 1. Discord Developer Portal → Applications → StankBot (App ID `1494266000064122930`).

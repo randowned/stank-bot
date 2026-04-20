@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import signal
 import sys
 
 import uvicorn
@@ -45,11 +46,29 @@ async def run() -> None:
         if config.enable_web:
             log.info("Web dashboard on http://%s", config.web_bind)
             tasks.append(asyncio.create_task(_run_web(bot, config)))
+
+        # Graceful shutdown: Railway (and most container platforms) send
+        # SIGTERM before killing the container. Catch it so ``async with
+        # bot`` exits cleanly — that triggers ``StankBot.close()`` which
+        # drains the scheduler, closes the Discord gateway, and disposes
+        # the DB engine. ``add_signal_handler`` is POSIX-only; on Windows
+        # we fall back to the existing KeyboardInterrupt path.
+        loop = asyncio.get_running_loop()
+        stop = asyncio.Event()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            with contextlib.suppress(NotImplementedError):
+                loop.add_signal_handler(sig, stop.set)
+        stop_task = asyncio.create_task(stop.wait())
+        tasks.append(stop_task)
+
         done, pending = await asyncio.wait(
             tasks, return_when=asyncio.FIRST_COMPLETED
         )
+        if stop_task in done:
+            log.info("Shutdown signal received; stopping")
         for task in pending:
             task.cancel()
+        done = {t for t in done if t is not stop_task}
         for task in done:
             exc = task.exception()
             if exc is None:
