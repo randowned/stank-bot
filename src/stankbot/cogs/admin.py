@@ -499,7 +499,7 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
     async def announcements_add(
         self,
         interaction: discord.Interaction,
-        channel: discord.TextChannel,
+        channel: discord.TextChannel | discord.ForumChannel | discord.NewsChannel,
     ) -> None:
         if interaction.guild is None:
             return
@@ -540,7 +540,7 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
     async def announcements_remove(
         self,
         interaction: discord.Interaction,
-        channel: discord.TextChannel,
+        channel: discord.TextChannel | discord.ForumChannel | discord.NewsChannel,
     ) -> None:
         if interaction.guild is None:
             return
@@ -760,7 +760,7 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
     async def altar_set(
         self,
         interaction: discord.Interaction,
-        channel: discord.TextChannel,
+        channel: discord.TextChannel | discord.ForumChannel | discord.NewsChannel,
         sticker_name: str = "stank",
         reaction_emoji: str | None = None,
     ) -> None:
