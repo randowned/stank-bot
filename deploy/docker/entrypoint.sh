@@ -11,12 +11,12 @@ exec 2>&1
 echo "[entrypoint] chown /data"
 chown -R stankbot:stankbot /data 2>/dev/null || true
 
-# The Dockerfile exposes port 8000 and Railway's public domain is
-# configured to target 8000. Don't auto-switch to $PORT — Railway's
-# injected PORT doesn't always match the routed port and caused
-# "connection refused" 502s when uvicorn bound to a mismatched port.
-export WEB_BIND="0.0.0.0:8000"
-echo "[entrypoint] WEB_BIND=$WEB_BIND"
+# Bind to Railway's injected PORT if present (their proxy routes to
+# that port); otherwise default to 8000 for local/Docker runs. The
+# public-domain "target port" setting in Railway must match this.
+PORT_TO_BIND="${PORT:-8000}"
+export WEB_BIND="0.0.0.0:$PORT_TO_BIND"
+echo "[entrypoint] WEB_BIND=$WEB_BIND (PORT=${PORT:-<unset>})"
 
 echo "[entrypoint] alembic upgrade head"
 cd /app

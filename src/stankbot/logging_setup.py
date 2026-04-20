@@ -46,13 +46,18 @@ def configure_logging(level: str = "INFO", fmt: str = "text") -> None:
     for h in list(root.handlers):
         root.removeHandler(h)
 
-    text_fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
+    # Railway prepends its own timestamp to every log line, so we skip
+    # ``%(asctime)s`` for the stdout handler to avoid duplicates. The
+    # in-memory ring buffer (fed to ``/stank-admin log``) still wants a
+    # timestamp since it's read out-of-band.
+    stream_fmt = logging.Formatter("%(levelname)-7s %(name)s: %(message)s")
+    ring_fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
     handler = logging.StreamHandler(stream=sys.stdout)
-    handler.setFormatter(_JsonFormatter() if fmt == "json" else text_fmt)
+    handler.setFormatter(_JsonFormatter() if fmt == "json" else stream_fmt)
     root.addHandler(handler)
 
     ring = _RingHandler()
-    ring.setFormatter(text_fmt)
+    ring.setFormatter(ring_fmt)
     root.addHandler(ring)
 
     # Quiet noisy libs
