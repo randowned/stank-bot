@@ -15,14 +15,14 @@
     <div><label>Chains broken</label><div>{{ summary.chains_broken }}</div></div>
   </div>
   {% if summary.top_earner %}
-    <p>🏆 Top earner: <a href="/g/{{ guild_id }}/player/{{ summary.top_earner[0] }}">{{ names.get(summary.top_earner[0], summary.top_earner[0]) }}</a> — {{ summary.top_earner[1] }} SP</p>
+    <p>🏆 Top earner: <a href="/player/{{ summary.top_earner[0] }}">{{ names.get(summary.top_earner[0], summary.top_earner[0]) }}</a> — {{ summary.top_earner[1] }} SP</p>
   {% endif %}
   {% if summary.top_breaker %}
-    <p>💀 Top breaker: <a href="/g/{{ guild_id }}/player/{{ summary.top_breaker[0] }}">{{ names.get(summary.top_breaker[0], summary.top_breaker[0]) }}</a> — {{ summary.top_breaker[1] }} PP</p>
+    <p>💀 Top breaker: <a href="/player/{{ summary.top_breaker[0] }}">{{ names.get(summary.top_breaker[0], summary.top_breaker[0]) }}</a> — {{ summary.top_breaker[1] }} PP</p>
   {% endif %}
 </div>
 {% else %}
 <div class="panel"><p class="muted">Session not found.</p></div>
 {% endif %}
-<p><a href="/g/{{ guild_id }}/history/sessions">← All sessions</a></p>
+<p><a href="/history/sessions">← All sessions</a></p>
 {% endblock %}

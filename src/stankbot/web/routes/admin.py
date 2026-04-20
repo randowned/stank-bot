@@ -18,26 +18,27 @@ from stankbot.services.settings_service import Keys, SettingsService
 from stankbot.web.deps import (
     current_user,
     get_db,
+    get_guild_id,
     get_templates,
     guild_name_for,
     player_names_for,
     require_guild_admin,
 )
 
-router = APIRouter(prefix="/g/{guild_id}/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("", include_in_schema=False)
 @router.get("/", include_in_schema=False)
-async def admin_index(guild_id: int) -> RedirectResponse:
-    return RedirectResponse(url=f"/g/{guild_id}/admin/settings", status_code=302)
+async def admin_index() -> RedirectResponse:
+    return RedirectResponse(url="/admin/settings", status_code=302)
 
 
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
     _admin: dict = Depends(require_guild_admin),
 ) -> HTMLResponse:
     svc = SettingsService(session)
@@ -49,7 +50,6 @@ async def settings_page(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "settings": values,
         },
@@ -58,9 +58,9 @@ async def settings_page(
 
 @router.post("/settings")
 async def settings_save(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
     user: dict = Depends(require_guild_admin),
 ) -> RedirectResponse:
     form = await request.form()
@@ -108,14 +108,14 @@ async def settings_save(
         action="settings.update",
         payload={"via": "web"},
     )
-    return RedirectResponse(f"/g/{guild_id}/admin/settings", status_code=303)
+    return RedirectResponse("/admin/settings", status_code=303)
 
 
 @router.get("/altar", response_class=HTMLResponse)
 async def altar_page(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
     _admin: dict = Depends(require_guild_admin),
 ) -> HTMLResponse:
     altar = await altars_repo.for_guild(session, guild_id, enabled_only=False)
@@ -126,7 +126,6 @@ async def altar_page(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "altar": altar,
         },
@@ -135,9 +134,9 @@ async def altar_page(
 
 @router.get("/roles", response_class=HTMLResponse)
 async def roles_page(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
     _admin: dict = Depends(require_guild_admin),
 ) -> HTMLResponse:
     svc = PermissionService(session)
@@ -151,7 +150,6 @@ async def roles_page(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "role_ids": role_ids,
             "user_ids": user_ids,
@@ -162,9 +160,9 @@ async def roles_page(
 
 @router.get("/audit", response_class=HTMLResponse)
 async def audit_page(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
     _admin: dict = Depends(require_guild_admin),
 ) -> HTMLResponse:
     entries = await audit_repo.recent(session, guild_id, limit=200)
@@ -177,7 +175,6 @@ async def audit_page(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "entries": entries,
             "names": names,

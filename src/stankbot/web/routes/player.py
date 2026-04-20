@@ -9,26 +9,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stankbot.services import achievements as achievements_svc
 from stankbot.services import history_service
 from stankbot.services.session_service import SessionService
-from stankbot.web.deps import current_user, get_db, get_templates, require_login
+from stankbot.web.deps import (
+    current_user,
+    get_db,
+    get_guild_id,
+    get_templates,
+    require_login,
+)
 
 router = APIRouter(tags=["player"])
 
 
-@router.get("/g/{guild_id}/me", response_class=HTMLResponse)
-async def my_profile(
-    guild_id: int,
-    request: Request,
-    user: dict = Depends(require_login),
-) -> RedirectResponse:
-    return RedirectResponse(f"/g/{guild_id}/player/{user['id']}", status_code=303)
+@router.get("/me", response_class=HTMLResponse)
+async def my_profile(user: dict = Depends(require_login)) -> RedirectResponse:
+    return RedirectResponse(f"/player/{user['id']}", status_code=303)
 
 
-@router.get("/g/{guild_id}/player/{user_id}", response_class=HTMLResponse)
+@router.get("/player/{user_id}", response_class=HTMLResponse)
 async def player_profile(
-    guild_id: int,
     user_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
 ) -> HTMLResponse:
     session_svc = SessionService(session)
     current_session = await session_svc.current(guild_id)
@@ -50,7 +52,6 @@ async def player_profile(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "target_id": user_id,
             "session_stats": session_stats,
             "alltime": alltime,

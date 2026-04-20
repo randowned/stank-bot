@@ -103,6 +103,20 @@ class AppConfig(BaseSettings):
         return self
 
     @property
+    def default_guild_id(self) -> int:
+        # The dashboard is single-guild at runtime. The first entry of
+        # ``GUILD_IDS`` is the one every web page reads from; remaining
+        # ids still drive slash-command syncing in the bot layer.
+        if not self.guild_ids:
+            raise ConfigError(
+                "GUILD_IDS is empty. The web dashboard is single-guild; "
+                "set GUILD_IDS=<your-guild-id> (comma-separated if you "
+                "want multiple for slash-command syncing, but the first "
+                "one is used for the dashboard)."
+            )
+        return self.guild_ids[0]
+
+    @property
     def web_host(self) -> str:
         return self.web_bind.split(":", 1)[0]
 

@@ -100,13 +100,18 @@ async def player_names_for(
     return {int(uid): (name or str(uid)) for uid, name in rows}
 
 
+def get_guild_id(request: Request) -> int:
+    """The configured default guild for the single-guild dashboard."""
+    config: AppConfig = request.app.state.config
+    return config.default_guild_id
+
+
 async def require_guild_admin(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
     user: dict[str, Any] = Depends(require_login),
 ) -> dict[str, Any]:
-    """Verify the session-user is an admin of ``guild_id`` on this guild.
+    """Verify the session-user is an admin of the configured guild.
 
     Uses :class:`stankbot.services.permission_service.PermissionService`
     with the role list cached in the user's session (populated at login
@@ -116,6 +121,9 @@ async def require_guild_admin(
     """
     from stankbot.services.permission_service import PermissionService
 
+    config: AppConfig = request.app.state.config
+    guild_id = config.default_guild_id
+
     guilds = request.session.get("guilds", [])
     match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
     if match is None:
@@ -124,7 +132,6 @@ async def require_guild_admin(
     perms = int(match.get("permissions", 0))
     has_manage_guild = bool(perms & 0x20)
 
-    config: AppConfig = request.app.state.config
     svc = PermissionService(session, owner_id=config.owner_id)
     is_admin = await svc.is_admin(
         guild_id,

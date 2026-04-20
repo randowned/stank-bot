@@ -12,6 +12,7 @@ from stankbot.services import history_service
 from stankbot.web.deps import (
     current_user,
     get_db,
+    get_guild_id,
     get_templates,
     guild_name_for,
     player_names_for,
@@ -20,11 +21,11 @@ from stankbot.web.deps import (
 router = APIRouter(tags=["history"])
 
 
-@router.get("/g/{guild_id}/history/chains", response_class=HTMLResponse)
+@router.get("/history/chains", response_class=HTMLResponse)
 async def chains_index(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
     limit: int = 50,
 ) -> HTMLResponse:
     stmt = (
@@ -43,7 +44,6 @@ async def chains_index(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "chains": chains,
             "names": names,
@@ -51,12 +51,12 @@ async def chains_index(
     )
 
 
-@router.get("/g/{guild_id}/history/chain/{chain_id}", response_class=HTMLResponse)
+@router.get("/history/chain/{chain_id}", response_class=HTMLResponse)
 async def chain_detail(
-    guild_id: int,
     chain_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
 ) -> HTMLResponse:
     summary = await history_service.chain_summary(session, guild_id, chain_id)
     uids: set[int] = set()
@@ -70,7 +70,6 @@ async def chain_detail(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "summary": summary,
             "names": names,
@@ -78,11 +77,11 @@ async def chain_detail(
     )
 
 
-@router.get("/g/{guild_id}/history/sessions", response_class=HTMLResponse)
+@router.get("/history/sessions", response_class=HTMLResponse)
 async def sessions_index(
-    guild_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
     limit: int = 50,
 ) -> HTMLResponse:
     stmt = (
@@ -102,19 +101,18 @@ async def sessions_index(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "sessions": sessions,
         },
     )
 
 
-@router.get("/g/{guild_id}/history/session/{session_id}", response_class=HTMLResponse)
+@router.get("/history/session/{session_id}", response_class=HTMLResponse)
 async def session_detail(
-    guild_id: int,
     session_id: int,
     request: Request,
     session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_guild_id),
 ) -> HTMLResponse:
     summary = await history_service.session_summary(session, guild_id, session_id)
     uids: set[int] = set()
@@ -131,7 +129,6 @@ async def session_detail(
         {
             "request": request,
             "user": current_user(request),
-            "guild_id": guild_id,
             "guild_name": await guild_name_for(session, guild_id),
             "summary": summary,
             "names": names,

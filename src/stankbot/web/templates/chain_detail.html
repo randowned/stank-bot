@@ -22,7 +22,7 @@
     <tbody>
       {% for uid, n in summary.contributors %}
       <tr>
-        <td><a href="/g/{{ guild_id }}/player/{{ uid }}">{{ names.get(uid, uid) }}</a></td>
+        <td><a href="/player/{{ uid }}">{{ names.get(uid, uid) }}</a></td>
         <td>{{ n }}</td>
       </tr>
       {% endfor %}
@@ -32,5 +32,5 @@
 {% else %}
 <div class="panel"><p class="muted">Chain not found.</p></div>
 {% endif %}
-<p><a href="/g/{{ guild_id }}/history/chains">← All chains</a></p>
+<p><a href="/history/chains">← All chains</a></p>
 {% endblock %}

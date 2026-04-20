@@ -8,7 +8,7 @@
     <tbody>
       {% for s in sessions %}
       <tr>
-        <td><a href="/g/{{ guild_id }}/history/session/{{ s.id }}">{{ s.id }}</a></td>
+        <td><a href="/history/session/{{ s.id }}">{{ s.id }}</a></td>
         <td>{{ s.started_at.strftime('%Y-%m-%d %H:%M') if s.started_at else '—' }}</td>
       </tr>
       {% else %}
@@ -17,5 +17,5 @@
     </tbody>
   </table>
 </div>
-<p><a href="/g/{{ guild_id }}/board">← Back to board</a></p>
+<p><a href="/">← Back to board</a></p>
 {% endblock %}

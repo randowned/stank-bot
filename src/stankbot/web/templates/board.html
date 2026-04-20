@@ -36,7 +36,7 @@
       <tr>
         <td>{{ loop.index }}</td>
         <td>
-          <a href="/g/{{ guild_id }}/player/{{ row.user_id }}">{{ row.display_name }}</a>
+          <a href="/player/{{ row.user_id }}">{{ row.display_name }}</a>
         </td>
         <td>{{ row.earned_sp }}</td>
         <td>{{ row.punishments }}</td>
@@ -50,11 +50,11 @@
 </div>
 
 <div class="panel">
-  <a href="/g/{{ guild_id }}/history/chains">Chains</a> ·
-  <a href="/g/{{ guild_id }}/history/sessions">Sessions</a>
+  <a href="/history/chains">Chains</a> ·
+  <a href="/history/sessions">Sessions</a>
   {% if user %}
-    · <a href="/g/{{ guild_id }}/me">My profile</a>
-    · <a href="/g/{{ guild_id }}/admin/settings">Admin</a>
+    · <a href="/me">My profile</a>
+    · <a href="/admin/settings">Admin</a>
   {% endif %}
 </div>
 {% endblock %}
