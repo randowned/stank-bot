@@ -18,7 +18,7 @@ Rankings are **net SP** (earned SP minus PP).
 | React to an in-chain sticker with the altar emoji | +1 SP (once per user per message) |
 | Break the chain | −(25 + chain_length × 2) PP |
 
-All values are per-guild defaults, editable on the web dashboard. The same user cannot stank twice within the configurable cooldown (default 10 minutes).
+All values are per-guild defaults, editable on the web dashboard. The same user cannot stank twice within the configurable cooldown (default 20 minutes).
 
 Sessions roll over on a cron (default 07:00 / 15:00 / 23:00 UTC) with configurable warning minutes. Chain continuity across sessions is on by default — the live chain survives the session boundary.
 
@@ -109,8 +109,7 @@ Everything else — scoring tuning, reset hours, embed templates, feature toggle
 
 ```
 /stank-admin altars add channel:#altar sticker:<sticker_id>
-/stank-admin channels add purpose:commands       channel:#bot-commands
-/stank-admin channels add purpose:announcements  channel:#general
+/stank-admin announcements add channel:#general
 /stank-admin admin-roles add role:@Mods
 /stank-admin rebuild-from-history        # optional — replay existing chat
 ```
@@ -138,10 +137,10 @@ Everything else — scoring tuning, reset hours, embed templates, feature toggle
 | `/stank-admin new-session` | End current session, start next; chain persists. |
 | `/stank-admin reset` | Wipe chain / events / records (destructive, confirmation). |
 | `/stank-admin rebuild-from-history` | Wipe + replay altar channel history (destructive). |
-| `/stank-admin record-test` | Ephemeral preview of the record announcement. |
+| `/stank-admin preview` | Ephemeral preview of record, chain, session, or cooldown embeds. |
 | `/stank-admin log [lines]` | Tail recent bot log. |
 | `/stank-admin config view` | Read-only snapshot of current settings. |
-| `/stank-admin channels add\|remove` | Wire command / announcement channels. |
+| `/stank-admin announcements add\|remove\|list` | Manage announcement channels. |
 | `/stank-admin admin-roles add\|remove\|list` | Manage admin roles. |
 | `/stank-admin altars add\|remove\|list` | Register / remove altars. |
 
@@ -156,6 +155,6 @@ CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 - `/me` → `/player/{user_id}` — your stats, badges, history.
 - `/history/chains` · `/history/chain/{id}` — chain browser + replay.
 - `/history/sessions` · `/history/session/{id}` — session browser + summary.
-- `/admin/settings` — scoring / reset / feature toggles.
+- `/admin/settings` — scoring / reset / feature toggles; displays visual feedback (saved indicator) when settings are updated.
 - `/admin/altar` · `/admin/roles` · `/admin/audit` — wiring + audit trail.
 
