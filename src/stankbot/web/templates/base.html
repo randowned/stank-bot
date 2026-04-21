@@ -112,6 +112,7 @@
   {% if user %}
   {% set _path = request.url.path %}
   <nav class="main-nav">
+    <a href="/"{% if _path == "/" %} class="active"{% endif %}>Board</a>
     {% set _nav_items = [('/history/chains', 'Chains'), ('/history/sessions', 'Sessions'), ('/me', 'My profile')] %}
     {% if is_admin %}
       {% set _nav_items = _nav_items + [('/admin/altar', 'Altar'), ('/admin/roles', 'Admins'), ('/admin/audit', 'Audit log'), ('/admin/settings', 'Settings')] %}
