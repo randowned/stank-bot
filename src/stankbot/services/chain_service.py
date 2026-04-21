@@ -438,6 +438,10 @@ class ChainService:
         """
         if config.sp_reaction <= 0:
             return 0
+        if not await chains_repo.message_in_active_chain(
+            self.session, guild_id, altar.id, message_id
+        ):
+            return 0
         await players_repo.get_or_create(
             self.session, guild_id, user_id, user_display_name
         )

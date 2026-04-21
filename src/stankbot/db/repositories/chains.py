@@ -114,6 +114,24 @@ async def messages_in_chain(
     return (await session.execute(stmt)).scalars().all()
 
 
+async def message_in_active_chain(
+    session: AsyncSession, guild_id: int, altar_id: int, message_id: int
+) -> bool:
+    """Return True only if message_id belongs to the current unbroken chain."""
+    stmt = (
+        select(ChainMessage.message_id)
+        .join(Chain, Chain.id == ChainMessage.chain_id)
+        .where(
+            Chain.guild_id == guild_id,
+            Chain.altar_id == altar_id,
+            Chain.broken_at.is_(None),
+            ChainMessage.message_id == message_id,
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none() is not None
+
+
 async def contributors(session: AsyncSession, chain_id: int) -> list[int]:
     """Return the ordered list of ``user_id``s that posted in this chain."""
     stmt = (
