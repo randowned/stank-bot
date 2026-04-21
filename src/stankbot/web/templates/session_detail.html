@@ -21,6 +21,10 @@
     <p>💀 Top breaker: <a href="/player/{{ summary.top_breaker[0] }}">{{ names.get(summary.top_breaker[0], summary.top_breaker[0]) }}</a> — {{ summary.top_breaker[1] }} PP</p>
   {% endif %}
 </div>
+<div class="panel">
+  <h2>⛓️ Chains in this session</h2>
+  {% include "_chains_table.html" %}
+</div>
 {% else %}
 <div class="panel"><p class="muted">Session not found.</p></div>
 {% endif %}

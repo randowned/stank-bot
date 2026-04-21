@@ -53,6 +53,7 @@ class Keys(StrEnum):
     CHAIN_CONTINUES_ACROSS_SESSIONS = "chain_continues_across_sessions"
     # Display
     STANK_RANKING_ROWS = "stank_ranking_rows"
+    BOARD_NAME_MAX_LEN = "board_name_max_len"
     # Templates (full embed descriptors — code-managed, not user-editable)
     BOARD_EMBED = "board_embed"
     RECORD_EMBED = "record_embed"
@@ -78,11 +79,76 @@ DEFAULTS: dict[str, Any] = {
     Keys.RESET_WARNING_MINUTES: [30, 5],
     Keys.CHAIN_CONTINUES_ACROSS_SESSIONS: True,
     Keys.STANK_RANKING_ROWS: 5,
+    Keys.BOARD_NAME_MAX_LEN: 20,
     Keys.ENABLE_REACTION_BONUS: True,
     Keys.MAINTENANCE_MODE: False,
     # Embed templates are seeded per guild on install (see
     # `SettingsService.seed_defaults`) rather than inlined here; default
     # dicts live in `services/default_templates.py`.
+}
+
+
+LABELS: dict[str, tuple[str, str]] = {
+    Keys.SP_FLAT: (
+        "Flat SP per stank",
+        "Base points every stanker earns for adding to a chain.",
+    ),
+    Keys.SP_POSITION_BONUS: (
+        "Position bonus",
+        "Extra SP multiplied by the stanker's position in the chain (rewards keeping a long chain going).",
+    ),
+    Keys.SP_STARTER_BONUS: (
+        "Chain-starter bonus",
+        "One-time SP awarded to whoever starts a new chain.",
+    ),
+    Keys.SP_FINISH_BONUS: (
+        "Chain-finisher bonus",
+        "One-time SP awarded to the last stanker of a chain when it is broken.",
+    ),
+    Keys.SP_REACTION: (
+        "Reaction SP",
+        "SP awarded per Stank reaction on an altar message (if reaction bonus is enabled).",
+    ),
+    Keys.PP_BREAK_BASE: (
+        "Break penalty (base)",
+        "PP (punishment points) charged to whoever breaks a chain, before the per-stank multiplier.",
+    ),
+    Keys.PP_BREAK_PER_STANK: (
+        "Break penalty per stank",
+        "Additional PP per stank in the chain that was broken.",
+    ),
+    Keys.RESTANK_COOLDOWN_SECONDS: (
+        "Restank cooldown (seconds)",
+        "Minimum wait between two stanks by the same user on the same altar.",
+    ),
+    Keys.RESET_HOURS_UTC: (
+        "Session reset hours (UTC)",
+        "Comma-separated UTC hours (0–23) at which a new session starts.",
+    ),
+    Keys.RESET_WARNING_MINUTES: (
+        "Pre-reset warning minutes",
+        "Comma-separated minutes-before-reset at which to post a heads-up (e.g. 30, 5).",
+    ),
+    Keys.CHAIN_CONTINUES_ACROSS_SESSIONS: (
+        "Chains continue across sessions",
+        "If on, an in-progress chain survives the session rollover instead of being broken.",
+    ),
+    Keys.STANK_RANKING_ROWS: (
+        "Leaderboard rows",
+        "How many players to show on the board (Discord embed + dashboard).",
+    ),
+    Keys.BOARD_NAME_MAX_LEN: (
+        "Max display-name length",
+        "Names longer than this on the board are truncated with an ellipsis (…).",
+    ),
+    Keys.ENABLE_REACTION_BONUS: (
+        "Reaction bonus enabled",
+        "Award SP when users react to altar messages with the Stank emoji.",
+    ),
+    Keys.MAINTENANCE_MODE: (
+        "Maintenance mode",
+        "Silently ignore new stanks — useful during config changes or migrations.",
+    ),
 }
 
 

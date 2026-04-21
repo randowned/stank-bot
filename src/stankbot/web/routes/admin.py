@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import audit_log as audit_repo
 from stankbot.services.permission_service import PermissionService
-from stankbot.services.settings_service import Keys, SettingsService
+from stankbot.services.settings_service import LABELS, Keys, SettingsService
 from stankbot.web.deps import (
     current_user,
     get_db,
@@ -52,6 +52,8 @@ async def settings_page(
             "user": current_user(request),
             "guild_name": await guild_name_for(session, guild_id),
             "settings": values,
+            "labels": LABELS,
+            "saved": request.query_params.get("saved") == "1",
         },
     )
 
@@ -76,6 +78,7 @@ async def settings_save(
         Keys.PP_BREAK_PER_STANK,
         Keys.RESTANK_COOLDOWN_SECONDS,
         Keys.STANK_RANKING_ROWS,
+        Keys.BOARD_NAME_MAX_LEN,
     ):
         raw = form.get(str(key))
         if raw is not None and str(raw).strip():
@@ -107,7 +110,7 @@ async def settings_save(
         action="settings.update",
         payload={"via": "web"},
     )
-    return RedirectResponse("/admin/settings", status_code=303)
+    return RedirectResponse("/admin/settings?saved=1", status_code=303)
 
 
 @router.get("/altar", response_class=HTMLResponse)

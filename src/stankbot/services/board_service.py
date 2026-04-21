@@ -38,6 +38,12 @@ async def _display_names(
     return {int(uid): name or str(uid) for uid, name in rows}
 
 
+def _truncate(name: str, max_len: int) -> str:
+    if max_len < 2 or len(name) <= max_len:
+        return name
+    return name[: max_len - 1] + "\u2026"
+
+
 async def build_board_state(
     session: AsyncSession,
     *,
@@ -68,6 +74,7 @@ async def build_board_state(
 
     # Leaderboard for top-N display
     rows_limit = int(await settings.get(guild_id, Keys.STANK_RANKING_ROWS, 5))
+    name_max = int(await settings.get(guild_id, Keys.BOARD_NAME_MAX_LEN, 20))
     board_rows = await events_repo.leaderboard(
         session, guild_id, session_id=session_id, limit=max(rows_limit, 10)
     )
@@ -87,7 +94,7 @@ async def build_board_state(
     rankings = [
         PlayerRow(
             user_id=uid,
-            display_name=names.get(uid, str(uid)),
+            display_name=_truncate(names.get(uid, str(uid)), name_max),
             earned_sp=sp,
             punishments=pp,
         )
@@ -102,7 +109,7 @@ async def build_board_state(
         )
         starter_row = PlayerRow(
             user_id=starter_uid,
-            display_name=names.get(starter_uid, str(starter_uid)),
+            display_name=_truncate(names.get(starter_uid, str(starter_uid)), name_max),
             earned_sp=sp,
             punishments=pp,
         )
@@ -112,7 +119,7 @@ async def build_board_state(
         bid, pp = breaker_pair
         breaker_row = PlayerRow(
             user_id=bid,
-            display_name=names.get(bid, str(bid)),
+            display_name=_truncate(names.get(bid, str(bid)), name_max),
             earned_sp=0,
             punishments=pp,
         )

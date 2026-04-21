@@ -120,12 +120,19 @@ async def session_detail(
     _user: dict = Depends(require_guild_member),
 ) -> HTMLResponse:
     summary = await history_service.session_summary(session, guild_id, session_id)
+    chains_stmt = (
+        select(Chain)
+        .where(Chain.guild_id == guild_id, Chain.session_id == session_id)
+        .order_by(Chain.id.desc())
+    )
+    chains = list((await session.execute(chains_stmt)).scalars().all())
     uids: set[int] = set()
     if summary is not None:
         if summary.top_earner:
             uids.add(summary.top_earner[0])
         if summary.top_breaker:
             uids.add(summary.top_breaker[0])
+    uids.update(c.starter_user_id for c in chains if c.starter_user_id)
     names = await player_names_for(session, guild_id, uids)
     templates = get_templates(request)
     return templates.TemplateResponse(
@@ -137,5 +144,6 @@ async def session_detail(
             "guild_name": await guild_name_for(session, guild_id),
             "summary": summary,
             "names": names,
+            "chains": chains,
         },
     )

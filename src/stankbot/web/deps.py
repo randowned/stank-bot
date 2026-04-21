@@ -19,10 +19,40 @@ if TYPE_CHECKING:
     from stankbot.config import AppConfig
 
 
+def _is_admin_from_session(request: Request) -> bool:
+    """Cookie-based admin check for nav rendering.
+
+    Mirrors the MANAGE_GUILD + owner paths in ``require_guild_admin`` but
+    skips the DB-configured admin extras so this can run synchronously in
+    a Jinja context processor. The server still 403s on unauthorized pages
+    — this only decides which nav links to show.
+    """
+    user = current_user(request)
+    if user is None:
+        return False
+    config: AppConfig = request.app.state.config
+    guild_id = config.default_guild_id
+    if int(user.get("id", 0)) == int(getattr(config, "owner_id", 0) or 0):
+        return True
+    guilds = request.session.get("guilds", [])
+    match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
+    if match is None:
+        return False
+    perms = int(match.get("permissions", 0))
+    return bool(perms & 0x20)
+
+
+def _admin_context(request: Request) -> dict[str, Any]:
+    return {"is_admin": _is_admin_from_session(request)}
+
+
 def get_templates(request: Request) -> Jinja2Templates:
     templates = getattr(request.app.state, "_templates", None)
     if templates is None:
-        templates = Jinja2Templates(directory=str(request.app.state.templates_dir))
+        templates = Jinja2Templates(
+            directory=str(request.app.state.templates_dir),
+            context_processors=[_admin_context],
+        )
         request.app.state._templates = templates
     return templates
 

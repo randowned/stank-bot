@@ -77,8 +77,9 @@ def _format_rankings_table(rows: list[PlayerRow], limit: int, *, dashboard_url: 
     lines: list[str] = []
     for i, row in enumerate(rows[:limit], start=1):
         medal = medals.get(i, "\u3000")
+        pad = " " if limit >= 10 and i < 10 else ""
         lines.append(
-            f"`{i}.` {medal} **{row.display_name}** \u2014 {row.net} SP"
+            f"`{pad}{i}.` {medal} **{row.display_name}** \u2014 {row.net} SP"
         )
     text = "\n".join(lines)
     if len(text) > _FIELD_VALUE_LIMIT:

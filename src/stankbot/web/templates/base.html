@@ -16,6 +16,7 @@
       --accent: #a47cff;
       --gold: #ffd166;
       --danger: #ff6b6b;
+      --ok: #4ade80;
     }
     * { box-sizing: border-box; }
     body {
@@ -27,13 +28,29 @@
     }
     header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 24px; background: var(--panel);
+      padding: 8px 16px; background: var(--panel);
       border-bottom: 1px solid var(--border);
     }
-    header a { color: var(--text); text-decoration: none; font-weight: 600; }
-    nav a { color: var(--muted); margin-left: 16px; text-decoration: none; }
-    nav a:hover { color: var(--text); }
-    main { max-width: 960px; margin: 32px auto; padding: 0 24px; }
+    header a.brand { color: var(--text); text-decoration: none; font-weight: 600; font-size: 0.95em; }
+    header .stank-icon { height: 1em; }
+    header nav a { color: var(--muted); margin-left: 14px; text-decoration: none; font-size: 0.9em; }
+    header nav a:hover { color: var(--text); }
+
+    .main-nav {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; gap: 4px; flex-wrap: wrap;
+      background: var(--panel); border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+    }
+    .main-nav a {
+      color: var(--muted); text-decoration: none;
+      padding: 6px 12px; border-radius: 6px; font-size: 0.95em;
+    }
+    .main-nav a:hover { color: var(--text); background: var(--border); }
+    .main-nav a.active { color: #1a1425; background: var(--accent); font-weight: 600; }
+    .main-nav .spacer { flex: 1; }
+
+    main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
     h1, h2, h3 { color: var(--text); margin-top: 0; }
     a { color: var(--accent); }
     .panel {
@@ -56,6 +73,8 @@
     button.secondary { background: var(--border); color: var(--text); }
     label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 0.9em; }
     .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+    .field { display: flex; flex-direction: column; }
+    .field .help { margin-top: 6px; font-size: 0.8em; line-height: 1.35; }
     .badge { display: inline-block; background: var(--border); padding: 4px 8px;
              border-radius: 4px; margin-right: 6px; font-size: 0.9em; }
     .embed-preview {
@@ -69,22 +88,18 @@
     .embed-preview .field .value { white-space: pre-wrap; }
     .stank-icon { height: 1.1em; width: auto; vertical-align: -0.15em; }
     h1 .stank-icon, h2 .stank-icon { height: 1em; }
-    .admin-nav {
-      display: flex; gap: 4px; flex-wrap: wrap;
-      background: var(--panel); border: 1px solid var(--border);
-      border-radius: 8px; padding: 8px; margin-bottom: 16px;
+
+    .save-row { display: flex; align-items: center; gap: 16px; }
+    .saved-indicator {
+      color: var(--ok); font-weight: 600; font-size: 0.95em;
+      opacity: 1; transition: opacity 0.6s ease-out;
     }
-    .admin-nav a {
-      color: var(--muted); text-decoration: none;
-      padding: 6px 12px; border-radius: 6px; font-size: 0.95em;
-    }
-    .admin-nav a:hover { color: var(--text); background: var(--border); }
-    .admin-nav a.active { color: #1a1425; background: var(--accent); font-weight: 600; }
+    .saved-indicator.fade-out { opacity: 0; }
   </style>
 </head>
 <body>
   <header>
-    <a href="/"><img src="/static/Stank.gif" alt="Stank" class="stank-icon"> StankBot</a>
+    <a href="/" class="brand"><img src="/static/Stank.gif" alt="Stank" class="stank-icon"> StankBot</a>
     <nav>
       {% if user %}
         <span class="muted">{{ user.username }}</span>
@@ -94,6 +109,18 @@
       {% endif %}
     </nav>
   </header>
+  {% if user %}
+  {% set _path = request.url.path %}
+  <nav class="main-nav">
+    {% set _nav_items = [('/history/chains', 'Chains'), ('/history/sessions', 'Sessions'), ('/me', 'My profile')] %}
+    {% if is_admin %}
+      {% set _nav_items = _nav_items + [('/admin/altar', 'Altar'), ('/admin/roles', 'Admins'), ('/admin/audit', 'Audit log'), ('/admin/settings', 'Settings')] %}
+    {% endif %}
+    {% for href, label in _nav_items %}
+      <a href="{{ href }}"{% if _path == href %} class="active"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
   <main>
     {% block content %}{% endblock %}
   </main>
