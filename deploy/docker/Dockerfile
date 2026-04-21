@@ -27,7 +27,8 @@ RUN pip install --upgrade pip && pip install .
 
 RUN install -d -o stankbot -g stankbot /data
 
-ENV DATABASE_URL=sqlite+aiosqlite:////data/stankbot.db
+ENV DATABASE_URL=sqlite+aiosqlite:////data/stankbot.db \
+    TEMPLATES_DIR=/data/templates
 
 EXPOSE 8000
 
