@@ -32,6 +32,7 @@ class AppConfig(BaseSettings):
     discord_token: SecretStr
     discord_app_id: int = 1494266000064122930
     owner_id: int | None = None
+    owner_default_guild_id: int | None = None
     guild_ids: Annotated[list[int], NoDecode] = Field(default_factory=list)
 
     # --- Database ---
@@ -104,17 +105,15 @@ class AppConfig(BaseSettings):
 
     @property
     def default_guild_id(self) -> int:
-        # The dashboard is single-guild at runtime. The first entry of
-        # ``GUILD_IDS`` is the one every web page reads from; remaining
-        # ids still drive slash-command syncing in the bot layer.
-        if not self.guild_ids:
-            raise ConfigError(
-                "GUILD_IDS is empty. The web dashboard is single-guild; "
-                "set GUILD_IDS=<your-guild-id> (comma-separated if you "
-                "want multiple for slash-command syncing, but the first "
-                "one is used for the dashboard)."
-            )
-        return self.guild_ids[0]
+        if self.owner_default_guild_id is not None:
+            return self.owner_default_guild_id
+        if self.guild_ids:
+            return self.guild_ids[0]
+        raise ConfigError(
+            "No default guild configured. Set OWNER_DEFAULT_GUILD_ID=<guild-id> "
+            "in .env.local (for single-guild dev), or GUILD_IDS=<guild-id> "
+            "(comma-separated for multi-guild)."
+        )
 
     @property
     def web_host(self) -> str:

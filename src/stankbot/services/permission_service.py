@@ -3,8 +3,11 @@
 Admin if any of:
     * the member is the global bot owner (``AppConfig.owner_id``), OR
     * the member has the Discord ``Manage Guild`` permission, OR
-    * the member has any role listed in ``admin_roles`` for this guild, OR
-    * the member is listed in ``admin_users`` for this guild.
+    * the member is listed in ``admin_users`` (global — works for all guilds), OR
+    * the member has any role listed in ``admin_roles`` for this guild.
+
+``admin_users`` is a global list (guild_id=0 sentinel rows). Adding a user
+there grants them admin in every guild. ``admin_roles`` stays per-guild.
 
 Framework-agnostic — takes plain inputs (ids, role ids, a ``has_manage_guild``
 flag) so the same function serves both the discord.py layer and FastAPI.
@@ -38,8 +41,9 @@ class PermissionService:
             return True
         if has_manage_guild:
             return True
-        user_grant = await self.session.get(AdminUser, (guild_id, user_id))
-        if user_grant is not None:
+        global_admin_stmt = select(AdminUser.user_id).where(AdminUser.user_id == user_id)
+        is_global_admin = await self.session.execute(global_admin_stmt)
+        if is_global_admin.scalar_one_or_none() is not None:
             return True
         role_set = set(user_role_ids)
         if not role_set:
@@ -48,22 +52,25 @@ class PermissionService:
         admin_ids = set((await self.session.execute(stmt)).scalars().all())
         return bool(admin_ids & role_set)
 
-    async def add_admin_user(self, guild_id: int, user_id: int) -> bool:
-        existing = await self.session.get(AdminUser, (guild_id, user_id))
+    async def add_admin_user(self, user_id: int) -> bool:
+        stmt = select(AdminUser).where(AdminUser.user_id == user_id)
+        existing = (await self.session.execute(stmt)).scalar_one_or_none()
         if existing is not None:
             return False
-        self.session.add(AdminUser(guild_id=guild_id, user_id=user_id))
+        self.session.add(AdminUser(guild_id=0, user_id=user_id))
         return True
 
-    async def remove_admin_user(self, guild_id: int, user_id: int) -> bool:
-        existing = await self.session.get(AdminUser, (guild_id, user_id))
-        if existing is None:
+    async def remove_admin_user(self, user_id: int) -> bool:
+        stmt = select(AdminUser).where(AdminUser.user_id == user_id)
+        existing = (await self.session.execute(stmt)).scalars().all()
+        if not existing:
             return False
-        await self.session.delete(existing)
+        for row in existing:
+            await self.session.delete(row)
         return True
 
-    async def list_admin_users(self, guild_id: int) -> list[int]:
-        stmt = select(AdminUser.user_id).where(AdminUser.guild_id == guild_id)
+    async def list_admin_users(self) -> list[int]:
+        stmt = select(AdminUser.user_id)
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def add_admin_role(self, guild_id: int, role_id: int) -> bool:

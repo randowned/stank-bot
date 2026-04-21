@@ -24,16 +24,16 @@ def _is_admin_from_session(request: Request) -> bool:
 
     Mirrors the MANAGE_GUILD + owner paths in ``require_guild_admin`` but
     skips the DB-configured admin extras so this can run synchronously in
-    a Jinja context processor. The server still 403s on unauthorized pages
-    — this only decides which nav links to show.
+    a Jinja context processor. Owner is always admin. For non-owners:
+    checks MANAGE_GUILD permission in the active guild.
     """
     user = current_user(request)
     if user is None:
         return False
-    config: AppConfig = request.app.state.config
-    guild_id = config.default_guild_id
-    if int(user.get("id", 0)) == int(getattr(config, "owner_id", 0) or 0):
+    if _is_owner(request):
         return True
+    config: AppConfig = request.app.state.config
+    guild_id = get_active_guild_id(request)
     guilds = request.session.get("guilds", [])
     match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
     if match is None:
@@ -43,7 +43,22 @@ def _is_admin_from_session(request: Request) -> bool:
 
 
 def _admin_context(request: Request) -> dict[str, Any]:
-    return {"is_admin": _is_admin_from_session(request)}
+    bot_guilds: list[dict[str, object]] = getattr(request.app.state, "bot_guilds", [])
+    user_guild_ids = {int(g.get("id", 0)) for g in request.session.get("guilds", [])}
+    return {
+        "is_admin": _is_admin_from_session(request),
+        "is_owner": _is_owner(request),
+        "active_guild_id": get_active_guild_id(request),
+        "bot_guilds": [
+            {
+                "id": g["id"],
+                "name": g["name"],
+                "icon": g.get("icon"),
+                "in_oauth": g["id"] in user_guild_ids,
+            }
+            for g in bot_guilds
+        ],
+    }
 
 
 def get_templates(request: Request) -> Jinja2Templates:
@@ -127,6 +142,7 @@ def require_guild_member(request: Request) -> dict[str, Any]:
     Redirects unauthenticated visitors to ``/`` (which shows the login UI).
     Raises ``_NotInGuild`` (rendered as ``unauthorized.html``) for users who
     are logged in but not a member of the configured guild.
+    Owner is always allowed even if not a member.
     """
     user = current_user(request)
     if user is None:
@@ -136,6 +152,8 @@ def require_guild_member(request: Request) -> dict[str, Any]:
         raise _LoginRedirect(
             RedirectResponse(url=f"/auth/login?next={quote(next_url)}", status_code=302)
         )
+    if _is_owner(request):
+        return user
     config: AppConfig = request.app.state.config
     if not _is_guild_member(request, config.default_guild_id):
         templates = get_templates(request)
@@ -179,25 +197,40 @@ def get_guild_id(request: Request) -> int:
     return config.default_guild_id
 
 
+def get_active_guild_id(request: Request) -> int:
+    """The guild currently selected in the session (for admin views).
+
+    Returns the session's active_guild_id, or falls back to the default.
+    """
+    config: AppConfig = request.app.state.config
+    return request.session.get("active_guild_id") or config.default_guild_id
+
+
+def _is_owner(request: Request) -> bool:
+    """Check if current user is the bot owner."""
+    user = current_user(request)
+    if user is None:
+        return False
+    config: AppConfig = request.app.state.config
+    return int(user.get("id", 0)) == int(getattr(config, "owner_id", 0) or 0)
+
+
 async def require_guild_admin(
     request: Request,
     session: AsyncSession = Depends(get_db),
     user: dict[str, Any] = Depends(require_login),
 ) -> dict[str, Any]:
-    """Verify the session-user is an admin of the configured guild.
+    """Verify the session-user is an admin of the active guild.
 
-    Uses :class:`stankbot.services.permission_service.PermissionService`
-    with the role list cached in the user's session (populated at login
-    time from Discord's ``/users/@me/guilds`` response — which includes
-    ``permissions``). Server-side role lookup would require a full
-    member fetch through the bot, which is overkill for the dashboard.
+    Owner (config.owner_id) is always admin of any guild (superadmin).
+    For non-owners: requires MANAGE_GUILD permission OR global admin_users
+    entry OR admin_roles entry for the active guild.
     """
     from stankbot.services.permission_service import PermissionService
 
     config: AppConfig = request.app.state.config
-    guild_id = config.default_guild_id
+    guild_id = get_active_guild_id(request)
 
-    guilds = request.session.get("guilds", [])
     def _unauthorized() -> _NotInGuild:
         templates = get_templates(request)
         return _NotInGuild(
@@ -209,6 +242,10 @@ async def require_guild_admin(
             )
         )
 
+    if _is_owner(request):
+        return user
+
+    guilds = request.session.get("guilds", [])
     match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
     if match is None:
         raise _unauthorized()

@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 
+from stankbot.bot import StankBot
 from stankbot.config import AppConfig
 from stankbot.web.deps import _LoginRedirect, _NotInGuild
 from stankbot.web.routes import admin, auth, history, player, public
@@ -36,7 +37,7 @@ def build_app(
     engine: AsyncEngine,
     session_factory: async_sessionmaker,  # type: ignore[type-arg]
     *,
-    bot: object | None = None,
+    bot: StankBot | None = None,
 ) -> FastAPI:
     app = FastAPI(title="StankBot", docs_url=None, redoc_url=None)
 
@@ -52,6 +53,10 @@ def build_app(
     app.state.session_factory = session_factory
     app.state.templates_dir = _TEMPLATES_DIR
     app.state.bot = bot
+    if bot is not None:
+        app.state.bot_guilds = bot._bot_guilds
+    else:
+        app.state.bot_guilds = []
 
     static_dir = _TEMPLATES_DIR.parent / "static"
     if static_dir.is_dir():

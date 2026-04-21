@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -33,13 +34,15 @@ def build_intents() -> discord.Intents:
 _COG_MODULES: tuple[str, ...] = (
     "stankbot.cogs.chain_listener",
     "stankbot.cogs.stank_commands",
-    "stankbot.cogs.admin",
+    "stankbot.cogs.preview",
 )
 
 
 class StankBot(commands.Bot):
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
+    _bot_guilds: list[dict[str, object]]
+    _guilds_loaded: asyncio.Event
 
     def __init__(self, config: AppConfig) -> None:
         super().__init__(
@@ -51,6 +54,8 @@ class StankBot(commands.Bot):
         self.engine = build_engine(config.database_url)
         self.session_factory = build_sessionmaker(self.engine)
         self.scheduler = SessionScheduler(self)
+        self._bot_guilds = []
+        self._guilds_loaded = asyncio.Event()
 
     @asynccontextmanager
     async def db(self) -> AsyncIterator[AsyncSession]:
@@ -94,6 +99,41 @@ class StankBot(commands.Bot):
     async def on_ready(self) -> None:
         assert self.user is not None
         log.info("Logged in as %s (id=%d)", self.user, self.user.id)
+        await self._load_bot_guilds()
+
+    async def _load_bot_guilds(self) -> None:
+        """Cache the list of guilds this bot is added to, for the web
+        dashboard guild selector and owner super-admin access.
+        """
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://discord.com/api/v10/users/@me/guilds",
+                    headers={
+                        "Authorization": f"Bot {self.config.discord_token.get_secret_value()}",
+                    },
+                )
+            if resp.status_code != 200:
+                log.warning("failed to fetch bot guilds: %s", resp.status_code)
+                self._bot_guilds = []
+            else:
+                guilds_data: list[dict[str, object]] = resp.json()
+                self._bot_guilds = [
+                    {
+                        "id": int(g["id"]),
+                        "name": str(g.get("name", "")),
+                        "icon": g.get("icon"),
+                    }
+                    for g in guilds_data
+                ]
+                log.info("Loaded %d bot guilds", len(self._bot_guilds))
+        except Exception:
+            log.exception("error loading bot guilds")
+            self._bot_guilds = []
+        finally:
+            self._guilds_loaded.set()
 
     async def close(self) -> None:
         await self.scheduler.shutdown()

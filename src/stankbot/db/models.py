@@ -132,16 +132,16 @@ class AdminRole(Base):
 
 
 class AdminUser(Base):
-    """Individual users granted admin privileges.
+    """Individual users granted global admin privileges.
 
+    A ``guild_id`` of 0 marks a global entry (the actual guild_id column
+    is kept for DB backward compat but ignored in permission checks).
     Additive on top of ``AdminRole`` + ``Manage Guild`` + bot owner.
     """
 
     __tablename__ = "admin_users"
 
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("guilds.id", ondelete="CASCADE"), primary_key=True
-    )
+    guild_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, default=0)
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

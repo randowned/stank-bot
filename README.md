@@ -96,24 +96,26 @@ Environment (see `.env.example`):
 | `DISCORD_TOKEN` | Bot token |
 | `DISCORD_APP_ID` | Application id (default `1494266000064122930`) |
 | `DATABASE_URL` | SQLAlchemy URL, e.g. `sqlite+aiosqlite:///./data/stankbot.db` |
-| `OWNER_ID` | Your Discord user id — bypass permission checks |
+| `OWNER_ID` | Your Discord user id — superadmin across all guilds |
+| `OWNER_DEFAULT_GUILD_ID` | Guild presented to all players on the web dashboard (overrides first `GUILD_IDS` entry) |
 | `LOG_LEVEL` | `INFO` / `DEBUG` |
 | `ENABLE_WEB` | `true` to run the dashboard in the same process |
 | `WEB_HOST` / `WEB_PORT` | Dashboard bind (defaults `127.0.0.1:8000`) |
 | `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` / `OAUTH_REDIRECT_URI` | Dashboard login |
-| `GUILD_IDS` | Comma-separated guild ids for instant slash sync during dev |
+| `GUILD_IDS` | Comma-separated guild ids for slash sync; first entry is fallback default |
 | `SESSION_SECRET` | Cookie signing secret for the dashboard |
 
-Everything else — scoring tuning, reset hours, embed templates, feature toggles — lives on the web dashboard.
+Scoring tuning, reset hours, embed templates, feature toggles, altar wiring, and admin management all live on the web dashboard — no slash commands for any of it.
 
 ## First-time guild setup
 
-```
-/stank-admin altars add channel:#altar sticker:<sticker_id>
-/stank-admin announcements add channel:#general
-/stank-admin admin-roles add role:@Mods
-/stank-admin rebuild-from-history        # optional — replay existing chat
-```
+All setup happens on the web dashboard (log in with Discord OAuth):
+
+- `/admin/altar` — register the altar channel + sticker pattern + reaction emoji
+- `/admin/announcements` — add announcement channels
+- `/admin/roles` — add admin roles or users (roles per-guild, users global)
+- `/admin/settings` — scoring, reset hours, feature toggles
+- `/admin/rebuild` — optional: replay existing altar chat
 
 ## Command reference
 
@@ -130,32 +132,29 @@ Everything else — scoring tuning, reset hours, embed templates, feature toggle
 | `/stank history chain <id>` | Chain replay. |
 | `/stank history session <id>` | Session summary. |
 
-### Admin (`/stank-admin …`) — requires admin role or Manage Guild
+### Admin (`/preview`) — requires admin role or Manage Guild
 
 | Command | What it does |
 |---|---|
-| `/stank-admin dashboard` | Posts the dashboard URL for this guild. |
-| `/stank-admin new-session` | End current session, start next; chain persists. |
-| `/stank-admin reset` | Wipe chain / events / records (destructive, confirmation). |
-| `/stank-admin rebuild-from-history` | Wipe + replay altar channel history (destructive). |
-| `/stank-admin preview` | Ephemeral preview of record, chain, session, or cooldown embeds. |
-| `/stank-admin log [lines]` | Tail recent bot log. |
-| `/stank-admin config view` | Read-only snapshot of current settings. |
-| `/stank-admin announcements add\|remove\|list` | Manage announcement channels. |
-| `/stank-admin admin-roles add\|remove\|list` | Manage admin roles. |
-| `/stank-admin altars add\|remove\|list` | Register / remove altars. |
+| `/preview` | Ephemeral preview of record, chain, session, or cooldown embeds. |
 
-Template bodies, scoring overrides, reset hours, and achievement tuning are web-only — `/stank-admin config view` surfaces the current values but does not edit them.
+Every other admin action (altar wiring, scoring, reset, rebuild, announcements, admin users/roles, maintenance) lives on the web dashboard at `/admin/*`.
 
 CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 
 ## Web dashboard
 
-
 - `/` — public leaderboard + chain state.
 - `/me` → `/player/{user_id}` — your stats, badges, history.
 - `/history/chains` · `/history/chain/{id}` — chain browser + replay.
 - `/history/sessions` · `/history/session/{id}` — session browser + summary.
-- `/admin/settings` — scoring / reset / feature toggles; displays visual feedback (saved indicator) when settings are updated.
-- `/admin/altar` · `/admin/roles` · `/admin/audit` — wiring + audit trail.
+- `/admin/altar` — register / update / remove the altar channel.
+- `/admin/announcements` — manage announcement channels.
+- `/admin/roles` — admin roles (per-guild) + global admin users.
+- `/admin/settings` — scoring, reset hours, feature toggles.
+- `/admin/maintenance` — toggle maintenance mode.
+- `/admin/config` — read-only snapshot of current settings.
+- `/admin/templates` — live JSON editor for embed templates (stored in `data/templates/`).
+- `/admin/new-session` · `/admin/reset` · `/admin/rebuild` — session/state operations.
+- `/admin/audit` — audit trail.
 

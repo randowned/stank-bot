@@ -119,6 +119,7 @@ async def callback(
         }
         for g in guilds
     ]
+    request.session["active_guild_id"] = config.default_guild_id
     target = request.session.pop("oauth_next", None) or "/"
     return RedirectResponse(target, status_code=303)
 

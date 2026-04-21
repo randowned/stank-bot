@@ -100,7 +100,24 @@
 <body>
   <header>
     <a href="/" class="brand"><img src="/static/Stank.gif" alt="Stank" class="stank-icon"> StankBot</a>
+    {% if is_owner and bot_guilds %}
+    <select onchange="window.location.href='/admin/guilds/select?guild_id='+this.value" style="margin-left:12px;">
+      {% for g in bot_guilds %}
+      <option value="{{ g.id }}"{% if g.id == active_guild_id %} selected{% endif %}>{{ g.name }}</option>
+      {% endfor %}
+    </select>
+    {% elif is_admin and bot_guilds %}
+    {% set user_guilds = bot_guilds | selectattr("in_oauth") | list %}
+    {% if user_guilds %}
+    <select onchange="window.location.href='/admin/guilds/select?guild_id='+this.value" style="margin-left:12px;">
+      {% for g in user_guilds %}
+      <option value="{{ g.id }}"{% if g.id == active_guild_id %} selected{% endif %}>{{ g.name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    {% endif %}
     <nav>
+      <a href="https://discord.com/oauth2/authorize?client_id=1494266000064122930&scope=bot" target="_blank" style="color:var(--gold);">Add bot</a>
       {% if user %}
         <span class="muted">{{ user.username }}</span>
         <a href="/auth/logout">Logout</a>
@@ -115,7 +132,7 @@
     <a href="/"{% if _path == "/" %} class="active"{% endif %}>Board</a>
     {% set _nav_items = [('/history/chains', 'Chains'), ('/history/sessions', 'Sessions'), ('/me', 'My profile')] %}
     {% if is_admin %}
-      {% set _nav_items = _nav_items + [('/admin/altar', 'Altar'), ('/admin/roles', 'Admins'), ('/admin/audit', 'Audit log'), ('/admin/settings', 'Settings')] %}
+      {% set _nav_items = _nav_items + [('/admin/altar', 'Altar'), ('/admin/announcements', 'Announce'), ('/admin/roles', 'Admins'), ('/admin/maintenance', 'Maint.'), ('/admin/settings', 'Settings'), ('/admin/config', 'Config'), ('/admin/templates', 'Templates'), ('/admin/new-session', 'Session'), ('/admin/reset', 'Reset'), ('/admin/rebuild', 'Rebuild')] %}
     {% endif %}
     {% for href, label in _nav_items %}
       <a href="{{ href }}"{% if _path == href %} class="active"{% endif %}>{{ label }}</a>
