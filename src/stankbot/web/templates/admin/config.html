@@ -23,7 +23,7 @@
 <div class="panel">
   <h3>Scoring & Sessions</h3>
   <table>
-    {% for key, label in labels.items() %}
+    {% for key, (label, _help) in labels.items() %}
     <tr><td>{{ label }}</td><td><code>{{ settings.get(key) if key in settings else '—' }}</code></tr>
     {% endfor %}
   </table>

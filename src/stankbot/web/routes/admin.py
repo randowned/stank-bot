@@ -367,6 +367,7 @@ async def config_view_page(
             "guild_name": await guild_name_for(session, guild_id),
             "settings": values,
             "altars": altars,
+            "labels": LABELS,
         },
     )
 

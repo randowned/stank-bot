@@ -21,6 +21,9 @@ if __name__ == "__main__":
 class PreviewOnly(commands.Cog, name="stank-preview"):
     """Admin-only preview — no other admin commands live here."""
 
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
+
     @app_commands.command(
         name="preview",
         description="Preview an embed with sample data (ephemeral).",
