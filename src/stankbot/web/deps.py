@@ -19,6 +19,12 @@ if TYPE_CHECKING:
     from stankbot.config import AppConfig
 
 
+def _is_mock_auth(request: Request) -> bool:
+    """Return True when dev mock auth is active."""
+    config: AppConfig = request.app.state.config
+    return config.env == "dev" and config.mock_auth
+
+
 def _is_admin_from_session(request: Request) -> bool:
     """Cookie-based admin check for nav rendering.
 
@@ -27,12 +33,13 @@ def _is_admin_from_session(request: Request) -> bool:
     a Jinja context processor. Owner is always admin. For non-owners:
     checks MANAGE_GUILD permission in the active guild.
     """
+    if _is_mock_auth(request):
+        return True
     user = current_user(request)
     if user is None:
         return False
     if _is_owner(request):
         return True
-    config: AppConfig = request.app.state.config
     guild_id = get_active_guild_id(request)
     guilds = request.session.get("guilds", [])
     match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
@@ -143,7 +150,19 @@ def require_guild_member(request: Request) -> dict[str, Any]:
     Raises ``_NotInGuild`` (rendered as ``unauthorized.html``) for users who
     are logged in but not a member of the configured guild.
     Owner is always allowed even if not a member.
+    In dev mock-auth mode, auto-login is assumed.
     """
+    if _is_mock_auth(request):
+        user = current_user(request)
+        if user is not None:
+            return user
+        # Fabricate a mock user on the fly for routes that don't pre-login.
+        config: AppConfig = request.app.state.config
+        return {
+            "id": config.mock_default_user_id,
+            "username": config.mock_default_user_name,
+            "avatar": None,
+        }
     user = current_user(request)
     if user is None:
         next_url = str(request.url.path)
@@ -225,7 +244,11 @@ async def require_guild_admin(
     Owner (config.owner_id) is always admin of any guild (superadmin).
     For non-owners: requires MANAGE_GUILD permission OR global admin_users
     entry OR admin_roles entry for the active guild.
+    In dev mock-auth mode, all users are treated as admins.
     """
+    if _is_mock_auth(request):
+        return user
+
     from stankbot.services.permission_service import PermissionService
 
     config: AppConfig = request.app.state.config

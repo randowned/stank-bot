@@ -28,7 +28,13 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stankbot.web.deps import get_active_guild_id, get_db, require_login
+from stankbot.web.deps import (
+    _is_admin_from_session,
+    current_user,
+    get_active_guild_id,
+    get_db,
+    require_login,
+)
 
 log = logging.getLogger(__name__)
 
@@ -125,26 +131,38 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
 @_API_ROUTER.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    request: Request,
     guild_id: int = Query(...),
     user_id: int = Query(...),
 ) -> None:
     """WebSocket endpoint for real-time updates."""
 
-    session_factory = getattr(request.app.state, "session_factory", None)
+    app_state = websocket.app.state
+    session_factory = getattr(app_state, "session_factory", None)
     if session_factory is None:
         await websocket.close(code=4001, reason="No session factory")
         return
 
-    session = None
+    config = getattr(app_state, "config", None)
+    if config is not None and config.env == "dev" and config.mock_auth:
+        # In dev mock-auth mode, skip strict guild membership checks.
+        pass
+    else:
+        bot = getattr(app_state, "bot", None)
+        if bot is None:
+            await websocket.close(code=4003, reason="Not in guild")
+            return
+        guild = bot.get_guild(guild_id)
+        if guild is None:
+            await websocket.close(code=4003, reason="Not in guild")
+            return
+        member = guild.get_member(user_id)
+        if member is None:
+            await websocket.close(code=4003, reason="Not in guild")
+            return
+
+    await manager.connect(websocket, guild_id)
+
     try:
-        async with session_factory() as session:
-            if not _is_guild_member_check(request, guild_id, user_id):
-                await websocket.close(code=4003, reason="Not in guild")
-                return
-
-            await manager.connect(websocket, guild_id)
-
         while True:
             try:
                 data = await websocket.receive_bytes()
@@ -159,28 +177,30 @@ async def websocket_endpoint(
                 log.error("WebSocket error: %s", e)
                 break
     finally:
-        if session is not None:
-            await session.aclose()
         manager.disconnect(websocket, guild_id)
-
-
-def _is_guild_member_check(request: Request, guild_id: int, user_id: int) -> bool:
-    """Check if user is a member of the guild using the bot."""
-
-    bot = getattr(request.app.state, "bot", None)
-    if bot is None:
-        return False
-    guild = bot.get_guild(guild_id)
-    if guild is None:
-        return False
-    member = guild.get_member(user_id)
-    return member is not None
 
 
 @_API_ROUTER.get("/ping")
 async def ping() -> JSONResponse:
     """Health check for v2 API."""
     return JSONResponse({"status": "ok", "version": "v2"})
+
+
+@_API_ROUTER.get("/api/env")
+async def api_env(request: Request) -> JSONResponse:
+    """Return runtime environment info for the SvelteKit dashboard."""
+    config = request.app.state.config
+    user = current_user(request)
+    guild_id = get_active_guild_id(request) if user else None
+
+    return JSONResponse(
+        {
+            "env": config.env,
+            "guild_id": str(guild_id) if guild_id else None,
+            "is_admin": _is_admin_from_session(request) if user else False,
+            "mock_auth": config.mock_auth if config.env == "dev" else False,
+        }
+    )
 
 
 @_API_ROUTER.get("/auth")

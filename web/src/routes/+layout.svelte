@@ -42,6 +42,12 @@
 </script>
 
 <div class="min-h-screen flex flex-col">
+	{#if data.env === 'dev'}
+		<div class="bg-gold text-bg text-xs px-2 py-1 text-center font-bold">
+			DEV MODE — Mock Discord / Mock Auth Active
+		</div>
+	{/if}
+
 	<!-- Header -->
 	<header class="sticky top-0 z-50 bg-panel border-b border-border">
 		<div class="flex items-center justify-between px-4 py-3">
@@ -52,9 +58,9 @@
 
 			<div class="flex items-center gap-2">
 				{#if $connectionStatus === 'connected'}
-					<span class="w-2 h-2 rounded-full bg-ok animate-pulse" title="Live"></span>
+					<span class="w-2 h-2 rounded-full bg-ok animate-pulse" title="Live" data-testid="connection-dot"></span>
 				{:else}
-					<span class="w-2 h-2 rounded-full bg-muted" title="Offline"></span>
+					<span class="w-2 h-2 rounded-full bg-muted" title="Offline" data-testid="connection-dot"></span>
 				{/if}
 			</div>
 		</div>

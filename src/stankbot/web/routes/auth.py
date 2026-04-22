@@ -6,6 +6,10 @@ Scopes requested: ``identify`` (so we know who logged in) + ``guilds``
 On callback we stash a compact profile + the guild list into the
 signed Starlette session cookie. Admin checks in :mod:`web.deps` read
 the permissions integer out of that cached guild list.
+
+In ``ENV=dev`` with ``mock_auth=true``, the OAuth flow is bypassed in
+favour of automatic dev-login so you can open the dashboard without a
+real Discord account.
 """
 
 from __future__ import annotations
@@ -13,11 +17,11 @@ from __future__ import annotations
 import logging
 import secrets
 from typing import Any
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from stankbot.web.deps import get_config
 
@@ -34,9 +38,19 @@ def _is_safe_redirect(url: str) -> bool:
     parsed = urlparse(url)
     return url.startswith("/") and not parsed.scheme and not parsed.netloc
 
+
 _AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
 _TOKEN_URL = "https://discord.com/api/oauth2/token"
 _API_BASE = "https://discord.com/api/v10"
+
+_DEFAULT_MOCK_GUILDS = [
+    {
+        "id": 123456789,
+        "name": "Dev Server",
+        "icon": None,
+        "permissions": 0x20,
+    }
+]
 
 
 @router.get("/login")
@@ -45,6 +59,10 @@ async def login(
     next: str | None = None,
     config=Depends(get_config),
 ) -> RedirectResponse:
+    if config.env == "dev" and config.mock_auth:
+        target = f"/auth/mock-login?next={quote(next or '/')}" if next else "/auth/mock-login"
+        return RedirectResponse(target, status_code=302)
+
     if config.oauth_client_secret is None:
         raise HTTPException(
             status_code=503,
@@ -122,6 +140,73 @@ async def callback(
     request.session["active_guild_id"] = config.default_guild_id
     target = request.session.pop("oauth_next", None) or "/"
     return RedirectResponse(target, status_code=303)
+
+
+@router.get("/mock-login")
+async def mock_login_get(
+    request: Request,
+    next: str | None = None,
+    config=Depends(get_config),
+) -> RedirectResponse:
+    """Auto-login for dev mode — creates a session as the default dev user."""
+    if config.env != "dev":
+        raise HTTPException(status_code=403, detail="Mock auth only available in dev mode")
+
+    request.session["user"] = {
+        "id": config.mock_default_user_id,
+        "username": config.mock_default_user_name,
+        "avatar": None,
+    }
+    guild_id = config.mock_default_guild_id or config.default_guild_id
+    request.session["guilds"] = [
+        {
+            "id": guild_id,
+            "name": config.mock_default_guild_name,
+            "icon": None,
+            "permissions": 0x20,
+        }
+    ]
+    request.session["active_guild_id"] = guild_id
+    target = next if next and _is_safe_redirect(next) else "/"
+    return RedirectResponse(target, status_code=303)
+
+
+@router.post("/mock-login")
+async def mock_login_post(
+    request: Request,
+    config=Depends(get_config),
+) -> JSONResponse:
+    """Programmatic mock login for Playwright and testing.
+
+    Accepts a JSON body to override the default dev user.
+    """
+    if config.env != "dev":
+        raise HTTPException(status_code=403, detail="Mock auth only available in dev mode")
+
+    body = await request.json()
+    user_id = body.get("user_id", config.mock_default_user_id)
+    username = body.get("username", config.mock_default_user_name)
+    avatar = body.get("avatar", None)
+    guilds = body.get("guilds", _DEFAULT_MOCK_GUILDS)
+    active_guild_id = body.get("active_guild_id", guilds[0]["id"] if guilds else config.default_guild_id)
+    is_admin = body.get("is_admin", True)
+
+    request.session["user"] = {
+        "id": int(user_id),
+        "username": username,
+        "avatar": avatar,
+    }
+    request.session["guilds"] = [
+        {
+            "id": int(g["id"]),
+            "name": g.get("name", ""),
+            "icon": g.get("icon"),
+            "permissions": int(g.get("permissions", 0x20 if is_admin else 0)),
+        }
+        for g in guilds
+    ]
+    request.session["active_guild_id"] = int(active_guild_id)
+    return JSONResponse({"success": True})
 
 
 @router.get("/logout")

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import Annotated
 
+from dotenv import load_dotenv
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
@@ -23,13 +25,16 @@ class AppConfig(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=(".env.local", ".env"),
+        env_file=(".env",),
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
+    # --- Runtime environment ---
+    env: str = "preprod"
+
     # --- Discord ---
-    discord_token: SecretStr
+    discord_token: SecretStr | None = None
     discord_app_id: int = 1494266000064122930
     owner_id: int | None = None
     owner_default_guild_id: int | None = None
@@ -48,6 +53,16 @@ class AppConfig(BaseSettings):
     # --- Logging ---
     log_level: str = "INFO"
     log_format: str = "text"
+
+    # --- Dev mocks (ignored unless env == "dev") ---
+    mock_discord: bool = False
+    mock_auth: bool = False
+    mock_auto_events: bool = False
+    mock_auto_events_interval: int = 5
+    mock_default_user_id: int = 111111111
+    mock_default_user_name: str = "DevUser"
+    mock_default_guild_id: int | None = None
+    mock_default_guild_name: str = "Dev Server"
 
     @field_validator("guild_ids", mode="before")
     @classmethod
@@ -69,10 +84,16 @@ class AppConfig(BaseSettings):
 
     @field_validator("discord_token", mode="before")
     @classmethod
-    def _require_token(cls, value: object) -> object:
+    def _require_token(cls, value: object, info) -> object:  # type: ignore[no-untyped-def]
+        # Allow empty token in dev mode with mock Discord.
+        data = info.data
+        if data.get("env") == "dev" and data.get("mock_discord"):
+            if value in (None, ""):
+                return "mock-token"
+            return value
         if value in (None, ""):
             raise ValueError(
-                "DISCORD_TOKEN is empty. Set it in .env.local from Discord "
+                "DISCORD_TOKEN is empty. Set it in .env.preprod from Discord "
                 "Developer Portal -> your Application -> Bot -> Reset Token."
             )
         return value
@@ -81,6 +102,9 @@ class AppConfig(BaseSettings):
     def _check_web_config(self) -> AppConfig:
         """If the dashboard is enabled, fail early on missing web secrets."""
         if not self.enable_web:
+            return self
+        # Skip web secret validation in dev mode when auth is mocked.
+        if self.env == "dev" and self.mock_auth:
             return self
         missing: list[str] = []
         if self.web_secret_key is None or not self.web_secret_key.get_secret_value():
@@ -107,11 +131,13 @@ class AppConfig(BaseSettings):
     def default_guild_id(self) -> int:
         if self.owner_default_guild_id is not None:
             return self.owner_default_guild_id
+        if self.env == "dev" and self.mock_default_guild_id is not None:
+            return self.mock_default_guild_id
         if self.guild_ids:
             return self.guild_ids[0]
         raise ConfigError(
             "No default guild configured. Set OWNER_DEFAULT_GUILD_ID=<guild-id> "
-            "in .env.local (for single-guild dev), or GUILD_IDS=<guild-id> "
+            "in .env.dev (for single-guild dev), or GUILD_IDS=<guild-id> "
             "(comma-separated for multi-guild)."
         )
 
@@ -126,8 +152,19 @@ class AppConfig(BaseSettings):
 
 
 def load_config() -> AppConfig:
+    # Load the correct env file based on ENV before pydantic reads the environment.
+    env = os.environ.get("ENV", "preprod")
+    env_file = f".env.{env}"
+    if os.path.exists(env_file):
+        load_dotenv(env_file, override=False)
+    elif os.path.exists(".env.local"):
+        # Backward compatibility: old .env.local used for preprod dev.
+        load_dotenv(".env.local", override=False)
+    if os.path.exists(".env"):
+        load_dotenv(".env", override=False)
+
     try:
-        return AppConfig()  # type: ignore[call-arg]
+        return AppConfig(env=env)
     except Exception as exc:  # noqa: BLE001 - reformat any pydantic failure
         msgs: list[str] = []
         errs = getattr(exc, "errors", None)
@@ -142,5 +179,5 @@ def load_config() -> AppConfig:
             msgs.append(str(exc))
         details = "\n  - ".join(msgs)
         raise ConfigError(
-            "Configuration is invalid. Check .env.local:\n  - " + details
+            f"Configuration is invalid. Check .env.{env}:\n  - " + details
         ) from None

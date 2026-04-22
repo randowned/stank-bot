@@ -43,16 +43,26 @@ async def run() -> None:
 
     config = load_config()
     configure_logging(level=config.log_level, fmt=config.log_format)
-    log.info("StankBot starting")
+    log.info("StankBot starting (env=%s)", config.env)
 
     from stankbot.services.template_store import seed_all
     seed_all()
 
-    bot = StankBot(config)
+    use_mock = config.env == "dev" and config.mock_discord
+    if use_mock:
+        from stankbot.discord_mock.bot import MockBot
+
+        bot: StankBot | MockBot = MockBot(config)
+        log.info("Mock Discord mode — no Gateway connection")
+    else:
+        bot = StankBot(config)
+
     async with bot:
-        tasks: list[asyncio.Task[object]] = [
-            asyncio.create_task(bot.start(config.discord_token.get_secret_value())),
-        ]
+        tasks: list[asyncio.Task[object]] = []
+        if not use_mock:
+            tasks.append(
+                asyncio.create_task(bot.start(config.discord_token.get_secret_value()))
+            )
         if config.enable_web:
             log.info("Web dashboard on http://%s", config.web_bind)
             tasks.append(asyncio.create_task(_run_web(bot, config)))
@@ -87,7 +97,7 @@ async def run() -> None:
                 raise ConfigError(
                     "Discord rejected the bot token (DISCORD_TOKEN). "
                     "Open the Developer Portal -> Bot -> Reset Token, then "
-                    "paste the new token into .env.local and restart."
+                    "paste the new token into .env.preprod and restart."
                 ) from exc
             if isinstance(exc, discord.PrivilegedIntentsRequired):
                 raise ConfigError(

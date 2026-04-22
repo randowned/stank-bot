@@ -1,6 +1,6 @@
 import { Packr } from 'msgpackr';
 
-const packr = new Packr();
+const packr = new Packr({ useRecords: false });
 
 export async function apiFetch<T>(path: string, options?: { fetch?: typeof fetch; init?: RequestInit }): Promise<T> {
 	const customFetch = options?.fetch ?? fetch;

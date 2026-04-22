@@ -1,28 +1,22 @@
 import type { LayoutLoad } from './$types';
 
-export const load: LayoutLoad = async ({ fetch, url }) => {
-	const devMode = url.searchParams.get('dev') === 'true';
-
-	if (devMode) {
-		return {
-			user: { id: '111', username: 'TestPlayer', avatar: null },
-			guild_id: '123456789012345678',
-			is_admin: true
-		};
-	}
-
+export const load: LayoutLoad = async ({ fetch }) => {
 	try {
-		const response = await fetch('/v2/auth');
-		const user = response.ok ? await response.json() : null;
+		const [authRes, envRes] = await Promise.all([
+			fetch('/v2/auth'),
+			fetch('/v2/api/env')
+		]);
+
+		const user = authRes.ok ? await authRes.json() : null;
+		const envData = envRes.ok ? await envRes.json() : { env: 'production', guild_id: null, is_admin: false };
 
 		return {
 			user,
-			guild_id: null
+			guild_id: envData.guild_id,
+			is_admin: envData.is_admin,
+			env: envData.env
 		};
 	} catch {
-		return {
-			user: null,
-			guild_id: null
-		};
+		return { user: null, guild_id: null, is_admin: false, env: 'production' };
 	}
 };

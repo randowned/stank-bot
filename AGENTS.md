@@ -42,6 +42,76 @@ When delegating, brief the agent self-contained: state the goal, name the files/
 - Prefer editing existing code to adding new files. The project is intentionally multi-file, but resist inventing new modules when an existing one is the right home.
 - Do not invent abstractions (base classes, plugin interfaces, DI frameworks) until a second concrete implementation forces the shape.
 
+### Environments
+
+| Mode | Env file | Discord | Auth | Purpose |
+|------|----------|---------|------|---------|
+| `dev` | `.env.dev` | Mocked (`mock_discord=true`) | Mocked (`mock_auth=true`) | Local development, manual testing, E2E |
+| `preprod` | `.env.preprod` | Real token | Real OAuth | Staging / local with real Discord |
+| `production` | System env / Railway | Real token | Real OAuth | Live deploy |
+
+- `.env.local` has been renamed to `.env.preprod`. Do not re-create `.env.local`.
+- `.env.dev` is committed as a template (no secrets) and uses a separate SQLite DB (`stankbot_dev.db`).
+- Never enable `mock_discord` or `mock_auth` outside `ENV=dev`. The code gates these with `if config.env == "dev"`; respect that invariant.
+
+## Testing
+
+All changes must be verified before they are considered done. The verification path depends on what you changed.
+
+### Backend changes (services/, cogs/, db/, web/routes/)
+
+1. **Unit tests:** `pytest` (or `pytest tests/unit/test_xxx.py` for the subsystem).
+2. **Lint & typecheck:** `ruff check src tests` and `mypy src`. Do not introduce new failures.
+3. **Dev mode smoke test:** Start dev mode (`ENV=dev`), open `http://localhost:5173/v2`, and confirm the feature works end-to-end.
+4. **E2E coverage:** If the change touches a user-facing dashboard flow and no E2E test covers it, **you must add one**.
+
+### Frontend changes (web/src/)
+
+1. **Typecheck & lint:** `cd web && npm run check && npm run lint`. Do not introduce new failures.
+2. **Dev mode smoke test:** Start dev mode, verify the UI visually and via network tab.
+3. **E2E coverage:** Same rule as backend — if no E2E test covers the modified flow, **you must add one**.
+
+### E2E test execution
+
+- **For agent verification during development:** `cd web && npm run test:e2e:dev` (Vite dev server, fastest iteration).
+- **For commit-and-push readiness:** `cd web && npm run test:e2e` (production static build, closest to real deploy).
+
+Both require the backend running in `ENV=dev`. Use the one-command startup scripts:
+- Windows: `.\scripts\dev.ps1`
+- macOS/Linux: `./scripts/dev.sh`
+
+### Mock event injection
+
+When verifying in `ENV=dev`, use the mock API to drive state changes without Discord:
+
+| Endpoint | Action |
+|----------|--------|
+| `POST /v2/api/mock/stank` | Inject a valid stank |
+| `POST /v2/api/mock/break` | Inject a chain break |
+| `POST /v2/api/mock/reaction` | Inject a reaction bonus |
+| `POST /v2/api/mock/noise` | Inject a non-stank message (breaks chain) |
+| `POST /v2/api/mock/session/start` | Start a new session |
+| `POST /v2/api/mock/session/end` | End current session |
+| `POST /v2/api/mock/random/start` | Start auto-generated events |
+| `POST /v2/api/mock/random/stop` | Stop auto-generated events |
+
+These endpoints are **only mounted when `ENV=dev`**. Never call them in preprod or production.
+
+### Playwright fixtures
+
+`web/e2e/fixtures.ts` exposes:
+
+- `mockLogin(user?)` — authenticate Playwright as a mock user.
+- `injectStank(guildId, userId, displayName)` — trigger a stank and assert WS + DOM updates.
+- `injectBreak(guildId, userId, displayName)` — trigger a chain break.
+- `startRandomEvents(interval?)` / `stopRandomEvents()` — drive background state changes.
+
+Use `data-testid` selectors in Svelte components for stable Playwright queries. Prefer fixtures over manual `page.goto` + `page.fill` sequences.
+
+### E2E coverage rule (absolute)
+
+If your change affects a user-facing dashboard flow — board rendering, chain display, player profiles, admin settings, session views, auth state, WebSocket updates, or toast notifications — and there is **no existing E2E test** covering that flow, **you must add one**. No exceptions. The test must exercise the modified route or interaction and assert on either DOM state or WebSocket frame content.
+
 ## Architectural invariants
 
 Detailed enforcement lives in auto-invoked skills:
@@ -91,3 +161,6 @@ Members post messages containing the `:Stank:` emoji/sticker in a designated **a
 - [deploy/](deploy/) — systemd unit, Docker setup, watchdog fallback.
 - [railway.json](railway.json) — Railway deploy config.
 - [README.md](README.md) — user-facing install & usage. Source of truth is the code; README must not drift.
+- [web/e2e/](web/e2e/) — Playwright E2E tests and fixtures.
+- [scripts/dev.ps1](scripts/dev.ps1) / [scripts/dev.sh](scripts/dev.sh) — one-command dev startup.
+- `.env.dev` — dev mode configuration template (mock Discord, mock auth, separate DB).

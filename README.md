@@ -35,9 +35,21 @@ Sessions roll over on a cron (default 07:00 / 15:00 / 23:00 UTC) with configurab
 
 ## Running it yourself
 
-### Local dev (Windows)
+### Local dev (mock mode — no Discord needed)
 
-Requires Python 3.12 and [`uv`](https://github.com/astral-sh/uv).
+For frontend work and E2E testing, run in **mock mode** with a fake Discord backend:
+
+```powershell
+# Windows
+.\scripts\dev.ps1
+
+# macOS / Linux
+./scripts/dev.sh
+```
+
+This starts the backend (`ENV=dev`, reads `.env.dev`) and the Vite dev server on `http://localhost:5173/v2`. The dashboard auto-logs you in as a mock user.
+
+Requires Python 3.12 and [`uv`](https://github.com/astral-sh/uv):
 
 ```powershell
 winget install Python.Python.3.12
@@ -46,8 +58,16 @@ git clone <this-repo>
 cd stank-bot
 uv venv
 uv sync
-cp .env.example .env.local   # fill in tokens
-uv run alembic upgrade head
+uv run alembic upgrade head   # only needed once
+```
+
+### Local dev (real Discord)
+
+If you need the real Gateway connection (testing bot logic):
+
+```powershell
+cp .env.example .env.preprod   # fill in tokens
+$env:ENV="preprod"
 uv run python -m stankbot
 ```
 
@@ -104,6 +124,16 @@ Environment (see `.env.example`):
 | `OAUTH_CLIENT_ID` / `OAUTH_CLIENT_SECRET` / `OAUTH_REDIRECT_URI` | Dashboard login |
 | `GUILD_IDS` | Comma-separated guild ids for slash sync; first entry is fallback default |
 | `SESSION_SECRET` | Cookie signing secret for the dashboard |
+
+**Dev-only mocks** (`.env.dev`, no secrets needed):
+
+| Var | Purpose |
+|---|---|
+| `ENV=dev` | Activates dev mode |
+| `MOCK_DISCORD=true` | Skip Gateway; bot logic runs against fake events |
+| `MOCK_AUTH=true` | Skip OAuth; auto-login as `MOCK_DEFAULT_USER_NAME` |
+| `MOCK_DEFAULT_GUILD_ID` | Fake guild id for local testing |
+| `MOCK_AUTO_EVENTS` | Inject random stanks/breaks automatically |
 
 Scoring tuning, reset hours, embed templates, feature toggles, altar wiring, and admin management all live on the web dashboard — no slash commands for any of it.
 

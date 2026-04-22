@@ -4,7 +4,7 @@ import { connectionStatus, wsLatency, boardState, addToast } from './stores';
 import type { BoardState, Badge } from '../app.d';
 import { get } from 'svelte/store';
 
-const packr = new Packr();
+const packr = new Packr({ useRecords: false });
 
 export enum MsgType {
 	SUBSCRIBE = 1,
@@ -99,6 +99,7 @@ export function connect(guildId: number, userId: number): void {
 	const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 	const host = window.location.host;
 	const url = `${protocol}//${host}${base}/ws?guild_id=${guildId}&user_id=${userId}`;
+	console.log('[ws] connecting to', url);
 
 	try {
 		ws = new WebSocket(url);
@@ -106,6 +107,7 @@ export function connect(guildId: number, userId: number): void {
 		ws.binaryType = 'arraybuffer';
 
 		ws.onopen = () => {
+			console.log('[ws] connected');
 			connectionStatus.set('connected');
 			reconnectAttempts = 0;
 
@@ -125,6 +127,7 @@ export function connect(guildId: number, userId: number): void {
 		};
 
 		ws.onclose = (event) => {
+			console.log('[ws] closed', event.code, event.reason);
 			connectionStatus.set('disconnected');
 			stopPingLoop();
 
@@ -134,7 +137,7 @@ export function connect(guildId: number, userId: number): void {
 		};
 
 		ws.onerror = (error) => {
-			console.error('WebSocket error:', error);
+			console.error('[ws] error', error);
 			connectionStatus.set('error');
 			addToast('Connection error', 'error');
 		};

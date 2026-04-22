@@ -1,28 +1,29 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import { browser } from '$app/environment';
 	import { apiFetch } from '$lib/api';
+	import { boardState } from '$lib/stores';
 	import type { BoardState, PlayerRow } from '../app.d';
 
 	let { data } = $props();
 
-	const board = $derived(data.state as BoardState | null);
+	// Seed live board state on the client so WebSocket deltas apply correctly.
+	// (Stores are not serialized across SSR → hydration, so we set it on mount.)
+	if (browser && data.state) {
+		boardState.set(data.state);
+	}
+
+	const initialBoard = data.state as BoardState | null;
+	const board = $derived($boardState ?? initialBoard);
 	const isLoading = $derived(!board);
 	const liveChain = $derived(board?.current ?? 0);
 	const liveUnique = $derived(board?.current_unique ?? 0);
 
-	let displayedRankings: PlayerRow[] = $state([]);
-	let loadOffset = $state(0);
-	let hasMore = $state(true);
-	let loadingMore = $state(false);
 	const PAGE_SIZE = 20;
-
-	$effect(() => {
-		if (board) {
-			displayedRankings = board.rankings ?? [];
-			loadOffset = displayedRankings.length;
-			hasMore = displayedRankings.length >= PAGE_SIZE;
-		}
-	});
+	let displayedRankings: PlayerRow[] = $state(board?.rankings ?? []);
+	let loadOffset = $state(displayedRankings.length);
+	let hasMore = $state(displayedRankings.length >= PAGE_SIZE);
+	let loadingMore = $state(false);
 
 	async function loadMoreRankings() {
 		if (loadingMore || !hasMore || !board) return;
@@ -44,7 +45,7 @@
 	let sentinelEl: HTMLDivElement | undefined = $state();
 
 	$effect(() => {
-		if (!sentinelEl || !hasMore || loadingMore) return;
+		if (!sentinelEl || !hasMore) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries[0].isIntersecting) {
@@ -86,13 +87,13 @@
 	<div class="panel">
 		<div class="flex items-center justify-between mb-3">
 			<div>
-				<h1 class="text-xl font-bold flex items-center gap-2">
+				<h1 class="text-xl font-bold flex items-center gap-2" data-testid="guild-name">
 					<img src="/static/Stank.gif" alt="Stank" class="w-6 h-6" />
 					{data.guild_name}
 				</h1>
-				<p class="text-muted text-sm mt-1">
+				<p class="text-muted text-sm mt-1" data-testid="chain-status">
 					{#if liveChain > 0}
-						Live chain: <span class="text-accent font-semibold">{liveChain}</span> stanks · <span>{liveUnique}</span> unique
+						Live chain: <span class="text-accent font-semibold" data-testid="chain-counter">{liveChain}</span> stanks · <span>{liveUnique}</span> unique
 					{:else}
 						No active chain
 					{/if}
@@ -179,6 +180,7 @@
 						href={getPlayerUrl(row.user_id)}
 						class="flex items-center gap-3 p-2 -mx-2 rounded-lg transition-colors
 							{isMe ? 'bg-accent/20' : 'hover:bg-border/50'}"
+						data-testid="rank-row"
 					>
 						<div
 							class="w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold

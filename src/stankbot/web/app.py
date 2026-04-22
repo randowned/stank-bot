@@ -101,4 +101,10 @@ def build_app(
     app.include_router(history.router)
     app.include_router(admin.router)
 
+    if config.env == "dev":
+        from stankbot.web.routes import mock_events
+
+        app.include_router(mock_events.router)
+        log.info("Mock event API mounted at /v2/api/mock")
+
     return app
