@@ -32,6 +32,38 @@ test.describe('Board', () => {
 		await expect(page.locator('[data-testid="chain-counter"]')).toHaveText('1');
 	});
 
+	test('websocket preserves exact Discord snowflake IDs', async ({ page }) => {
+		// Use realistic large snowflake IDs that would lose precision via Number()
+		const largeGuildId = '1482266782306799646';
+		const largeUserId = '129508601730564096';
+
+		const wsUrls: string[] = [];
+		page.on('websocket', ws => wsUrls.push(ws.url()));
+
+		await page.request.post('/auth/mock-login', {
+			data: {
+				user_id: largeUserId,
+				username: 'SnowflakeTester',
+				guilds: [{ id: largeGuildId, name: 'Big Server', permissions: 0x20 }],
+				active_guild_id: largeGuildId,
+				is_admin: true
+			}
+		});
+
+		await page.goto('/v2');
+
+		// Wait for connection to succeed
+		await expect(page.locator('[data-testid="connection-dot"]')).toHaveAttribute('title', 'Live');
+
+		// Verify the WebSocket URL contains exact IDs, not precision-lost numbers
+		expect(wsUrls.length).toBeGreaterThan(0);
+		const wsUrl = wsUrls[0];
+		expect(wsUrl).toContain(`guild_id=${largeGuildId}`);
+		expect(wsUrl).toContain(`user_id=${largeUserId}`);
+		expect(wsUrl).not.toContain('guild_id=1482266782306799600');
+		expect(wsUrl).not.toContain('user_id=129508601730564100');
+	});
+
 	test('chain break resets counter', async ({ page, injectStank, injectBreak }) => {
 		// Wait for WS to be fully connected before injecting
 		await expect(page.locator('[data-testid="connection-dot"]')).toHaveAttribute('title', 'Live');

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Packr } from 'msgpackr';
 
 describe('WebSocket Client', () => {
@@ -57,5 +57,72 @@ describe('WebSocket Client', () => {
 			expect(latency).toBeGreaterThanOrEqual(0);
 			expect(latency).toBeLessThan(200);
 		});
+	});
+});
+
+describe('WebSocket ID precision', () => {
+	let originalWebSocket: typeof WebSocket;
+	let mockWsInstances: Array<{
+		url: string;
+		readyState: number;
+		binaryType: string;
+		send: ReturnType<typeof vi.fn>;
+		close: ReturnType<typeof vi.fn>;
+		onopen: ((this: WebSocket, ev: Event) => unknown) | null;
+		onclose: ((this: WebSocket, ev: CloseEvent) => unknown) | null;
+		onmessage: ((this: WebSocket, ev: MessageEvent) => unknown) | null;
+		onerror: ((this: WebSocket, ev: Event) => unknown) | null;
+	}>;
+
+	beforeEach(async () => {
+		originalWebSocket = globalThis.WebSocket;
+		mockWsInstances = [];
+
+		const MockWebSocket = vi.fn(function (this: WebSocket, url: string | URL) {
+			const instance = {
+				url: String(url),
+				readyState: 0,
+				binaryType: '',
+				send: vi.fn(),
+				close: vi.fn(),
+				onopen: null,
+				onclose: null,
+				onmessage: null,
+				onerror: null,
+			};
+			mockWsInstances.push(instance);
+			return instance as unknown as WebSocket;
+		}) as unknown as typeof WebSocket;
+		(MockWebSocket as unknown as Record<string, number>).OPEN = 1;
+		(MockWebSocket as unknown as Record<string, number>).CONNECTING = 0;
+		(MockWebSocket as unknown as Record<string, number>).CLOSING = 2;
+		(MockWebSocket as unknown as Record<string, number>).CLOSED = 3;
+		globalThis.WebSocket = MockWebSocket;
+
+		// Reset module state between tests
+		const mod = await import('./ws');
+		(mod as unknown as { disconnect?: () => void }).disconnect?.();
+	});
+
+	afterEach(() => {
+		globalThis.WebSocket = originalWebSocket;
+	});
+
+	it('should preserve exact Discord snowflake IDs in WebSocket URL', async () => {
+		const { connect } = await import('./ws');
+
+		const guildId = '1482266782306799646';
+		const userId = '129508601730564096';
+
+		connect(guildId, userId);
+
+		expect(mockWsInstances.length).toBe(1);
+		const url = mockWsInstances[0].url;
+
+		expect(url).toContain(`guild_id=${guildId}`);
+		expect(url).toContain(`user_id=${userId}`);
+		// Ensure no precision loss (Number() would produce 1482266782306799600)
+		expect(url).not.toContain('guild_id=1482266782306799600');
+		expect(url).not.toContain('user_id=129508601730564100');
 	});
 });
