@@ -321,7 +321,8 @@ async def api_player(
             },
             "badges": badges,
             "last_stank_at": summary.last_stank_at.isoformat() if summary.last_stank_at else None,
-        }
+        },
+        request,
     )
 
 
