@@ -1,13 +1,10 @@
 import type { PageLoad } from './$types';
 import type { ChainSummary } from '../../app.d';
+import { apiFetch } from '$lib/api';
 
-export const load: PageLoad = async ({ fetch }) => {
+export const load: PageLoad = async () => {
 	try {
-		const response = await fetch('/v2/api/chains');
-		if (!response.ok) {
-			return { chains: [] };
-		}
-		const chains = (await response.json()) as ChainSummary[];
+		const chains = await apiFetch<ChainSummary[]>('/v2/api/chains');
 		return { chains };
 	} catch {
 		return { chains: [] };

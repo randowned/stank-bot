@@ -1,17 +1,60 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { boardState, currentChain, currentUnique } from '$lib/stores';
+	import { apiFetch } from '$lib/api';
 	import type { BoardState, PlayerRow } from '../app.d';
 
 	let { data } = $props();
 
-	const state = $derived(data.state as BoardState | null);
-	const isLoading = $derived(!state);
+	const board = $derived(data.state as BoardState | null);
+	const isLoading = $derived(!board);
+
+	let displayedRankings: PlayerRow[] = $state([]);
+	let loadOffset = $state(0);
+	let hasMore = $state(true);
+	let loadingMore = $state(false);
+	const PAGE_SIZE = 20;
 
 	$effect(() => {
-		if (state) {
-			boardState.set(state);
+		if (board) {
+			boardState.set(board);
+			displayedRankings = board.rankings ?? [];
+			loadOffset = displayedRankings.length;
+			hasMore = displayedRankings.length >= PAGE_SIZE;
 		}
+	});
+
+	async function loadMoreRankings() {
+		if (loadingMore || !hasMore || !board) return;
+		loadingMore = true;
+		try {
+			const more = await apiFetch<PlayerRow[]>(`/v2/api/leaderboard?offset=${loadOffset}&limit=${PAGE_SIZE}`);
+			if (more.length < PAGE_SIZE) {
+				hasMore = false;
+			}
+			displayedRankings = [...displayedRankings, ...more];
+			loadOffset += more.length;
+		} catch {
+			hasMore = false;
+		} finally {
+			loadingMore = false;
+		}
+	}
+
+	let sentinelEl: HTMLDivElement | undefined = $state();
+
+	$effect(() => {
+		if (!sentinelEl || !hasMore || loadingMore) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting) {
+					loadMoreRankings();
+				}
+			},
+			{ rootMargin: '200px' }
+		);
+		observer.observe(sentinelEl);
+		return () => observer.disconnect();
 	});
 
 	function formatNumber(n: number): string {
@@ -60,46 +103,46 @@
 		<!-- Stats Grid -->
 		<div class="grid grid-cols-3 gap-3">
 			<div class="text-center">
-				<div class="text-xl font-bold text-accent">{formatNumber(state?.current ?? 0)}</div>
+				<div class="text-xl font-bold text-accent">{formatNumber(board?.current ?? 0)}</div>
 				<div class="text-xs text-muted uppercase">Current</div>
 			</div>
 			<div class="text-center">
-				<div class="text-xl font-bold">{formatNumber(state?.record ?? 0)}</div>
+				<div class="text-xl font-bold">{formatNumber(board?.record ?? 0)}</div>
 				<div class="text-xs text-muted uppercase">Session</div>
 			</div>
 			<div class="text-center">
-				<div class="text-xl font-bold">{formatNumber(state?.alltime_record ?? 0)}</div>
+				<div class="text-xl font-bold">{formatNumber(board?.alltime_record ?? 0)}</div>
 				<div class="text-xs text-muted uppercase">All-time</div>
 			</div>
 		</div>
 
 		<div class="mt-3 pt-3 border-t border-border">
 			<div class="text-xs text-muted">
-				Next reset: <span class="text-text">{formatNextReset(state?.next_reset_at ?? null)}</span>
+				Next reset: <span class="text-text">{formatNextReset(board?.next_reset_at ?? null)}</span>
 			</div>
 		</div>
 	</div>
 
 	<!-- Quick Links -->
-	{#if state?.chain_starter || state?.chainbreaker}
+	{#if board?.chain_starter || board?.chainbreaker}
 		<div class="grid grid-cols-2 gap-3">
-			{#if state.chain_starter}
-				<a href={getPlayerUrl(state.chain_starter.user_id)} class="panel flex items-center gap-3">
+			{#if board.chain_starter}
+				<a href={getPlayerUrl(board.chain_starter.user_id)} class="panel flex items-center gap-3">
 					<div class="text-2xl">🏃</div>
 					<div>
 						<div class="text-xs text-muted uppercase">Starter</div>
-						<div class="font-medium truncate">{state.chain_starter.display_name}</div>
-						<div class="text-sm text-muted">{state.chain_starter.earned_sp} SP</div>
+						<div class="font-medium truncate">{board.chain_starter.display_name}</div>
+						<div class="text-sm text-muted">{board.chain_starter.earned_sp} SP</div>
 					</div>
 				</a>
 			{/if}
-			{#if state.chainbreaker}
-				<a href={getPlayerUrl(state.chainbreaker.user_id)} class="panel flex items-center gap-3">
+			{#if board.chainbreaker}
+				<a href={getPlayerUrl(board.chainbreaker.user_id)} class="panel flex items-center gap-3">
 					<div class="text-2xl">💀</div>
 					<div>
 						<div class="text-xs text-muted uppercase">Breaker</div>
-						<div class="font-medium truncate">{state.chainbreaker.display_name}</div>
-						<div class="text-sm text-muted">{state.chainbreaker.punishments} PP</div>
+						<div class="font-medium truncate">{board.chainbreaker.display_name}</div>
+						<div class="text-sm text-muted">{board.chainbreaker.punishments} PP</div>
 					</div>
 				</a>
 			{/if}
@@ -108,7 +151,7 @@
 
 	<!-- Leaderboard -->
 	<div class="panel">
-		<h2 class="text-lg font-semibold mb-3">Top {state?.rankings?.length ?? 0}</h2>
+		<h2 class="text-lg font-semibold mb-3">Leaderboard</h2>
 
 		{#if isLoading}
 			<div class="space-y-3">
@@ -122,11 +165,11 @@
 					</div>
 				{/each}
 			</div>
-		{:else if !state?.rankings?.length}
+		{:else if !displayedRankings.length}
 			<p class="text-muted text-center py-8">No stanks recorded yet.</p>
 		{:else}
 			<div class="space-y-2">
-				{#each state.rankings as row, i}
+				{#each displayedRankings as row, i}
 					{@const rank = i + 1}
 					{@const userId = data.user?.id}
 					{@const isMe = userId && row.user_id === Number(userId)}
@@ -156,12 +199,19 @@
 					</a>
 				{/each}
 			</div>
+			{#if hasMore || loadingMore}
+				<div bind:this={sentinelEl} class="flex justify-center py-4">
+					{#if loadingMore}
+						<div class="animate-pulse text-muted text-sm">Loading more...</div>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 	</div>
 
-	<!-- Your Rank (if not in top N) -->
-	{#if state && data.user && !state.rankings.some(r => r.user_id === Number(data.user.id))}
-		{@const myRank = getPlayerRank(state.rankings, Number(data.user.id))}
+	<!-- Your Rank (if not in loaded rankings) -->
+	{#if board && data.user && !displayedRankings.some(r => r.user_id === Number(data.user.id))}
+		{@const myRank = getPlayerRank(displayedRankings, Number(data.user.id))}
 		{#if myRank}
 			<div class="panel">
 				<a href={getPlayerUrl(Number(data.user.id))} class="flex items-center justify-between">

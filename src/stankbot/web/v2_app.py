@@ -32,7 +32,9 @@ from stankbot.web.deps import get_active_guild_id, get_db, require_login
 
 log = logging.getLogger(__name__)
 
-_V2_DIR = Path(os.environ.get("V2_WEB_DIR", str(Path(__file__).parent.parent.parent.parent / "web")))
+_V2_DIR = Path(
+    os.environ.get("V2_WEB_DIR", str(Path(__file__).parent.parent.parent.parent / "web"))
+)
 _BUILD_DIR = _V2_DIR / "build"
 _API_ROUTER = APIRouter(prefix="/v2")
 
@@ -46,12 +48,20 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, guild_id: int) -> None:
         await websocket.accept()
         self.active_connections[guild_id].append(websocket)
-        log.info("WebSocket connected for guild %d (total: %d)", guild_id, len(self.active_connections[guild_id]))
+        log.info(
+            "WebSocket connected for guild %d (total: %d)",
+            guild_id,
+            len(self.active_connections[guild_id]),
+        )
 
     def disconnect(self, websocket: WebSocket, guild_id: int) -> None:
         if websocket in self.active_connections[guild_id]:
             self.active_connections[guild_id].remove(websocket)
-        log.info("WebSocket disconnected for guild %d (remaining: %d)", guild_id, len(self.active_connections[guild_id]))
+        log.info(
+            "WebSocket disconnected for guild %d (remaining: %d)",
+            guild_id,
+            len(self.active_connections[guild_id]),
+        )
 
     async def broadcast(self, guild_id: int, message: bytes) -> None:
         disconnected = []
@@ -88,7 +98,12 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
     )
 
     def row_to_dict(r):
-        return {"user_id": r.user_id, "display_name": r.display_name, "earned_sp": r.earned_sp, "punishments": r.punishments}
+        return {
+            "user_id": r.user_id,
+            "display_name": r.display_name,
+            "earned_sp": r.earned_sp,
+            "punishments": r.punishments,
+        }
 
     return {
         "guild_name": state.guild_name,
@@ -190,11 +205,15 @@ class MsgPackResponse(JSONResponse):
     """Response that switches between msgpack and JSON based on Accept header."""
 
     def __init__(self, content: dict, request: Request) -> None:
-        if _accepts_msgpack(request):
-            self._msgpack_body = msgpack.packb(content, use_single_float=True)
-            super().__init__(content, media_type="application/msgpack")
-        else:
-            super().__init__(content)
+        self._use_msgpack = _accepts_msgpack(request)
+        if self._use_msgpack:
+            self._packed = msgpack.packb(content, use_single_float=True)
+        super().__init__(content, media_type="application/msgpack" if self._use_msgpack else None)
+
+    def render(self, content: dict) -> bytes:
+        if self._use_msgpack:
+            return self._packed
+        return super().render(content)
 
 
 @_API_ROUTER.get("/api/board")
@@ -209,6 +228,43 @@ async def api_board(
     guild_name = await guild_name_for(session, guild_id)
     state = await get_board_state(session, guild_id, guild_name)
     return MsgPackResponse(state, request)
+
+
+@_API_ROUTER.get("/api/leaderboard")
+async def api_leaderboard(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_active_guild_id),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+) -> MsgPackResponse:
+    """Return paginated leaderboard rows as msgpack or JSON."""
+    from stankbot.db.repositories import events as events_repo
+    from stankbot.services.session_service import SessionService
+
+    session_svc = SessionService(session)
+    session_id = await session_svc.current(guild_id)
+    rows = await events_repo.leaderboard(
+        session, guild_id, session_id=session_id, limit=limit, offset=offset
+    )
+
+    user_ids = [uid for uid, _, _ in rows]
+    names = {}
+    if user_ids:
+        from stankbot.db.repositories import players as players_repo
+
+        names = await players_repo.display_names(session, guild_id, user_ids)
+
+    result = [
+        {
+            "user_id": uid,
+            "display_name": names.get(uid, str(uid)),
+            "earned_sp": sp,
+            "punishments": pp,
+        }
+        for uid, sp, pp in rows
+    ]
+    return MsgPackResponse(result, request)
 
 
 @_API_ROUTER.get("/api/player/{user_id}")
@@ -348,7 +404,9 @@ async def api_sessions(
     )
     rows = (await session.execute(stmt)).all()
 
-    result = [{"session_id": int(r[0]), "started_at": r[1].isoformat() if r[1] else None} for r in rows]
+    result = [
+        {"session_id": int(r[0]), "started_at": r[1].isoformat() if r[1] else None} for r in rows
+    ]
     return MsgPackResponse(result, request)
 
 
@@ -389,7 +447,9 @@ async def api_session(
     )
 
 
-async def notify_chain_update(guild_id: int, current: int, current_unique: int, starter_user_id: int | None) -> None:
+async def notify_chain_update(
+    guild_id: int, current: int, current_unique: int, starter_user_id: int | None
+) -> None:
     """Broadcast chain update to all connected clients."""
     await manager.broadcast_json(
         guild_id,
@@ -400,7 +460,7 @@ async def notify_chain_update(guild_id: int, current: int, current_unique: int, 
                 "current_unique": current_unique,
                 "starter_user_id": starter_user_id,
             },
-        }
+        },
     )
 
 
@@ -411,7 +471,7 @@ async def notify_rank_update(guild_id: int, rankings: list) -> None:
         {
             "t": 102,
             "d": {"rankings": rankings, "updated_at": datetime.now(UTC).isoformat()},
-        }
+        },
     )
 
 
@@ -423,7 +483,9 @@ async def notify_achievement(guild_id: int, user_id: int, badge: dict) -> None:
     )
 
 
-async def notify_session(guild_id: int, session_id: int, action: str, started_at: datetime, ended_at: datetime | None) -> None:
+async def notify_session(
+    guild_id: int, session_id: int, action: str, started_at: datetime, ended_at: datetime | None
+) -> None:
     """Broadcast session change."""
     await manager.broadcast_json(
         guild_id,
@@ -435,5 +497,5 @@ async def notify_session(guild_id: int, session_id: int, action: str, started_at
                 "started_at": started_at.isoformat() if started_at else None,
                 "ended_at": ended_at.isoformat() if ended_at else None,
             },
-        }
+        },
     )

@@ -83,9 +83,7 @@ async def session_event_ids(session: AsyncSession, guild_id: int) -> list[int]:
     return list((await session.execute(stmt)).scalars().all())
 
 
-async def count_session_starts(
-    session: AsyncSession, guild_id: int, *, up_to_id: int
-) -> int:
+async def count_session_starts(session: AsyncSession, guild_id: int, *, up_to_id: int) -> int:
     """Return how many SESSION_START events exist for the guild with id <= up_to_id.
 
     Used to convert raw event IDs into sequential session numbers.
@@ -143,9 +141,7 @@ async def events_in_session(
     return (await session.execute(stmt)).scalars().all()
 
 
-async def events_for_chain(
-    session: AsyncSession, guild_id: int, chain_id: int
-) -> Sequence[Event]:
+async def events_for_chain(session: AsyncSession, guild_id: int, chain_id: int) -> Sequence[Event]:
     stmt = (
         select(Event)
         .where(Event.guild_id == guild_id, Event.chain_id == chain_id)
@@ -175,18 +171,17 @@ async def leaderboard(
     *,
     session_id: int | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> list[tuple[int, int, int]]:
     """Return ``[(user_id, earned_sp, punishments), ...]`` sorted by net SP
     descending. If ``session_id`` is given, sums only within that session.
     """
     sp_expr = func.sum(
-        case(
-            (Event.type.in_([t.value for t in _SP_TYPES]), Event.delta), else_=0
-        )
+        case((Event.type.in_([t.value for t in _SP_TYPES]), Event.delta), else_=0)
     ).label("earned_sp")
-    pp_expr = func.sum(
-        case((Event.type == EventType.PP_BREAK, Event.delta), else_=0)
-    ).label("punishments")
+    pp_expr = func.sum(case((Event.type == EventType.PP_BREAK, Event.delta), else_=0)).label(
+        "punishments"
+    )
     where = [Event.guild_id == guild_id, Event.user_id.is_not(None)]
     if session_id is not None:
         where.append(Event.session_id == session_id)
@@ -195,15 +190,14 @@ async def leaderboard(
         .where(*where)
         .group_by(Event.user_id)
         .order_by((sp_expr - pp_expr).desc())
+        .offset(offset)
         .limit(limit)
     )
     rows = (await session.execute(stmt)).all()
     return [(int(uid), int(sp or 0), int(pp or 0)) for uid, sp, pp in rows]
 
 
-async def top_pp_user(
-    session: AsyncSession, guild_id: int
-) -> tuple[int, int] | None:
+async def top_pp_user(session: AsyncSession, guild_id: int) -> tuple[int, int] | None:
     """All-time PP leader — the "chainbreaker". Returns
     ``(user_id, punishments)`` or ``None`` if no one has any PP yet.
     """
@@ -240,9 +234,7 @@ async def user_rank(
     return None
 
 
-async def chains_started(
-    session: AsyncSession, guild_id: int, user_id: int
-) -> int:
+async def chains_started(session: AsyncSession, guild_id: int, user_id: int) -> int:
     stmt = select(func.count(Event.id)).where(
         Event.guild_id == guild_id,
         Event.user_id == user_id,
@@ -251,9 +243,7 @@ async def chains_started(
     return int((await session.execute(stmt)).scalar_one() or 0)
 
 
-async def chains_broken(
-    session: AsyncSession, guild_id: int, user_id: int
-) -> int:
+async def chains_broken(session: AsyncSession, guild_id: int, user_id: int) -> int:
     stmt = select(func.count(Event.id)).where(
         Event.guild_id == guild_id,
         Event.user_id == user_id,
@@ -262,9 +252,7 @@ async def chains_broken(
     return int((await session.execute(stmt)).scalar_one() or 0)
 
 
-async def session_participants(
-    session: AsyncSession, guild_id: int, session_id: int
-) -> list[int]:
+async def session_participants(session: AsyncSession, guild_id: int, session_id: int) -> list[int]:
     """Distinct user_ids that earned SP or took PP within the given session."""
     scoring_types = [*(t.value for t in _SP_TYPES), EventType.PP_BREAK.value]
     stmt = (
@@ -345,9 +333,7 @@ async def count_sp_base_in_session(
     return int((await session.execute(stmt)).scalar_one() or 0)
 
 
-async def last_stank_at(
-    session: AsyncSession, guild_id: int, user_id: int
-) -> datetime | None:
+async def last_stank_at(session: AsyncSession, guild_id: int, user_id: int) -> datetime | None:
     stmt = (
         select(Event.created_at)
         .where(

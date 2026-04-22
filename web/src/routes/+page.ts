@@ -1,7 +1,6 @@
-import { Packr } from 'msgpackr';
 import type { PageLoad } from './$types';
-
-const packr = new Packr();
+import { apiFetch } from '$lib/api';
+import type { BoardState } from '../app.d';
 
 const mockState = {
 	guild_name: 'Test Server',
@@ -33,21 +32,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	}
 
 	try {
-		const response = await fetch('/v2/api/board', {
-			headers: {
-				Accept: 'application/msgpack, application/json'
-			}
-		});
-		if (!response.ok) {
-			return { state: null, guild_name: 'StankBot' };
-		}
-		const contentType = response.headers.get('content-type') || '';
-		let state;
-		if (contentType.includes('msgpack')) {
-			state = packr.unpack(new Uint8Array(await response.arrayBuffer()));
-		} else {
-			state = await response.json();
-		}
+		const state = await apiFetch<BoardState>('/v2/api/board', { fetch });
 		return { state, guild_name: state.guild_name || 'StankBot' };
 	} catch {
 		return { state: null, guild_name: 'StankBot' };

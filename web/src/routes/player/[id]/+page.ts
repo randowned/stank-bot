@@ -1,15 +1,12 @@
 import type { PageLoad } from './$types';
 import type { PlayerProfile } from '../../../app.d';
+import { apiFetch } from '$lib/api';
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params }) => {
 	const userId = params.id;
 
 	try {
-		const response = await fetch(`/v2/api/player/${userId}`);
-		if (!response.ok) {
-			return { profile: null };
-		}
-		const profile = (await response.json()) as PlayerProfile;
+		const profile = await apiFetch<PlayerProfile>(`/v2/api/player/${userId}`);
 		return { profile };
 	} catch {
 		return { profile: null };

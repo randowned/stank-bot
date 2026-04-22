@@ -1,13 +1,10 @@
 import type { PageLoad } from './$types';
 import type { SessionSummary } from '../../app.d';
+import { apiFetch } from '$lib/api';
 
-export const load: PageLoad = async ({ fetch }) => {
+export const load: PageLoad = async () => {
 	try {
-		const response = await fetch('/v2/api/sessions');
-		if (!response.ok) {
-			return { sessions: [] };
-		}
-		const sessions = (await response.json()) as SessionSummary[];
+		const sessions = await apiFetch<SessionSummary[]>('/v2/api/sessions');
 		return { sessions };
 	} catch {
 		return { sessions: [] };
