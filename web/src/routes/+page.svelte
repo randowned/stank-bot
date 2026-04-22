@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import { boardState, currentChain, currentUnique } from '$lib/stores';
 	import { apiFetch } from '$lib/api';
 	import type { BoardState, PlayerRow } from '../app.d';
@@ -129,7 +128,7 @@
 		<div class="grid grid-cols-2 gap-3">
 			{#if board.chain_starter}
 				{@const starter = board.chain_starter}
-				<a href={getPlayerUrl(starter.user_id)} onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(starter.user_id)); }} class="panel flex items-center gap-3">
+				<a href={getPlayerUrl(starter.user_id)} class="panel flex items-center gap-3">
 					<div class="text-2xl">🏃</div>
 					<div>
 						<div class="text-xs text-muted uppercase">Starter</div>
@@ -140,7 +139,7 @@
 			{/if}
 			{#if board.chainbreaker}
 				{@const breaker = board.chainbreaker}
-				<a href={getPlayerUrl(breaker.user_id)} onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(breaker.user_id)); }} class="panel flex items-center gap-3">
+				<a href={getPlayerUrl(breaker.user_id)} class="panel flex items-center gap-3">
 					<div class="text-2xl">💀</div>
 					<div>
 						<div class="text-xs text-muted uppercase">Breaker</div>
@@ -178,7 +177,6 @@
 					{@const isMe = userId && row.user_id === Number(userId)}
 					<a
 						href={getPlayerUrl(row.user_id)}
-						onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(row.user_id)); }}
 						class="flex items-center gap-3 p-2 -mx-2 rounded-lg transition-colors
 							{isMe ? 'bg-accent/20' : 'hover:bg-border/50'}"
 					>
@@ -218,7 +216,7 @@
 		{@const myRank = getPlayerRank(displayedRankings, Number(data.user.id))}
 		{#if myRank}
 			<div class="panel">
-				<a href={getPlayerUrl(Number(data.user.id))} onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(Number(data.user.id))); }} class="flex items-center justify-between">
+				<a href={getPlayerUrl(Number(data.user.id))} class="flex items-center justify-between">
 					<div>
 						<div class="text-muted text-sm">Your rank</div>
 						<div class="text-xl font-bold">#{myRank}</div>

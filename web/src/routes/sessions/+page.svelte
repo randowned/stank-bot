@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import type { SessionSummary } from '../../app.d';
 
 	let { data } = $props();
@@ -34,7 +33,7 @@
 	{:else}
 		<div class="space-y-2">
 			{#each sessions as session}
-				<a href="{base}/session/{session.session_id}" onclick={(e) => { e.preventDefault(); goto(`${base}/session/${session.session_id}`); }} class="panel flex items-center justify-between">
+				<a href="{base}/session/{session.session_id}" class="panel flex items-center justify-between">
 					<div>
 						<div class="font-medium">Session #{session.session_id}</div>
 						<div class="text-xs text-muted">
@@ -50,5 +49,5 @@
 		</div>
 	{/if}
 
-	<a href={base} onclick={(e) => { e.preventDefault(); goto(base); }} class="btn btn-secondary w-full text-center">← Back to Board</a>
+	<a href={base} class="btn btn-secondary w-full text-center">← Back to Board</a>
 </div>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import type { PlayerRow } from '../../app.d';
 
 	let { row, rank, isCurrentUser = false } = $props<{
@@ -18,7 +17,6 @@
 
 <a
 	href="{base}/player/{row.user_id}"
-	onclick={(e) => { e.preventDefault(); goto(`${base}/player/${row.user_id}`); }}
 	class="flex items-center gap-3 p-3 -mx-2 rounded-lg transition-colors hover:bg-border/50 {isCurrentUser
 		? 'bg-accent/10 border border-accent/30'
 		: ''}"

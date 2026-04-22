@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { goto } from '$app/navigation';
 	import type { ChainSummary } from '../../../app.d';
 
 	let { data } = $props();
@@ -58,7 +57,7 @@
 			{#if chain.contributors.length}
 				<div class="space-y-2">
 					{#each chain.contributors as [userId, count], i}
-						<a href={getPlayerUrl(userId)} onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(userId)); }} class="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-border/50">
+						<a href={getPlayerUrl(userId)} class="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-border/50">
 							<div class="w-6 h-6 flex items-center justify-center rounded-full bg-border text-sm">
 								{i + 1}
 							</div>
@@ -79,5 +78,5 @@
 		</div>
 	{/if}
 
-	<a href="{base}/chains" onclick={(e) => { e.preventDefault(); goto(`${base}/chains`); }} class="btn btn-secondary w-full text-center">← All Chains</a>
+	<a href="{base}/chains" class="btn btn-secondary w-full text-center">← All Chains</a>
 </div>
