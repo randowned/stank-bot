@@ -7,7 +7,6 @@ import { get } from 'svelte/store';
 const packr = new Packr({ useRecords: false });
 
 export enum MsgType {
-	SUBSCRIBE = 1,
 	PING = 2,
 
 	STATE = 101,
@@ -17,11 +16,6 @@ export enum MsgType {
 	ACHIEVEMENT = 105,
 	SESSION = 106,
 	ERROR = 107
-}
-
-interface SubscribeMsg {
-	t: typeof MsgType.SUBSCRIBE;
-	s: string;
 }
 
 interface PingMsg {
@@ -89,7 +83,7 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 1000;
 
-export function connect(guildId: string, userId: string): void {
+export function connect(): void {
 	if (ws?.readyState === WebSocket.OPEN) {
 		return;
 	}
@@ -98,7 +92,7 @@ export function connect(guildId: string, userId: string): void {
 
 	const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 	const host = window.location.host;
-	const url = `${protocol}//${host}${base}/ws?guild_id=${guildId}&user_id=${userId}`;
+	const url = `${protocol}//${host}${base}/ws`;
 	console.log('[ws] connecting to', url);
 
 	try {
@@ -111,7 +105,6 @@ export function connect(guildId: string, userId: string): void {
 			connectionStatus.set('connected');
 			reconnectAttempts = 0;
 
-			subscribe(guildId);
 			startPingLoop();
 			addToast('Connected to live updates', 'success');
 		};
@@ -132,7 +125,7 @@ export function connect(guildId: string, userId: string): void {
 			stopPingLoop();
 
 			if (event.code !== 1000) {
-				attemptReconnect(guildId, userId);
+				attemptReconnect();
 			}
 		};
 
@@ -156,7 +149,7 @@ export function disconnect(): void {
 	connectionStatus.set('disconnected');
 }
 
-function _sendPacked(msg: SubscribeMsg | PingMsg): void {
+function _sendPacked(msg: PingMsg): void {
 	if (ws?.readyState !== WebSocket.OPEN) {
 		return;
 	}
@@ -166,10 +159,6 @@ function _sendPacked(msg: SubscribeMsg | PingMsg): void {
 		packed.byteOffset + packed.byteLength,
 	) as ArrayBuffer;
 	ws.send(buf);
-}
-
-function subscribe(guildId: string): void {
-	_sendPacked({ t: MsgType.SUBSCRIBE, s: guildId });
 }
 
 function startPingLoop(): void {
@@ -187,7 +176,7 @@ function stopPingLoop(): void {
 	}
 }
 
-function attemptReconnect(guildId: string, userId: string): void {
+function attemptReconnect(): void {
 	if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
 		addToast('Unable to reconnect. Please refresh.', 'error', 0);
 		return;
@@ -199,7 +188,7 @@ function attemptReconnect(guildId: string, userId: string): void {
 	setTimeout(() => {
 		const currentStatus = get(connectionStatus);
 		if (currentStatus === 'disconnected' || currentStatus === 'error') {
-			connect(guildId, userId);
+			connect();
 		}
 	}, delay);
 }

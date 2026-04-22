@@ -108,21 +108,17 @@ describe('WebSocket ID precision', () => {
 		globalThis.WebSocket = originalWebSocket;
 	});
 
-	it('should preserve exact Discord snowflake IDs in WebSocket URL', async () => {
+	it('should not leak guild_id or user_id in WebSocket URL', async () => {
 		const { connect } = await import('./ws');
 
-		const guildId = '1482266782306799646';
-		const userId = '129508601730564096';
-
-		connect(guildId, userId);
+		connect();
 
 		expect(mockWsInstances.length).toBe(1);
 		const url = mockWsInstances[0].url;
 
-		expect(url).toContain(`guild_id=${guildId}`);
-		expect(url).toContain(`user_id=${userId}`);
-		// Ensure no precision loss (Number() would produce 1482266782306799600)
-		expect(url).not.toContain('guild_id=1482266782306799600');
-		expect(url).not.toContain('user_id=129508601730564100');
+		// Guild and user are read from the session cookie — never from query params
+		expect(url).not.toContain('guild_id=');
+		expect(url).not.toContain('user_id=');
+		expect(url).toMatch(/\/ws$/);
 	});
 });

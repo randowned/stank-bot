@@ -219,10 +219,16 @@ def get_guild_id(request: Request) -> int:
 def get_active_guild_id(request: Request) -> int:
     """The guild currently selected in the session (for admin views).
 
-    Returns the session's active_guild_id, or falls back to the default.
+    Returns the session's ``guild``, or falls back to the default.
+    Keeps a backward-compat read of ``active_guild_id`` for existing
+    sessions that haven't re-logged since the rename.
     """
     config: AppConfig = request.app.state.config
-    return request.session.get("active_guild_id") or config.default_guild_id
+    return (
+        request.session.get("guild")
+        or request.session.get("active_guild_id")
+        or config.default_guild_id
+    )
 
 
 def _is_owner(request: Request) -> bool:

@@ -5,9 +5,10 @@
 
 	let { data } = $props();
 
+	const userData = $derived(data.user as { id: string; username: string; avatar: string | null } | null);
 	const profile = $derived(data.profile as PlayerProfile | null);
 	const isLoading = $derived(!profile);
-	const targetId = $derived($page.params.id);
+	const targetId = $derived($page.params.id || userData?.id);
 
 	function formatNumber(n: number): string {
 		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';

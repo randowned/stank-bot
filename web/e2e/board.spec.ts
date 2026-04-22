@@ -45,7 +45,7 @@ test.describe('Board', () => {
 				user_id: largeUserId,
 				username: 'SnowflakeTester',
 				guilds: [{ id: largeGuildId, name: 'Big Server', permissions: 0x20 }],
-				active_guild_id: largeGuildId,
+				guild: largeGuildId,
 				is_admin: true
 			}
 		});
@@ -55,13 +55,12 @@ test.describe('Board', () => {
 		// Wait for connection to succeed
 		await expect(page.locator('[data-testid="connection-dot"]')).toHaveAttribute('title', 'Live');
 
-		// Verify the WebSocket URL contains exact IDs, not precision-lost numbers
+		// Verify the WebSocket URL has no query parameters — guild/user are read from session
 		expect(wsUrls.length).toBeGreaterThan(0);
 		const wsUrl = wsUrls[0];
-		expect(wsUrl).toContain(`guild_id=${largeGuildId}`);
-		expect(wsUrl).toContain(`user_id=${largeUserId}`);
-		expect(wsUrl).not.toContain('guild_id=1482266782306799600');
-		expect(wsUrl).not.toContain('user_id=129508601730564100');
+		expect(wsUrl).not.toContain('guild_id=');
+		expect(wsUrl).not.toContain('user_id=');
+		expect(wsUrl).toMatch(/\/ws$/);
 	});
 
 	test('chain break resets counter', async ({ page, injectStank, injectBreak }) => {

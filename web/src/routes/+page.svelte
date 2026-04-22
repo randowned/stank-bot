@@ -104,15 +104,15 @@
 		<!-- Stats Grid -->
 		<div class="grid grid-cols-3 gap-3">
 			<div class="text-center">
-				<div class="text-xl font-bold text-accent">{formatNumber(board?.current ?? 0)}</div>
+				<div class="text-xl font-bold text-accent">{formatNumber(board?.current ?? 0) + ' / ' + formatNumber(board?.current_unique ?? 0)}</div>
 				<div class="text-xs text-muted uppercase">Current</div>
 			</div>
 			<div class="text-center">
-				<div class="text-xl font-bold">{formatNumber(board?.record ?? 0)}</div>
+				<div class="text-xl font-bold">{formatNumber(board?.record ?? 0) + ' / ' + formatNumber(board?.record_unique ?? 0)}</div>
 				<div class="text-xs text-muted uppercase">Session</div>
 			</div>
 			<div class="text-center">
-				<div class="text-xl font-bold">{formatNumber(board?.alltime_record ?? 0)}</div>
+				<div class="text-xl font-bold">{formatNumber(board?.alltime_record ?? 0) + ' / ' + formatNumber(board?.alltime_record_unique ?? 0)}</div>
 				<div class="text-xs text-muted uppercase">All-time</div>
 			</div>
 		</div>
@@ -129,10 +129,9 @@
 		<div class="grid grid-cols-2 gap-3">
 			{#if board.chain_starter}
 				{@const starter = board.chain_starter}
-				<a href={getPlayerUrl(String(starter.user_id))} class="panel flex items-center gap-3">
-					<div class="text-2xl">🏃</div>
+				<a href={getPlayerUrl(String(starter.user_id))} class="panel flex flex-col items-center gap-3">
+					<div class="text-sm text-muted uppercase">🏃 Starter</div>
 					<div>
-						<div class="text-xs text-muted uppercase">Starter</div>
 						<div class="font-medium truncate">{starter.display_name}</div>
 						<div class="text-sm text-muted">{starter.earned_sp} SP</div>
 					</div>
@@ -140,10 +139,9 @@
 			{/if}
 			{#if board.chainbreaker}
 				{@const breaker = board.chainbreaker}
-				<a href={getPlayerUrl(String(breaker.user_id))} class="panel flex items-center gap-3">
-					<div class="text-2xl">💀</div>
+				<a href={getPlayerUrl(String(breaker.user_id))} class="panel flex flex-col items-center gap-3">
+					<div class="text-sm text-muted uppercase">💀 Breaker</div>
 					<div>
-						<div class="text-xs text-muted uppercase">Breaker</div>
 						<div class="font-medium truncate">{breaker.display_name}</div>
 						<div class="text-sm text-muted">{breaker.punishments} PP</div>
 					</div>

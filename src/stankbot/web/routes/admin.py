@@ -60,7 +60,7 @@ async def select_guild(
                 allowed = await svc.is_admin(guild_id, user_id, [], has_manage_guild=bool(perms & 0x20))
     if not allowed:
         raise HTTPException(status_code=403, detail="not allowed to switch to this guild")
-    request.session["active_guild_id"] = guild_id
+    request.session["guild"] = guild_id
     return RedirectResponse("/admin/settings", status_code=303)
 
 

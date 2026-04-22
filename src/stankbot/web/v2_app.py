@@ -33,6 +33,7 @@ from stankbot.web.deps import (
     current_user,
     get_active_guild_id,
     get_db,
+    require_guild_admin,
     require_login,
 )
 
@@ -129,12 +130,13 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
 
 
 @_API_ROUTER.websocket("/ws")
-async def websocket_endpoint(
-    websocket: WebSocket,
-    guild_id: int = Query(...),
-    user_id: int = Query(...),
-) -> None:
-    """WebSocket endpoint for real-time updates."""
+async def websocket_endpoint(websocket: WebSocket) -> None:
+    """WebSocket endpoint for real-time updates.
+
+    Auth is read entirely from the signed session cookie — neither the
+    user ID nor the guild ID is accepted from query parameters, so
+    neither can be tampered with.
+    """
 
     app_state = websocket.app.state
     session_factory = getattr(app_state, "session_factory", None)
@@ -145,16 +147,21 @@ async def websocket_endpoint(
     config = getattr(app_state, "config", None)
     is_dev_mock = config is not None and config.env == "dev" and getattr(config, "mock_auth", False)
 
+    session = websocket.session
+    guild_id = session.get("guild") or session.get("active_guild_id")
+    if guild_id is None:
+        guild_id = getattr(config, "default_guild_id", None)
+    if guild_id is None:
+        await websocket.close(code=4003, reason="No guild selected")
+        return
+    guild_id = int(guild_id)
+
     if not is_dev_mock:
         # Session-based auth avoids relying on discord.py's member cache,
         # which is often incomplete in production and causes spurious 403s.
-        session = websocket.session
         user = session.get("user")
         if user is None:
             await websocket.close(code=4003, reason="Not authenticated")
-            return
-        if int(user.get("id", 0)) != user_id:
-            await websocket.close(code=4003, reason="User mismatch")
             return
         guilds = session.get("guilds", [])
         is_member = any(int(g.get("id", 0)) == guild_id for g in guilds)
@@ -205,6 +212,34 @@ async def api_env(request: Request) -> JSONResponse:
             "mock_auth": config.mock_auth if config.env == "dev" else False,
         }
     )
+
+
+@_API_ROUTER.post("/api/admin/guild")
+async def api_switch_guild(
+    request: Request,
+    guild_id: int = Query(...),
+    user: dict = Depends(require_guild_admin),
+    session: AsyncSession = Depends(get_db),
+) -> JSONResponse:
+    """Switch the active guild for the current session (v2 API)."""
+    from stankbot.services.permission_service import PermissionService
+
+    config = request.app.state.config
+    target_gid = guild_id
+
+    if int(user["id"]) != int(getattr(config, "owner_id", 0) or 0):
+        svc = PermissionService(session, owner_id=config.owner_id)
+        is_admin = await svc.is_admin(
+            target_gid,
+            int(user["id"]),
+            [],
+            has_manage_guild=False,
+        )
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="not allowed to switch to this guild")
+
+    request.session["guild"] = target_gid
+    return JSONResponse({"success": True, "guild_id": target_gid})
 
 
 @_API_ROUTER.get("/auth")

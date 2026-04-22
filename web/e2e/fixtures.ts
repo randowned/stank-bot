@@ -7,7 +7,7 @@ export interface MockUser {
 	username: string;
 	avatar?: string | null;
 	guilds?: Array<{ id: number; name: string; permissions: number }>;
-	active_guild_id?: number;
+	guild?: number;
 	is_admin?: boolean;
 }
 
@@ -16,7 +16,7 @@ const defaultUser: MockUser = {
 	username: 'E2E Tester',
 	avatar: null,
 	guilds: [{ id: 123456789, name: 'Test Server', permissions: 0x20 }],
-	active_guild_id: 123456789,
+	guild: 123456789,
 	is_admin: true
 };
 

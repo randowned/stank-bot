@@ -18,9 +18,10 @@
 			user.set(userData);
 			if (guildIdData) {
 				guildId.set(guildIdData);
-				connect(guildIdData, userData.id);
 			}
 		}
+
+		connect();
 
 		return () => {
 			disconnect();
@@ -28,10 +29,10 @@
 	});
 
 	const navItems = $derived([
-		{ href: base, label: 'Board', icon: '🏠' },
+		{ href: base + '/', label: 'Board', icon: '🏠' },
 		{ href: base + '/chains', label: 'Chains', icon: '⛓️' },
 		{ href: base + '/sessions', label: 'Sessions', icon: '📜' },
-		{ href: base + '/player/' + (userData?.id ?? ''), label: 'Me', icon: '👤' }
+		{ href: base + '/player', label: 'Me', icon: '👤' }
 	]);
 
 	const adminItems = $derived([
@@ -71,20 +72,20 @@
 				<a
 					href={item.href}
 					class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
-						{currentPath === item.href || currentPath.startsWith(item.href + '/') ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
+						{currentPath === item.href ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
 				>
 					<span>{item.icon}</span>
 					<span class="whitespace-nowrap">{item.label}</span>
 				</a>
 			{/each}
-
+				
 			{#if isAdmin && data.is_admin}
 				<div class="w-px h-6 bg-border mx-1"></div>
 			{#each adminItems as item}
 				<a
 					href={item.href}
 					class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
-						{currentPath.startsWith(item.href) ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
+						{currentPath === item.href ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
 				>
 					<span>{item.icon}</span>
 					<span class="whitespace-nowrap">{item.label}</span>
