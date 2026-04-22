@@ -1,5 +1,5 @@
 # Ignore Claude, we have .opencode, Claude users can create symlinks
-.claude/*
+.claude
 
 # Python
 __pycache__/

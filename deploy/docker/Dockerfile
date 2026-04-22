@@ -1,5 +1,15 @@
 # StankBot — container image.
-# Non-root, uv-based install, SQLite data lives in /data (bind-mount a host dir).
+# Multi-stage: builds SvelteKit frontend, then packages Python app.
+# SQLite data lives in /data (bind-mount a host dir).
+
+FROM node:22-alpine AS frontend-build
+
+WORKDIR /app
+COPY web/package.json web/package-lock.json* ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
 
 FROM python:3.12-slim AS base
 
@@ -16,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gosu \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY --from=frontend-build /app/build ./web/build
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY migrations ./migrations
@@ -28,7 +39,8 @@ RUN pip install --upgrade pip && pip install .
 RUN install -d -o stankbot -g stankbot /data
 
 ENV DATABASE_URL=sqlite+aiosqlite:////data/stankbot.db \
-    TEMPLATES_DIR=/data/templates
+    TEMPLATES_DIR=/data/templates \
+    V2_WEB_DIR=/app/web
 
 EXPOSE 8000
 
