@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { boardState, currentChain, currentUnique } from '$lib/stores';
 	import { apiFetch } from '$lib/api';
 	import type { BoardState, PlayerRow } from '../app.d';
@@ -127,22 +128,24 @@
 	{#if board?.chain_starter || board?.chainbreaker}
 		<div class="grid grid-cols-2 gap-3">
 			{#if board.chain_starter}
-				<a href={getPlayerUrl(board.chain_starter.user_id)} class="panel flex items-center gap-3">
+				{@const starter = board.chain_starter}
+				<a href={getPlayerUrl(starter.user_id)} onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(starter.user_id)); }} class="panel flex items-center gap-3">
 					<div class="text-2xl">🏃</div>
 					<div>
 						<div class="text-xs text-muted uppercase">Starter</div>
-						<div class="font-medium truncate">{board.chain_starter.display_name}</div>
-						<div class="text-sm text-muted">{board.chain_starter.earned_sp} SP</div>
+						<div class="font-medium truncate">{starter.display_name}</div>
+						<div class="text-sm text-muted">{starter.earned_sp} SP</div>
 					</div>
 				</a>
 			{/if}
 			{#if board.chainbreaker}
-				<a href={getPlayerUrl(board.chainbreaker.user_id)} class="panel flex items-center gap-3">
+				{@const breaker = board.chainbreaker}
+				<a href={getPlayerUrl(breaker.user_id)} onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(breaker.user_id)); }} class="panel flex items-center gap-3">
 					<div class="text-2xl">💀</div>
 					<div>
 						<div class="text-xs text-muted uppercase">Breaker</div>
-						<div class="font-medium truncate">{board.chainbreaker.display_name}</div>
-						<div class="text-sm text-muted">{board.chainbreaker.punishments} PP</div>
+						<div class="font-medium truncate">{breaker.display_name}</div>
+						<div class="text-sm text-muted">{breaker.punishments} PP</div>
 					</div>
 				</a>
 			{/if}
@@ -175,6 +178,7 @@
 					{@const isMe = userId && row.user_id === Number(userId)}
 					<a
 						href={getPlayerUrl(row.user_id)}
+						onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(row.user_id)); }}
 						class="flex items-center gap-3 p-2 -mx-2 rounded-lg transition-colors
 							{isMe ? 'bg-accent/20' : 'hover:bg-border/50'}"
 					>
@@ -214,7 +218,7 @@
 		{@const myRank = getPlayerRank(displayedRankings, Number(data.user.id))}
 		{#if myRank}
 			<div class="panel">
-				<a href={getPlayerUrl(Number(data.user.id))} class="flex items-center justify-between">
+				<a href={getPlayerUrl(Number(data.user.id))} onclick={(e) => { e.preventDefault(); goto(getPlayerUrl(Number(data.user.id))); }} class="flex items-center justify-between">
 					<div>
 						<div class="text-muted text-sm">Your rank</div>
 						<div class="text-xl font-bold">#{myRank}</div>

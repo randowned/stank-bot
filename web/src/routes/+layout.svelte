@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { base } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { user, guildId, connectionStatus, toasts, removeToast } from '$lib/stores';
 	import { onMount } from 'svelte';
@@ -39,13 +40,17 @@
 		{ href: base + '/admin/altar', label: 'Altar', icon: '🗿' },
 		{ href: base + '/admin/templates', label: 'Templates', icon: '📝' }
 	]);
+
+	function nav(href: string) {
+		goto(href);
+	}
 </script>
 
 <div class="min-h-screen flex flex-col">
 	<!-- Header -->
 	<header class="sticky top-0 z-50 bg-panel border-b border-border">
 		<div class="flex items-center justify-between px-4 py-3">
-			<a href={base} class="flex items-center gap-2">
+			<a href={base} class="flex items-center gap-2" onclick={(e) => { e.preventDefault(); nav(base); }}>
 				<img src="/static/Stank.gif" alt="Stank" class="w-6 h-6" />
 				<span class="font-semibold text-text">StankBot</span>
 			</a>
@@ -64,6 +69,7 @@
 			{#each navItems as item}
 				<a
 					href={item.href}
+					onclick={(e) => { e.preventDefault(); nav(item.href); }}
 					class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
 						{currentPath === item.href || currentPath.startsWith(item.href + '/') ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
 				>
@@ -74,16 +80,17 @@
 
 			{#if isAdmin && data.is_admin}
 				<div class="w-px h-6 bg-border mx-1"></div>
-				{#each adminItems as item}
-					<a
-						href={item.href}
-						class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
-							{currentPath.startsWith(item.href) ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
-					>
-						<span>{item.icon}</span>
-						<span class="whitespace-nowrap">{item.label}</span>
-					</a>
-				{/each}
+			{#each adminItems as item}
+				<a
+					href={item.href}
+					onclick={(e) => { e.preventDefault(); nav(item.href); }}
+					class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
+						{currentPath.startsWith(item.href) ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
+				>
+					<span>{item.icon}</span>
+					<span class="whitespace-nowrap">{item.label}</span>
+				</a>
+			{/each}
 			{/if}
 		</nav>
 	</header>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import type { PlayerProfile } from '../../../app.d';
 
@@ -116,5 +117,5 @@
 		</div>
 	{/if}
 
-	<a href={base} class="btn btn-secondary w-full text-center">← Back to Board</a>
+	<a href={base} onclick={(e) => { e.preventDefault(); goto(base); }} class="btn btn-secondary w-full text-center">← Back to Board</a>
 </div>

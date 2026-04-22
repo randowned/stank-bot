@@ -18,7 +18,7 @@ import secrets
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
@@ -69,7 +69,14 @@ def build_app(
 
     v2_build_dir = _WEB_DIR / "build"
     if v2_build_dir.is_dir():
-        app.mount("/v2", StaticFiles(directory=str(v2_build_dir), html=True), name="v2_static")
+        v2_index = v2_build_dir / "index.html"
+        if v2_index.is_file():
+            @app.get("/v2/{path:path}")
+            async def spa_fallback(path: str) -> FileResponse:
+                file_path = v2_build_dir / path
+                if file_path.is_file() and not path.startswith("api/"):
+                    return FileResponse(file_path)
+                return FileResponse(v2_index)
 
     @app.exception_handler(_LoginRedirect)
     async def _login_redirect_handler(_: Request, exc: _LoginRedirect):
