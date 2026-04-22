@@ -15,14 +15,25 @@ from typing import TYPE_CHECKING
 import discord
 from discord.ext import commands
 
+from stankbot.cogs._identity import ensure_player
 from stankbot.db.models import RecordScope
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import events as events_repo
 from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services import embed_builders
 from stankbot.services.announcement_service import broadcast_to_guild
-from stankbot.cogs._identity import ensure_player
 from stankbot.services.chain_service import ChainOutcome, ChainService, StankInput
+
+try:
+    from stankbot.web.v2_app import (
+        notify_achievement,  # noqa: F401
+        notify_chain_update,
+        notify_rank_update,  # noqa: F401
+    )
+
+    _V2_NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    _V2_NOTIFICATIONS_AVAILABLE = False
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
 from stankbot.utils.time_utils import humanize_duration
@@ -121,6 +132,13 @@ class ChainListener(commands.Cog):
                 )
                 if not maintenance:
                     await self._auto_react(message, altar)
+                if _V2_NOTIFICATIONS_AVAILABLE and not maintenance:
+                    await notify_chain_update(
+                        message.guild.id,
+                        result.chain_length,
+                        result.chain_unique,
+                        message.author.id,
+                    )
                 return
 
             if result.outcome == ChainOutcome.COOLDOWN:
@@ -148,6 +166,8 @@ class ChainListener(commands.Cog):
                     await self._post_chain_break(session, message, altar, result)
                     if result.record_broken or result.alltime_record_broken:
                         await self._post_record(session, message, altar, result)
+                if _V2_NOTIFICATIONS_AVAILABLE and not maintenance:
+                    await notify_chain_update(message.guild.id, 0, 0, None)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:

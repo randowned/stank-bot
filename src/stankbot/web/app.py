@@ -13,6 +13,7 @@ authenticated user's Discord roles for the requested guild.
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from pathlib import Path
 
@@ -24,12 +25,14 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from stankbot.bot import StankBot
 from stankbot.config import AppConfig
+from stankbot.web import v2_app
 from stankbot.web.deps import _LoginRedirect, _NotInGuild
 from stankbot.web.routes import admin, auth, history, player, public
 
 log = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
+_WEB_DIR = Path(os.environ.get("V2_WEB_DIR", str(Path(__file__).parent.parent.parent / "web")))
 
 
 def build_app(
@@ -61,6 +64,12 @@ def build_app(
     static_dir = _TEMPLATES_DIR.parent / "static"
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    v2_build_dir = _WEB_DIR / "build"
+    if v2_build_dir.is_dir():
+        app.mount("/v2", StaticFiles(directory=str(v2_build_dir), html=True), name="v2_static")
+
+    app.include_router(v2_app._API_ROUTER)
 
     @app.exception_handler(_LoginRedirect)
     async def _login_redirect_handler(_: Request, exc: _LoginRedirect):
