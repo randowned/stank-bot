@@ -64,8 +64,7 @@ export interface PlayerRow {
 	earned_sp: number;
 	punishments: number;
 	net?: number;
-	reactions_in_chain?: number;
-	reacted_pct?: number;
+	reactions_in_session?: number;
 }
 
 export interface PlayerProfile {

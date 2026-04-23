@@ -65,13 +65,13 @@ async def build_board_state(
         current, current_unique = await chains_repo.chain_length_and_unique(
             session, current_chain.id
         )
-        reactions = await reaction_awards_repo.count_for_chain(
-            session, guild_id=guild_id, chain_id=current_chain.id
-        )
     else:
         current = 0
         current_unique = 0
-        reactions = 0
+
+    reactions = await reaction_awards_repo.count_for_session(
+        session, guild_id=guild_id, session_id=session_id
+    )
 
     # Records (cached)
     session_rec = await session.get(Record, (guild_id, altar.id, str(RecordScope.SESSION)))

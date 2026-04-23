@@ -26,9 +26,9 @@ from stankbot.services.chain_service import ChainOutcome, ChainService, StankInp
 
 try:
     from stankbot.web.v2_app import (
+        broadcast_rank_update,
         notify_achievement,  # noqa: F401
         notify_chain_update,
-        notify_rank_update,  # noqa: F401
     )
 
     _V2_NOTIFICATIONS_AVAILABLE = True
@@ -139,6 +139,7 @@ class ChainListener(commands.Cog):
                         result.chain_unique,
                         message.author.id,
                     )
+                    await broadcast_rank_update(self.bot.session_factory, message.guild.id)
                 return
 
             if result.outcome == ChainOutcome.COOLDOWN:
@@ -168,6 +169,7 @@ class ChainListener(commands.Cog):
                         await self._post_record(session, message, altar, result)
                 if _V2_NOTIFICATIONS_AVAILABLE and not maintenance:
                     await notify_chain_update(message.guild.id, 0, 0, None)
+                    await broadcast_rank_update(self.bot.session_factory, message.guild.id)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:

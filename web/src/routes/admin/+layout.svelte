@@ -35,7 +35,7 @@
 	{/if}
 
 	<aside
-		class="bg-panel border-r border-border p-3 w-56 shrink-0 fixed md:static top-0 bottom-0 left-0 z-20 overflow-y-auto transition-transform
+		class="bg-panel border-r border-border p-3 w-56 shrink-0 fixed md:static top-[57px] md:top-0 bottom-0 left-0 z-20 overflow-y-auto transition-transform
 			{sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
 	>
 		<div class="text-xs uppercase tracking-wide text-muted mb-2 px-2">Admin</div>

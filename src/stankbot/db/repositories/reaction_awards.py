@@ -11,7 +11,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stankbot.db.models import ReactionAward
+from stankbot.db.models import Event, EventType, ReactionAward
 
 
 async def try_claim(
@@ -68,3 +68,33 @@ async def count_per_user_for_chain(
     )
     result = await session.execute(stmt)
     return {int(uid): int(n) for uid, n in result.all()}
+
+
+async def count_for_session(
+    session: AsyncSession, *, guild_id: int, session_id: int | None
+) -> int:
+    """Total reaction-award events in a session (SP_REACTION event rows)."""
+    stmt = select(func.count()).where(
+        Event.guild_id == guild_id,
+        Event.type == EventType.SP_REACTION,
+        Event.session_id == session_id,
+    )
+    result = await session.scalar(stmt)
+    return int(result or 0)
+
+
+async def count_per_user_for_session(
+    session: AsyncSession, *, guild_id: int, session_id: int | None
+) -> dict[int, int]:
+    """Per-user reaction-award counts in a session, keyed by user_id."""
+    stmt = (
+        select(Event.user_id, func.count())
+        .where(
+            Event.guild_id == guild_id,
+            Event.type == EventType.SP_REACTION,
+            Event.session_id == session_id,
+        )
+        .group_by(Event.user_id)
+    )
+    result = await session.execute(stmt)
+    return {int(uid): int(n) for uid, n in result.all() if uid is not None}

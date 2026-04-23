@@ -101,7 +101,6 @@
 			class="flex items-center gap-2 w-full px-3 py-2 text-sm text-left rounded-sm text-text hover:bg-border/60 transition-colors"
 			aria-expanded={guildSwitcherOpen}
 			aria-controls="guild-switch-list"
-			disabled={switchable.length === 0}
 			data-testid="guild-switcher-toggle"
 		>
 			{#if active}

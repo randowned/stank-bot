@@ -15,20 +15,21 @@
 
 	const href = $derived(`${base}/player/${row.user_id}`);
 	const net = $derived(row.net ?? row.earned_sp - row.punishments);
-	const reactionsInChain = $derived(row.reactions_in_chain ?? 0);
-	const reactedPct = $derived(row.reacted_pct ?? 0);
-	const hasReactionMeta = $derived(row.reactions_in_chain !== undefined);
+	const reactionsInSession = $derived(row.reactions_in_session ?? 0);
+	const hasReactionMeta = $derived(row.reactions_in_session !== undefined);
+	const sp = $derived(row.earned_sp);
+	const pp = $derived(row.punishments);
 
 	const netColor = $derived(net > 0 ? 'text-ok' : net < 0 ? 'text-danger' : 'text-muted');
 
 	let flash = $state(false);
 	const rowKey = $derived(
-		`${row.user_id}:${row.earned_sp}:${row.punishments}:${reactionsInChain}`
+		`${row.user_id}:${row.earned_sp}:${row.punishments}:${reactionsInSession}`
 	);
 	let prevKey = $state('');
 	let prevSp = $state(row.earned_sp);
 	let prevPp = $state(row.punishments);
-	let prevReacts = $state(reactionsInChain);
+	let prevReacts = $state(reactionsInSession);
 
 	type DeltaChip = { id: number; delta: number; kind: 'stank' | 'reaction' | 'break' | 'finish' | 'other' };
 	let chips: DeltaChip[] = $state([]);
@@ -41,18 +42,18 @@
 			prevKey = key;
 			prevSp = row.earned_sp;
 			prevPp = row.punishments;
-			prevReacts = reactionsInChain;
+			prevReacts = reactionsInSession;
 			return;
 		}
 		if (key !== prev) {
 			const dSp = row.earned_sp - untrack(() => prevSp);
 			const dPp = row.punishments - untrack(() => prevPp);
-			const dRe = reactionsInChain - untrack(() => prevReacts);
+			const dRe = reactionsInSession - untrack(() => prevReacts);
 
 			prevKey = key;
 			prevSp = row.earned_sp;
 			prevPp = row.punishments;
-			prevReacts = reactionsInChain;
+			prevReacts = reactionsInSession;
 
 			flash = true;
 			const flashId = setTimeout(() => (flash = false), 900);
@@ -97,9 +98,9 @@
 		</div>
 		<div class="text-xs text-muted truncate">
 			{#if hasReactionMeta}
-				{reactionsInChain} reacts · {reactedPct}% reacted
+				{sp} SP · {pp} PP · {reactionsInSession} reacts
 			{:else}
-				—
+				{sp} SP · {pp} PP
 			{/if}
 		</div>
 	</div>

@@ -78,6 +78,23 @@ test.describe('Board', () => {
 		await expect(page.locator('[data-testid="chain-counter"]')).toHaveText(/^0 /);
 	});
 
+	test('leaderboard rows appear live via rank_update broadcast', async ({ page, injectStank }) => {
+		await expect(page.locator('[data-testid="live-badge"]')).toHaveAttribute(
+			'title',
+			/Receiving live updates/
+		);
+
+		const liveUserId = Date.now() % 1_000_000_000;
+		const liveUser = `LiveUpdate_${liveUserId}`;
+
+		await injectStank(123456789, liveUserId, liveUser);
+
+		const row = page.locator(`[data-testid="rank-row"][href$="/player/${liveUserId}"]`);
+		await expect(row).toBeVisible({ timeout: 5000 });
+		const netText = await row.locator('[data-testid="net-score"]').textContent();
+		expect(Number((netText ?? '0').trim())).toBeGreaterThan(0);
+	});
+
 	test('random events update the board', async ({ page, startRandomEvents, stopRandomEvents }) => {
 		await startRandomEvents(1);
 

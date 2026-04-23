@@ -91,7 +91,6 @@ manager = ConnectionManager()
 async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str) -> dict:
     """Fetch current board state as dict for WebSocket clients."""
     from stankbot.db.repositories import altars as altars_repo
-    from stankbot.db.repositories import chains as chains_repo
     from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services.board_service import build_board_state
 
@@ -106,12 +105,13 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
         altar=altar,
     )
 
-    current_chain = await chains_repo.current_chain(session, guild_id, altar.id)
-    per_user_reactions: dict[int, int] = {}
-    if current_chain is not None:
-        per_user_reactions = await reaction_awards_repo.count_per_user_for_chain(
-            session, guild_id=guild_id, chain_id=current_chain.id
-        )
+    from stankbot.services.session_service import SessionService
+
+    session_svc = SessionService(session)
+    session_id = await session_svc.current(guild_id)
+    per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
+        session, guild_id=guild_id, session_id=session_id
+    )
 
     chain_length = state.current
 
@@ -119,15 +119,13 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
         earned = r.earned_sp
         punishments = r.punishments
         reacts = per_user_reactions.get(int(r.user_id), 0)
-        pct = round(reacts / chain_length * 100) if chain_length > 0 else 0
         return {
             "user_id": r.user_id,
             "display_name": r.display_name,
             "earned_sp": earned,
             "punishments": punishments,
             "net": earned - punishments,
-            "reactions_in_chain": reacts,
-            "reacted_pct": max(0, min(100, pct)),
+            "reactions_in_session": reacts,
         }
 
     return {
@@ -374,8 +372,6 @@ async def api_leaderboard(
     limit: int = Query(20, ge=1, le=100),
 ) -> MsgPackResponse:
     """Return paginated leaderboard rows as msgpack or JSON."""
-    from stankbot.db.repositories import altars as altars_repo
-    from stankbot.db.repositories import chains as chains_repo
     from stankbot.db.repositories import events as events_repo
     from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services.session_service import SessionService
@@ -393,30 +389,19 @@ async def api_leaderboard(
 
         names = await players_repo.display_names(session, guild_id, user_ids)
 
-    altar = await altars_repo.primary(session, guild_id)
-    chain_length = 0
-    per_user_reactions: dict[int, int] = {}
-    if altar is not None:
-        current_chain = await chains_repo.current_chain(session, guild_id, altar.id)
-        if current_chain is not None:
-            chain_length, _ = await chains_repo.chain_length_and_unique(
-                session, current_chain.id
-            )
-            per_user_reactions = await reaction_awards_repo.count_per_user_for_chain(
-                session, guild_id=guild_id, chain_id=current_chain.id
-            )
+    per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
+        session, guild_id=guild_id, session_id=session_id
+    )
 
     def _row(uid: int, sp: int, pp: int) -> dict:
         reacts = per_user_reactions.get(int(uid), 0)
-        pct = round(reacts / chain_length * 100) if chain_length > 0 else 0
         return {
             "user_id": uid,
             "display_name": names.get(uid, str(uid)),
             "earned_sp": sp,
             "punishments": pp,
             "net": sp - pp,
-            "reactions_in_chain": reacts,
-            "reacted_pct": max(0, min(100, pct)),
+            "reactions_in_session": reacts,
         }
 
     result = [_row(uid, sp, pp) for uid, sp, pp in rows]
@@ -765,6 +750,49 @@ async def notify_rank_update(guild_id: int, rankings: list) -> None:
             "d": {"rankings": rankings, "updated_at": datetime.now(UTC).isoformat()},
         },
     )
+
+
+async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20) -> None:
+    """Convenience: build the leaderboard payload and broadcast it.
+
+    Safe to call from cogs / the event bridge — it opens its own session
+    to avoid entangling with the caller's transaction.
+    """
+    if not manager.active_connections.get(guild_id):
+        return
+    from stankbot.db.engine import session_scope
+    from stankbot.db.repositories import events as events_repo
+    from stankbot.db.repositories import players as players_repo
+    from stankbot.db.repositories import reaction_awards as reaction_awards_repo
+    from stankbot.services.session_service import SessionService
+
+    async with session_scope(session_factory) as session:
+        session_svc = SessionService(session)
+        session_id = await session_svc.current(guild_id)
+        rows = await events_repo.leaderboard(
+            session, guild_id, session_id=session_id, limit=limit
+        )
+        user_ids = [uid for uid, _, _ in rows]
+        names = (
+            await players_repo.display_names(session, guild_id, user_ids)
+            if user_ids
+            else {}
+        )
+        per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
+            session, guild_id=guild_id, session_id=session_id
+        )
+        payload = [
+            {
+                "user_id": uid,
+                "display_name": names.get(uid, str(uid)),
+                "earned_sp": sp,
+                "punishments": pp,
+                "net": sp - pp,
+                "reactions_in_session": per_user_reactions.get(int(uid), 0),
+            }
+            for uid, sp, pp in rows
+        ]
+    await notify_rank_update(guild_id, payload)
 
 
 async def notify_achievement(guild_id: int, user_id: int, badge: dict) -> None:

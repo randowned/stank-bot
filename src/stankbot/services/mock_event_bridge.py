@@ -190,11 +190,9 @@ class MockEventBridge:
         except RuntimeError:
             return
 
-        from stankbot.web.v2_app import notify_chain_update
+        from stankbot.web.v2_app import broadcast_rank_update, notify_chain_update
 
         if result.outcome == ChainOutcome.VALID_STANK:
-            # We don't have the exact author_id in ChainResult for VALID_STANK,
-            # so we pass None for starter_user_id; the board will still refresh.
             asyncio.create_task(
                 notify_chain_update(
                     guild_id,
@@ -203,7 +201,7 @@ class MockEventBridge:
                     None,
                 )
             )
+            asyncio.create_task(broadcast_rank_update(self.session_factory, guild_id))
         elif result.outcome == ChainOutcome.CHAIN_BREAK:
             asyncio.create_task(notify_chain_update(guild_id, 0, 0, None))
-
-        # TODO: also trigger rank_update when SP/PP totals change materially.
+            asyncio.create_task(broadcast_rank_update(self.session_factory, guild_id))
