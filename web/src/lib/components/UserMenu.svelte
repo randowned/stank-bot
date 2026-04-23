@@ -93,6 +93,7 @@
 		<span>My Profile</span>
 	</DropdownItem>
 
+	{#if switchable.length > 1}
 	<div class="border-t border-border my-1"></div>
 	<div class="px-1">
 		<button
@@ -163,6 +164,7 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
 
 	{#if isAdmin}
 		<div class="border-t border-border my-1"></div>
