@@ -3,7 +3,9 @@
 	import { browser } from '$app/environment';
 	import { apiFetch } from '$lib/api';
 	import { boardState } from '$lib/stores';
-	import type { BoardState, PlayerRow } from '../app.d';
+	import type { BoardState, PlayerRow } from '$lib/types';
+	import LeaderboardRow from '$lib/components/LeaderboardRow.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	let { data } = $props();
 
@@ -167,38 +169,14 @@
 				{/each}
 			</div>
 		{:else if !displayedRankings.length}
-			<p class="text-muted text-center py-8">No stanks recorded yet.</p>
+			<EmptyState icon="🏁" title="No stanks yet" message="The leaderboard will fill in as players start stanking." />
 		{:else}
 			<div class="space-y-2">
 				{#each displayedRankings as row, i}
 					{@const rank = i + 1}
 					{@const userId = data.user?.id}
-					{@const isMe = userId && row.user_id === Number(userId)}
-					<a
-						href={getPlayerUrl(String(row.user_id))}
-						class="flex items-center gap-3 p-2 -mx-2 rounded-lg transition-colors
-							{isMe ? 'bg-accent/20' : 'hover:bg-border/50'}"
-						data-testid="rank-row"
-					>
-						<div
-							class="w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold
-								{rank === 1 ? 'bg-gold text-bg' : ''}
-								{rank === 2 ? 'bg-gray-300 text-bg' : ''}
-								{rank === 3 ? 'bg-amber-600 text-white' : ''}
-								{rank > 3 ? 'bg-border text-muted' : ''}"
-						>
-							{rank}
-						</div>
-						<div class="flex-1 min-w-0">
-							<div class="font-medium truncate {isMe ? 'text-accent' : ''}">{row.display_name}</div>
-							<div class="text-xs text-muted">
-								{row.earned_sp} SP · {row.punishments} PP · <span class="font-semibold">{row.earned_sp - row.punishments}</span> net
-							</div>
-						</div>
-						{#if isMe}
-							<span class="badge text-accent">You</span>
-						{/if}
-					</a>
+					{@const isMe = Boolean(userId && row.user_id === Number(userId))}
+					<LeaderboardRow {rank} {row} {isMe} />
 				{/each}
 			</div>
 			{#if hasMore || loadingMore}

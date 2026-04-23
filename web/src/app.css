@@ -58,6 +58,23 @@
 }
 
 @layer utilities {
+	.row-flash {
+		animation: row-flash-anim 0.9s ease-out;
+	}
+
+	@keyframes row-flash-anim {
+		0% {
+			background-color: theme('colors.accent');
+			box-shadow: 0 0 0 0 theme('colors.accent');
+		}
+		40% {
+			background-color: rgba(164, 124, 255, 0.25);
+		}
+		100% {
+			background-color: transparent;
+		}
+	}
+
 	.scrollbar-thin {
 		scrollbar-width: thin;
 		scrollbar-color: theme('colors.border') transparent;

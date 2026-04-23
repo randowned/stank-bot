@@ -31,7 +31,7 @@ Sessions roll over on a cron (default 07:00 / 15:00 / 23:00 UTC) with configurab
 - **Event-sourced.** Every SP/PP change is an immutable event row. Player totals, session summaries, and records are derived — `rebuild-from-history` can always reconstruct them.
 - **Multi-altar per guild.** Run a themed event (Halloween sticker, Founders Day) alongside the normal chain with its own scoring overrides and a `custom_event_key` tag on every emitted event.
 - **Achievements / badges** derived from the event log — First Stank, Centurion, Finisher, Chainbreaker, Comeback Kid, Perfect Session, Streaker, Team Player.
-- **Web dashboard** (FastAPI + Jinja2 + HTMX) with Discord OAuth — public board, player profiles, chain/session history, admin pages with live embed-template preview.
+- **Web dashboard** with Discord OAuth — public board, player profiles with 30-day sparklines + achievement gallery, chain/session history, admin surface for settings/altars/roles/templates/audit with live embed-template preview, guild switcher, and WebSocket live updates. Served at `/v2` (SvelteKit SPA) with the legacy Jinja dashboard still mounted at `/` for now.
 
 ## Running it yourself
 

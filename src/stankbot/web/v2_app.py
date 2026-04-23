@@ -254,6 +254,80 @@ async def auth_check(request: Request, user: dict = Depends(require_login)) -> J
     )
 
 
+@_API_ROUTER.get("/api/guilds")
+async def api_guilds(
+    request: Request,
+    user: dict = Depends(require_login),
+) -> JSONResponse:
+    """Return the user's accessible guilds merged with bot-presence info.
+
+    Powers the header user menu's guild switcher and the admin "install to
+    another guild" CTA. The bot's guild list is the owner's super-admin
+    surface; regular users see only guilds they're actually in.
+    """
+    from stankbot.web.deps import _is_owner
+
+    config = request.app.state.config
+    bot_guilds: list[dict] = getattr(request.app.state, "bot_guilds", [])
+    bot_guild_ids = {int(g["id"]) for g in bot_guilds}
+    bot_guild_by_id = {int(g["id"]): g for g in bot_guilds}
+
+    user_guilds = request.session.get("guilds", [])
+    is_owner = _is_owner(request)
+    active_guild_id = request.session.get("guild") or request.session.get("active_guild_id")
+
+    def icon_url(guild_id: int, icon_hash: str | None) -> str | None:
+        if not icon_hash:
+            return None
+        ext = "gif" if icon_hash.startswith("a_") else "png"
+        return f"https://cdn.discordapp.com/icons/{guild_id}/{icon_hash}.{ext}"
+
+    results: list[dict] = []
+    seen: set[int] = set()
+
+    for g in user_guilds:
+        gid = int(g.get("id", 0))
+        if gid == 0 or gid in seen:
+            continue
+        seen.add(gid)
+        perms = int(g.get("permissions", 0))
+        is_admin = is_owner or bool(perms & 0x20)
+        results.append(
+            {
+                "id": str(gid),
+                "name": g.get("name", ""),
+                "icon_url": icon_url(gid, g.get("icon")),
+                "bot_present": gid in bot_guild_ids,
+                "is_admin": is_admin,
+                "is_owner": is_owner,
+                "is_active": active_guild_id is not None and int(active_guild_id) == gid,
+            }
+        )
+
+    if is_owner:
+        for gid, g in bot_guild_by_id.items():
+            if gid in seen:
+                continue
+            results.append(
+                {
+                    "id": str(gid),
+                    "name": str(g.get("name", "")),
+                    "icon_url": icon_url(gid, g.get("icon")),
+                    "bot_present": True,
+                    "is_admin": True,
+                    "is_owner": True,
+                    "is_active": active_guild_id is not None and int(active_guild_id) == gid,
+                }
+            )
+
+    # Keep the active guild first, bot-present next, others last — stable
+    # ordering so the dropdown doesn't shuffle when the session refreshes.
+    results.sort(key=lambda g: (not g["is_active"], not g["bot_present"], g["name"].lower()))
+
+    _ = config  # reserved for future member_count enrichment via bot cache
+    return JSONResponse(results)
+
+
 def _accepts_msgpack(request: Request) -> bool:
     """Check if client prefers msgpack over JSON."""
     accept = request.headers.get("accept", "")
@@ -383,6 +457,141 @@ async def api_player(
         },
         request,
     )
+
+
+@_API_ROUTER.get("/api/players/batch")
+async def api_players_batch(
+    request: Request,
+    ids: str = Query(..., description="Comma-separated user IDs"),
+    session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_active_guild_id),
+) -> JSONResponse:
+    """Resolve a batch of user IDs to display names for chain/session detail pages."""
+    from stankbot.db.repositories import players as players_repo
+
+    user_ids: list[int] = []
+    for raw in ids.split(","):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            user_ids.append(int(raw))
+        except ValueError:
+            continue
+        if len(user_ids) >= 100:
+            break
+
+    names = await players_repo.display_names(session, guild_id, user_ids)
+    result = [
+        {"user_id": str(uid), "display_name": names.get(uid, str(uid))}
+        for uid in user_ids
+    ]
+    return JSONResponse(result)
+
+
+@_API_ROUTER.get("/api/players/{user_id}/history")
+async def api_player_history(
+    user_id: str,
+    request: Request,
+    window: str = Query("30d", description="History window, e.g. 30d, 7d"),
+    session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_active_guild_id),
+) -> JSONResponse:
+    """Return per-day SP and PP for a player over the requested window."""
+    from datetime import timedelta
+
+    from sqlalchemy import case, func, select
+
+    from stankbot.db.models import Event, EventType
+
+    try:
+        uid = int(user_id)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail="Invalid user ID") from err
+
+    try:
+        days = int(window.rstrip("d"))
+    except ValueError:
+        days = 30
+    days = max(1, min(days, 365))
+
+    since = datetime.now(UTC) - timedelta(days=days)
+    sp_types = [
+        EventType.SP_BASE,
+        EventType.SP_POSITION_BONUS,
+        EventType.SP_STARTER_BONUS,
+        EventType.SP_FINISH_BONUS,
+        EventType.SP_REACTION,
+        EventType.SP_TEAM_PLAYER,
+    ]
+    day = func.date(Event.created_at)
+    stmt = (
+        select(
+            day.label("day"),
+            func.sum(
+                case(
+                    (Event.type.in_([t.value for t in sp_types]), Event.delta),
+                    else_=0,
+                )
+            ).label("sp"),
+            func.sum(
+                case(
+                    (Event.type == EventType.PP_BREAK.value, Event.delta),
+                    else_=0,
+                )
+            ).label("pp"),
+        )
+        .where(
+            Event.guild_id == guild_id,
+            Event.user_id == uid,
+            Event.created_at >= since,
+        )
+        .group_by(day)
+        .order_by(day.asc())
+    )
+    try:
+        rows = (await session.execute(stmt)).all()
+    except Exception:
+        log.exception("player history query failed; falling back to empty series")
+        rows = []
+
+    series = [
+        {"day": str(r[0]), "sp": int(r[1] or 0), "pp": int(r[2] or 0)}
+        for r in rows
+    ]
+    return JSONResponse({"user_id": str(uid), "window_days": days, "series": series})
+
+
+@_API_ROUTER.get("/api/achievements")
+async def api_achievements(
+    request: Request,
+    user_id: str | None = Query(None, description="Optional user to mark earned badges"),
+    session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_active_guild_id),
+) -> JSONResponse:
+    """Return the achievement catalog plus (optionally) which are unlocked for a user."""
+    from stankbot.services import achievements as achievements_svc
+
+    unlocked: set[str] = set()
+    if user_id is not None:
+        try:
+            uid = int(user_id)
+        except ValueError as err:
+            raise HTTPException(status_code=400, detail="Invalid user ID") from err
+        unlocked = set(await achievements_svc.badges_for(session, guild_id, uid))
+
+    catalog = []
+    for row in achievements_svc.catalog_rows():
+        catalog.append(
+            {
+                "key": row["key"],
+                "name": row["name"],
+                "description": row["description"],
+                "icon": row["icon"],
+                "unlocked": row["key"] in unlocked,
+            }
+        )
+    return JSONResponse({"achievements": catalog})
 
 
 @_API_ROUTER.get("/api/chains")

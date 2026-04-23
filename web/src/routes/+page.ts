@@ -1,12 +1,12 @@
 import type { PageLoad } from './$types';
 import { apiFetch } from '$lib/api';
-import type { BoardState } from '../app.d';
+import { loadWithFallback } from '$lib/api-utils';
+import type { BoardState } from '$lib/types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	try {
-		const state = await apiFetch<BoardState>('/v2/api/board', { fetch });
-		return { state, guild_name: state.guild_name || 'StankBot' };
-	} catch {
-		return { state: null, guild_name: 'StankBot' };
-	}
+	const state = await loadWithFallback<BoardState | null>(
+		() => apiFetch<BoardState>('/v2/api/board', { fetch }),
+		{ fallback: null }
+	);
+	return { state, guild_name: state?.guild_name || 'StankBot' };
 };

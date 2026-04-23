@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import type { ChainSummary } from '../../app.d';
+	import type { ChainSummary } from '$lib/types';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	let { data } = $props();
 
@@ -19,16 +21,11 @@
 </script>
 
 <div class="p-4 space-y-4">
-	<div class="panel">
-		<h1 class="text-xl font-bold flex items-center gap-2">
-			<span>⛓️</span>
-			<span>Chain History</span>
-		</h1>
-	</div>
+	<PageHeader title="⛓️ Chain History" subtitle="Every chain this guild has ever built." />
 
 	{#if !chains.length}
 		<div class="panel">
-			<p class="text-muted text-center py-8">No chains recorded yet.</p>
+			<EmptyState icon="⛓️" title="No chains yet" message="Once a chain starts, it will show up here." />
 		</div>
 	{:else}
 		<div class="space-y-2">

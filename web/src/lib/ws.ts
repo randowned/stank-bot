@@ -1,7 +1,8 @@
 import { base } from '$app/paths';
 import { Packr } from 'msgpackr';
-import { connectionStatus, wsLatency, boardState, addToast } from './stores';
-import type { BoardState, Badge } from '../app.d';
+import { connectionStatus, wsLatency, boardState } from './stores/index';
+import { emitWsEvent } from './stores/ws-events';
+import type { BoardState, Badge } from './types';
 import { get } from 'svelte/store';
 
 const packr = new Packr({ useRecords: false });
@@ -83,20 +84,27 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 1000;
 
-export function connect(): void {
-	if (ws?.readyState === WebSocket.OPEN) {
-		return;
-	}
+export function canConnect(): boolean {
+	return typeof WebSocket !== 'undefined' && typeof window !== 'undefined';
+}
+
+function defaultUrl(): string {
+	const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+	const host = window.location.host;
+	return `${protocol}//${host}${base}/ws`;
+}
+
+export function connect(url?: string): void {
+	if (!canConnect()) return;
+	if (ws?.readyState === WebSocket.OPEN) return;
 
 	connectionStatus.set('connecting');
 
-	const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-	const host = window.location.host;
-	const url = `${protocol}//${host}${base}/ws`;
-	console.log('[ws] connecting to', url);
+	const target = url ?? defaultUrl();
+	console.log('[ws] connecting to', target);
 
 	try {
-		ws = new WebSocket(url);
+		ws = new WebSocket(target);
 
 		ws.binaryType = 'arraybuffer';
 
@@ -106,7 +114,7 @@ export function connect(): void {
 			reconnectAttempts = 0;
 
 			startPingLoop();
-			addToast('Connected to live updates', 'success');
+			emitWsEvent({ kind: 'connected' });
 		};
 
 		ws.onmessage = (event) => {
@@ -125,6 +133,7 @@ export function connect(): void {
 			stopPingLoop();
 
 			if (event.code !== 1000) {
+				emitWsEvent({ kind: 'disconnected', code: event.code, reason: event.reason });
 				attemptReconnect();
 			}
 		};
@@ -132,7 +141,7 @@ export function connect(): void {
 		ws.onerror = (error) => {
 			console.error('[ws] error', error);
 			connectionStatus.set('error');
-			addToast('Connection error', 'error');
+			emitWsEvent({ kind: 'error', code: 'ws_error', message: 'Connection error' });
 		};
 	} catch (err) {
 		console.error('Failed to connect:', err);
@@ -178,7 +187,7 @@ function stopPingLoop(): void {
 
 function attemptReconnect(): void {
 	if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-		addToast('Unable to reconnect. Please refresh.', 'error', 0);
+		emitWsEvent({ kind: 'reconnect-failed' });
 		return;
 	}
 
@@ -226,20 +235,15 @@ function handleMessage(msg: ServerMsg): void {
 			break;
 
 		case MsgType.ACHIEVEMENT:
-			addToast(`Achievement unlocked: ${msg.d.badge.name}!`, 'success');
+			emitWsEvent({ kind: 'achievement', userId: msg.d.user_id, badge: msg.d.badge });
 			break;
 
 		case MsgType.SESSION:
-			addToast(
-				msg.d.action === 'start'
-					? `Session ${msg.d.session_id} started`
-					: `Session ${msg.d.session_id} ended`,
-				'info'
-			);
+			emitWsEvent({ kind: 'session', action: msg.d.action, sessionId: msg.d.session_id });
 			break;
 
 		case MsgType.ERROR:
-			addToast(msg.d.message, 'error');
+			emitWsEvent({ kind: 'error', code: msg.d.code, message: msg.d.message });
 			break;
 	}
 }

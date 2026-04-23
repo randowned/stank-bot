@@ -1,14 +1,38 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
-	import type { PlayerProfile } from '../../../app.d';
+	import type { PlayerProfile, User } from '$lib/types';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
+	import Sparkline from '$lib/components/Sparkline.svelte';
+
+	interface HistoryPoint {
+		day: string;
+		sp: number;
+		pp: number;
+	}
+
+	interface AchievementEntry {
+		key: string;
+		name: string;
+		description: string;
+		icon: string;
+		unlocked: boolean;
+	}
 
 	let { data } = $props();
 
-	const userData = $derived(data.user as { id: string; username: string; avatar: string | null } | null);
+	const userData = $derived(data.user as User | null);
 	const profile = $derived(data.profile as PlayerProfile | null);
+	const history = $derived((data.history as HistoryPoint[] | undefined) ?? []);
+	const achievements = $derived((data.achievements as AchievementEntry[] | undefined) ?? []);
 	const isLoading = $derived(!profile);
 	const targetId = $derived($page.params.id || userData?.id);
+
+	const spSeries = $derived(history.map((p) => p.sp));
+	const ppSeries = $derived(history.map((p) => p.pp));
+	const netSeries = $derived(history.map((p) => p.sp - p.pp));
 
 	function formatNumber(n: number): string {
 		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -30,22 +54,15 @@
 
 <div class="p-4 space-y-4">
 	{#if isLoading}
-		<div class="panel animate-pulse">
-			<div class="h-6 bg-border rounded w-32 mb-4"></div>
-			<div class="space-y-3">
-				<div class="h-4 bg-border rounded w-24"></div>
-				<div class="h-4 bg-border rounded w-24"></div>
+		<div class="panel">
+			<Skeleton width="8rem" height="1.5rem" />
+			<div class="mt-3 space-y-2">
+				<Skeleton width="6rem" />
+				<Skeleton width="6rem" />
 			</div>
 		</div>
 	{:else if profile}
-		<!-- Header -->
-		<div class="panel">
-			<h1 class="text-xl font-bold flex items-center gap-2">
-				<span>📈</span>
-				<span>{profile.display_name}</span>
-			</h1>
-			<p class="text-muted text-sm">Player #{targetId}</p>
-		</div>
+		<PageHeader title="📈 {profile.display_name}" subtitle="Player #{targetId}" />
 
 		<!-- Session Stats -->
 		<div class="panel">
@@ -95,25 +112,63 @@
 			{/if}
 		</div>
 
-		<!-- Badges -->
+		<!-- History sparklines -->
 		<div class="panel">
-			<h2 class="text-lg font-semibold mb-3">Badges</h2>
-			{#if profile.badges.length}
-				<div class="flex flex-wrap gap-2">
-					{#each profile.badges as badge}
-						<div class="badge" title={badge.description}>
-							<span>{badge.icon}</span>
-							<span>{badge.name}</span>
+			<h2 class="text-lg font-semibold mb-3">Last 30 days</h2>
+			{#if history.length}
+				<div class="grid grid-cols-3 gap-4">
+					<div>
+						<div class="text-xs text-muted uppercase mb-1">SP / day</div>
+						<div class="text-accent">
+							<Sparkline values={spSeries} ariaLabel="SP per day" />
+						</div>
+					</div>
+					<div>
+						<div class="text-xs text-muted uppercase mb-1">PP / day</div>
+						<div class="text-danger">
+							<Sparkline values={ppSeries} ariaLabel="PP per day" />
+						</div>
+					</div>
+					<div>
+						<div class="text-xs text-muted uppercase mb-1">Net</div>
+						<div class="text-ok">
+							<Sparkline values={netSeries} ariaLabel="Net per day" />
+						</div>
+					</div>
+				</div>
+			{:else}
+				<p class="text-muted text-sm">No activity recorded in the last 30 days.</p>
+			{/if}
+		</div>
+
+		<!-- Achievement gallery -->
+		<div class="panel">
+			<h2 class="text-lg font-semibold mb-3">Achievements</h2>
+			{#if achievements.length}
+				{@const earnedCount = achievements.filter((a) => a.unlocked).length}
+				<p class="text-xs text-muted mb-3">{earnedCount} of {achievements.length} unlocked</p>
+				<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+					{#each achievements as a (a.key)}
+						<div
+							class="flex items-start gap-2 p-2 rounded-md border border-border
+								{a.unlocked ? 'bg-panel' : 'bg-bg opacity-50'}"
+							title={a.description}
+						>
+							<span class="text-2xl leading-none">{a.icon}</span>
+							<div class="min-w-0">
+								<div class="font-medium text-sm truncate">{a.name}</div>
+								<div class="text-xs text-muted line-clamp-2">{a.description}</div>
+							</div>
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<p class="text-muted">No badges yet.</p>
+				<EmptyState icon="🏅" title="No achievements available" />
 			{/if}
 		</div>
 	{:else}
 		<div class="panel">
-			<p class="text-muted">Player not found.</p>
+			<EmptyState icon="❓" title="Player not found" message="No profile exists for this ID in the current guild." />
 		</div>
 	{/if}
 

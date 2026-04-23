@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import type { SessionSummary } from '../../app.d';
+	import type { SessionSummary } from '$lib/types';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	let { data } = $props();
 
@@ -19,16 +21,11 @@
 </script>
 
 <div class="p-4 space-y-4">
-	<div class="panel">
-		<h1 class="text-xl font-bold flex items-center gap-2">
-			<span>📜</span>
-			<span>Session History</span>
-		</h1>
-	</div>
+	<PageHeader title="📜 Session History" subtitle="Each entry is one reset window." />
 
 	{#if !sessions.length}
 		<div class="panel">
-			<p class="text-muted text-center py-8">No sessions recorded yet.</p>
+			<EmptyState icon="📜" title="No sessions yet" message="Completed sessions will appear here after the first reset." />
 		</div>
 	{:else}
 		<div class="space-y-2">

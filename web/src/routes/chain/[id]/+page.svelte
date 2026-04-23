@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import type { ChainSummary } from '../../../app.d';
+	import type { ChainSummary } from '$lib/types';
+	import PageHeader from '$lib/components/PageHeader.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	let { data } = $props();
 
 	const chain = $derived(data.chain as ChainSummary | null);
+	const names = $derived((data.names as Record<string, string> | undefined) ?? {});
 
 	function formatDate(dateStr: string | null): string {
 		if (!dateStr) return 'alive';
@@ -24,12 +27,17 @@
 
 <div class="p-4 space-y-4">
 	{#if chain}
-		<div class="panel">
-			<h1 class="text-xl font-bold flex items-center gap-2">
-				<span>⛓️</span>
-				<span>Chain #{chain.chain_id}</span>
-			</h1>
-		</div>
+		<PageHeader title="⛓️ Chain #{chain.chain_id}" subtitle={chain.broken_at ? 'Broken' : 'Alive'}>
+			{#snippet actions()}
+				{#if !chain.broken_at}
+					<span
+						class="w-2.5 h-2.5 rounded-full bg-ok animate-pulse"
+						title="Chain is alive"
+						aria-label="Chain is alive"
+					></span>
+				{/if}
+			{/snippet}
+		</PageHeader>
 
 		<div class="panel">
 			<div class="grid grid-cols-2 gap-3">
@@ -62,19 +70,19 @@
 								{i + 1}
 							</div>
 							<div class="flex-1">
-								<div class="font-medium">Player #{userId}</div>
+								<div class="font-medium">{names[String(userId)] ?? `Player #${userId}`}</div>
 							</div>
 							<div class="text-accent font-semibold">{count}</div>
 						</a>
 					{/each}
 				</div>
 			{:else}
-				<p class="text-muted">No contributors.</p>
+				<EmptyState icon="👥" title="No contributors" message="This chain has no recorded contributors." />
 			{/if}
 		</div>
 	{:else}
 		<div class="panel">
-			<p class="text-muted">Chain not found.</p>
+			<EmptyState icon="❓" title="Chain not found" message="This chain doesn't exist or isn't visible to you." />
 		</div>
 	{/if}
 

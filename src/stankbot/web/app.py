@@ -25,7 +25,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from stankbot.bot import StankBot
 from stankbot.config import AppConfig
-from stankbot.web import v2_app
+from stankbot.web import v2_admin, v2_app
 from stankbot.web.deps import _LoginRedirect, _NotInGuild
 from stankbot.web.routes import admin, auth, history, player, public
 
@@ -66,6 +66,7 @@ def build_app(
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     app.include_router(v2_app._API_ROUTER)
+    app.include_router(v2_admin.router)
 
     v2_build_dir = _WEB_DIR / "build"
     if v2_build_dir.is_dir():

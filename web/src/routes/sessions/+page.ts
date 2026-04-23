@@ -1,12 +1,12 @@
 import type { PageLoad } from './$types';
-import type { SessionSummary } from '../../app.d';
+import type { SessionSummary } from '$lib/types';
 import { apiFetch } from '$lib/api';
+import { loadWithFallback } from '$lib/api-utils';
 
-export const load: PageLoad = async () => {
-	try {
-		const sessions = await apiFetch<SessionSummary[]>('/v2/api/sessions');
-		return { sessions };
-	} catch {
-		return { sessions: [] };
-	}
+export const load: PageLoad = async ({ fetch }) => {
+	const sessions = await loadWithFallback<SessionSummary[]>(
+		() => apiFetch<SessionSummary[]>('/v2/api/sessions', { fetch }),
+		{ fallback: [] }
+	);
+	return { sessions };
 };

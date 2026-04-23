@@ -1,12 +1,12 @@
 import type { PageLoad } from './$types';
-import type { ChainSummary } from '../../app.d';
+import type { ChainSummary } from '$lib/types';
 import { apiFetch } from '$lib/api';
+import { loadWithFallback } from '$lib/api-utils';
 
-export const load: PageLoad = async () => {
-	try {
-		const chains = await apiFetch<ChainSummary[]>('/v2/api/chains');
-		return { chains };
-	} catch {
-		return { chains: [] };
-	}
+export const load: PageLoad = async ({ fetch }) => {
+	const chains = await loadWithFallback<ChainSummary[]>(
+		() => apiFetch<ChainSummary[]>('/v2/api/chains', { fetch }),
+		{ fallback: [] }
+	);
+	return { chains };
 };
