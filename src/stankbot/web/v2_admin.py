@@ -15,8 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +26,7 @@ from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services.permission_service import PermissionService
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import LABELS, Keys, SettingsService
+from stankbot.web._transport import MsgPackResponse, msgpack_body
 from stankbot.web.deps import (
     get_active_guild_id,
     get_db,
@@ -39,11 +39,11 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/v2/api/admin", tags=["v2-admin"])
 
 
-def _ok(extra: dict[str, Any] | None = None) -> JSONResponse:
+def _ok(request: Request, extra: dict[str, Any] | None = None) -> MsgPackResponse:
     body: dict[str, Any] = {"success": True}
     if extra:
         body.update(extra)
-    return JSONResponse(body)
+    return MsgPackResponse(body, request)
 
 
 # ---------------------------------------------------------------------------
@@ -74,19 +74,21 @@ _SIMPLE_INT_LIST_KEYS = (Keys.RESET_HOURS_UTC, Keys.RESET_WARNING_MINUTES)
 
 @router.get("/settings")
 async def get_settings(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     values = await SettingsService(session).all_for_guild(guild_id)
     labels = {k: {"title": v[0], "help": v[1]} for k, v in LABELS.items()}
-    return JSONResponse(
+    return MsgPackResponse(
         {
             "guild_id": str(guild_id),
             "guild_name": await guild_name_for(session, guild_id),
             "values": values,
             "labels": labels,
-        }
+        },
+        request,
     )
 
 
@@ -96,11 +98,12 @@ class SettingsPayload(BaseModel):
 
 @router.post("/settings")
 async def save_settings(
-    payload: SettingsPayload,
+    request: Request,
+    payload: SettingsPayload = msgpack_body(SettingsPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     svc = SettingsService(session)
     for key in _SIMPLE_INT_KEYS:
         if key in payload.values and payload.values[key] is not None:
@@ -130,7 +133,7 @@ async def save_settings(
         action="settings.update",
         payload={"via": "web-v2"},
     )
-    return _ok()
+    return _ok(request)
 
 
 # ---------------------------------------------------------------------------
@@ -153,12 +156,13 @@ def _altar_dict(altar: Any) -> dict[str, Any]:
 
 @router.get("/altar")
 async def get_altar(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     altar = await altars_repo.for_guild(session, guild_id, enabled_only=False)
-    return JSONResponse({"altar": _altar_dict(altar) if altar else None})
+    return MsgPackResponse({"altar": _altar_dict(altar) if altar else None}, request)
 
 
 class AltarSetPayload(BaseModel):
@@ -169,11 +173,12 @@ class AltarSetPayload(BaseModel):
 
 @router.post("/altar/set")
 async def altar_set(
-    payload: AltarSetPayload,
+    request: Request,
+    payload: AltarSetPayload = msgpack_body(AltarSetPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     import re
 
     reaction_emoji = (payload.reaction_emoji or "").strip() or None
@@ -206,18 +211,19 @@ async def altar_set(
             "sticker_pattern": payload.sticker_pattern,
         },
     )
-    return _ok({"altar": _altar_dict(altar_row), "created": created})
+    return _ok(request, {"altar": _altar_dict(altar_row), "created": created})
 
 
 @router.post("/altar/remove")
 async def altar_remove(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     altar_row = await altars_repo.for_guild(session, guild_id, enabled_only=False)
     if altar_row is None:
-        return JSONResponse({"success": False, "error": "no altar"}, status_code=404)
+        return MsgPackResponse({"success": False, "error": "no altar"}, request, status_code=404)
     altar_id = altar_row.id
     await session.delete(altar_row)
     await audit_repo.append(
@@ -227,7 +233,7 @@ async def altar_remove(
         action="altar_removed",
         payload={"altar_id": altar_id},
     )
-    return _ok({"altar_id": altar_id})
+    return _ok(request, {"altar_id": altar_id})
 
 
 # ---------------------------------------------------------------------------
@@ -237,22 +243,24 @@ async def altar_remove(
 
 @router.get("/roles")
 async def get_roles(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.web.deps import player_names_for
 
     svc = PermissionService(session)
     role_ids = await svc.list_admin_roles(guild_id)
     global_user_ids = await svc.list_admin_users()
     names = await player_names_for(session, guild_id, set(global_user_ids))
-    return JSONResponse(
+    return MsgPackResponse(
         {
             "role_ids": [str(r) for r in role_ids],
             "global_user_ids": [str(u) for u in global_user_ids],
             "names": {str(k): v for k, v in names.items()},
-        }
+        },
+        request,
     )
 
 
@@ -262,24 +270,26 @@ class UserIdPayload(BaseModel):
 
 @router.post("/roles/users/add")
 async def users_add(
-    payload: UserIdPayload,
+    request: Request,
+    payload: UserIdPayload = msgpack_body(UserIdPayload),
     session: AsyncSession = Depends(get_db),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     svc = PermissionService(session)
     await svc.add_admin_user(payload.user_id)
-    return _ok({"user_id": str(payload.user_id)})
+    return _ok(request, {"user_id": str(payload.user_id)})
 
 
 @router.post("/roles/users/remove")
 async def users_remove(
-    payload: UserIdPayload,
+    request: Request,
+    payload: UserIdPayload = msgpack_body(UserIdPayload),
     session: AsyncSession = Depends(get_db),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     svc = PermissionService(session)
     await svc.remove_admin_user(payload.user_id)
-    return _ok({"user_id": str(payload.user_id)})
+    return _ok(request, {"user_id": str(payload.user_id)})
 
 
 class RoleIdPayload(BaseModel):
@@ -288,26 +298,28 @@ class RoleIdPayload(BaseModel):
 
 @router.post("/roles/add")
 async def roles_add(
-    payload: RoleIdPayload,
+    request: Request,
+    payload: RoleIdPayload = msgpack_body(RoleIdPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     svc = PermissionService(session)
     await svc.add_admin_role(guild_id, payload.role_id)
-    return _ok({"role_id": str(payload.role_id)})
+    return _ok(request, {"role_id": str(payload.role_id)})
 
 
 @router.post("/roles/remove")
 async def roles_remove(
-    payload: RoleIdPayload,
+    request: Request,
+    payload: RoleIdPayload = msgpack_body(RoleIdPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     svc = PermissionService(session)
     await svc.remove_admin_role(guild_id, payload.role_id)
-    return _ok({"role_id": str(payload.role_id)})
+    return _ok(request, {"role_id": str(payload.role_id)})
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +329,7 @@ async def roles_remove(
 
 @router.get("/audit")
 async def get_audit(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
@@ -324,7 +337,7 @@ async def get_audit(
     offset: int = Query(0, ge=0),
     action: str | None = Query(None),
     actor_id: int | None = Query(None),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.db.models import AuditLog
     from stankbot.web.deps import player_names_for
 
@@ -349,7 +362,10 @@ async def get_audit(
             "payload": e.payload_json,
         }
 
-    return JSONResponse({"entries": [to_dict(e) for e in entries], "limit": limit, "offset": offset})
+    return MsgPackResponse(
+        {"entries": [to_dict(e) for e in entries], "limit": limit, "offset": offset},
+        request,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -359,10 +375,11 @@ async def get_audit(
 
 @router.get("/announcements")
 async def get_announcements(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.db.models import ChannelBinding, ChannelPurpose
 
     rows = (
@@ -373,7 +390,7 @@ async def get_announcements(
             )
         )
     ).scalars().all()
-    return JSONResponse({"channel_ids": [str(r) for r in rows]})
+    return MsgPackResponse({"channel_ids": [str(r) for r in rows]}, request)
 
 
 class AnnouncementPayload(BaseModel):
@@ -382,11 +399,12 @@ class AnnouncementPayload(BaseModel):
 
 @router.post("/announcements")
 async def announcements_add(
-    payload: AnnouncementPayload,
+    request: Request,
+    payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.db.models import ChannelBinding, ChannelPurpose
 
     await guilds_repo.ensure(session, guild_id)
@@ -404,16 +422,17 @@ async def announcements_add(
         action="announcement_added",
         payload={"channel_id": payload.channel_id},
     )
-    return _ok({"channel_id": str(payload.channel_id)})
+    return _ok(request, {"channel_id": str(payload.channel_id)})
 
 
 @router.post("/announcements/remove")
 async def announcements_remove(
-    payload: AnnouncementPayload,
+    request: Request,
+    payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.db.models import ChannelBinding, ChannelPurpose
 
     await session.execute(
@@ -430,7 +449,7 @@ async def announcements_remove(
         action="announcement_removed",
         payload={"channel_id": payload.channel_id},
     )
-    return _ok({"channel_id": str(payload.channel_id)})
+    return _ok(request, {"channel_id": str(payload.channel_id)})
 
 
 # ---------------------------------------------------------------------------
@@ -440,12 +459,13 @@ async def announcements_remove(
 
 @router.get("/maintenance")
 async def get_maintenance(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     values = await SettingsService(session).all_for_guild(guild_id)
-    return JSONResponse({"enabled": bool(values.get(Keys.MAINTENANCE_MODE, False))})
+    return MsgPackResponse({"enabled": bool(values.get(Keys.MAINTENANCE_MODE, False))}, request)
 
 
 class MaintenancePayload(BaseModel):
@@ -454,11 +474,12 @@ class MaintenancePayload(BaseModel):
 
 @router.post("/maintenance")
 async def set_maintenance(
-    payload: MaintenancePayload,
+    request: Request,
+    payload: MaintenancePayload = msgpack_body(MaintenancePayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     await SettingsService(session).set(guild_id, Keys.MAINTENANCE_MODE, payload.enabled)
     await audit_repo.append(
         session,
@@ -467,7 +488,7 @@ async def set_maintenance(
         action="maintenance_mode",
         payload={"enabled": payload.enabled, "via": "web-v2"},
     )
-    return _ok({"enabled": payload.enabled})
+    return _ok(request, {"enabled": payload.enabled})
 
 
 # ---------------------------------------------------------------------------
@@ -477,21 +498,23 @@ async def set_maintenance(
 
 @router.get("/config")
 async def get_config(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     values = await SettingsService(session).all_for_guild(guild_id)
     altars = await altars_repo.list_for_guild(session, guild_id, enabled_only=False)
     labels = {k: {"title": v[0], "help": v[1]} for k, v in LABELS.items()}
-    return JSONResponse(
+    return MsgPackResponse(
         {
             "guild_id": str(guild_id),
             "guild_name": await guild_name_for(session, guild_id),
             "settings": values,
             "altars": [_altar_dict(a) for a in altars],
             "labels": labels,
-        }
+        },
+        request,
     )
 
 
@@ -502,31 +525,34 @@ async def get_config(
 
 @router.get("/templates")
 async def list_templates(
+    request: Request,
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.services.default_templates import ALL_DEFAULTS
     from stankbot.services.template_store import list_templates as ls, load
 
     stored = ls() or list(ALL_DEFAULTS.keys())
-    return JSONResponse(
+    return MsgPackResponse(
         {
             "keys": sorted(set(list(ALL_DEFAULTS.keys()) + stored)),
             "templates": {k: load(k) for k in ALL_DEFAULTS},
-        }
+        },
+        request,
     )
 
 
 @router.get("/templates/{key}")
 async def get_template(
     key: str,
+    request: Request,
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.services.default_templates import ALL_DEFAULTS
     from stankbot.services.template_store import load
 
     if key not in ALL_DEFAULTS:
         raise HTTPException(status_code=404, detail="unknown template key")
-    return JSONResponse({"key": key, "data": load(key)})
+    return MsgPackResponse({"key": key, "data": load(key)}, request)
 
 
 class TemplateSavePayload(BaseModel):
@@ -536,11 +562,12 @@ class TemplateSavePayload(BaseModel):
 @router.post("/templates/{key}")
 async def save_template(
     key: str,
-    payload: TemplateSavePayload,
+    request: Request,
+    payload: TemplateSavePayload = msgpack_body(TemplateSavePayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.services.default_templates import ALL_DEFAULTS
     from stankbot.services.template_engine import TemplateError, validate_template_variables
     from stankbot.services.template_store import save, validate
@@ -581,7 +608,7 @@ async def save_template(
         action="template_saved",
         payload={"key": key, "via": "web-v2"},
     )
-    return _ok({"key": key})
+    return _ok(request, {"key": key})
 
 
 class TemplatePreviewPayload(BaseModel):
@@ -636,9 +663,10 @@ _PREVIEW_CONTEXTS: dict[str, dict[str, Any]] = {
 @router.post("/templates/{key}/preview")
 async def preview_template(
     key: str,
-    payload: TemplatePreviewPayload,
+    request: Request,
+    payload: TemplatePreviewPayload = msgpack_body(TemplatePreviewPayload),
     _admin: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     """Render a template against canned sample context and return the shape
     the frontend needs to render a Discord-like preview card.
 
@@ -681,7 +709,10 @@ async def preview_template(
     except TemplateError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
-    return JSONResponse({"rendered": rendered, "context": ctx_vars, "preset": payload.context_preset})
+    return MsgPackResponse(
+        {"rendered": rendered, "context": ctx_vars, "preset": payload.context_preset},
+        request,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -691,10 +722,11 @@ async def preview_template(
 
 @router.post("/new-session")
 async def new_session(
+    request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.db.models import SessionEndReason
 
     await guilds_repo.ensure(session, guild_id)
@@ -711,22 +743,27 @@ async def new_session(
             "via": "web-v2",
         },
     )
-    return _ok({"ended_session_id": ended, "new_session_id": new_id})
+    return _ok(request, {"ended_session_id": ended, "new_session_id": new_id})
+
+
+class ResetPayload(BaseModel):
+    confirm: str
 
 
 @router.post("/reset")
 async def reset_guild(
-    confirm: str = Body(..., embed=True),
+    request: Request,
+    payload: ResetPayload = msgpack_body(ResetPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     """Wipe all event/chain/cooldown/record state for the guild.
 
     Requires an explicit ``{"confirm": "RESET"}`` body so that a mistyped
     curl or a CSRF-style replay can't blow away the guild.
     """
-    if confirm != "RESET":
+    if payload.confirm != "RESET":
         raise HTTPException(status_code=400, detail="confirm must be 'RESET'")
 
     from stankbot.db.models import (
@@ -754,7 +791,7 @@ async def reset_guild(
         action="reset",
         payload={"via": "web-v2"},
     )
-    return _ok()
+    return _ok(request)
 
 
 @router.post("/rebuild")
@@ -763,7 +800,7 @@ async def rebuild(
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
-) -> JSONResponse:
+) -> MsgPackResponse:
     from stankbot.services import rebuild_service
 
     bot = getattr(request.app.state, "bot", None)
@@ -797,11 +834,12 @@ async def rebuild(
         },
     )
     return _ok(
+        request,
         {
             "altars_scanned": report.altars_scanned,
             "messages_scanned": report.messages_scanned,
             "valid_stanks": report.valid_stanks,
             "chain_breaks": report.chain_breaks,
             "reactions_awarded": report.reactions_awarded,
-        }
+        },
     )

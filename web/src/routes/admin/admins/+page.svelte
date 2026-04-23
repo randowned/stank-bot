@@ -69,7 +69,7 @@
 	onMount(load);
 </script>
 
-<PageHeader title="Roles" subtitle="Per-guild admin roles and global admin users" />
+<PageHeader title="Admins" subtitle="Per-guild admin roles and global admin users" />
 
 {#if error}<div class="text-sm text-danger mb-3">{error}</div>{/if}
 

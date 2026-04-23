@@ -13,4 +13,5 @@ export { playerProfiles, selectedPlayerId, selectedPlayer, badges } from './play
 export { connectionStatus, wsLatency } from './connection';
 export { toasts, addToast, removeToast } from './toast';
 export { lastWsEvent, emitWsEvent, type WsEvent } from './ws-events';
+export { activeChainBreak, type ChainBreakInfo } from './chainBreak';
 export type { Toast, ToastKind } from '$lib/types';

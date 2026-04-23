@@ -31,7 +31,7 @@ Sessions roll over on a cron (default 07:00 / 15:00 / 23:00 UTC) with configurab
 - **Event-sourced.** Every SP/PP change is an immutable event row. Player totals, session summaries, and records are derived — `rebuild-from-history` can always reconstruct them.
 - **Multi-altar per guild.** Run a themed event (Halloween sticker, Founders Day) alongside the normal chain with its own scoring overrides and a `custom_event_key` tag on every emitted event.
 - **Achievements / badges** derived from the event log — First Stank, Centurion, Finisher, Chainbreaker, Comeback Kid, Perfect Session, Streaker, Team Player.
-- **Web dashboard** with Discord OAuth — public board, player profiles with 30-day sparklines + achievement gallery, chain/session history, admin surface for settings/altars/roles/templates/audit with live embed-template preview, guild switcher, and WebSocket live updates. Served at `/v2` (SvelteKit SPA) with the legacy Jinja dashboard still mounted at `/` for now.
+- **Web dashboard** with Discord OAuth — public board with reaction-aware leaderboard (live reorder + delta chips + chain-break overlay), player profiles with 30-day sparklines + achievement gallery, session history, and a five-page admin surface (Dashboard · Templates · Admins · Audit · Settings with embedded session ops). MsgPack-first transport over HTTP + WebSocket. Served at `/v2` (SvelteKit SPA) with the legacy Jinja dashboard still mounted at `/` for now.
 
 ## Running it yourself
 
@@ -141,11 +141,8 @@ Scoring tuning, reset hours, embed templates, feature toggles, altar wiring, and
 
 All setup happens on the web dashboard (log in with Discord OAuth):
 
-- `/admin/altar` — register the altar channel + sticker pattern + reaction emoji
-- `/admin/announcements` — add announcement channels
-- `/admin/roles` — add admin roles or users (roles per-guild, users global)
-- `/admin/settings` — scoring, reset hours, feature toggles
-- `/admin/rebuild` — optional: replay existing altar chat
+- `/admin/settings` — altar channel + sticker pattern + reaction emoji, scoring, reset hours, announcement channels, maintenance toggle, plus session operations (new session / reset / rebuild) in the sticky side rail
+- `/admin/admins` — add admin roles or users (roles per-guild, users global)
 
 ## Command reference
 
@@ -174,18 +171,14 @@ CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 
 ## Web dashboard
 
-- `/` — public leaderboard + chain state.
+- `/` — public leaderboard + chain state. Top tiles: **Reactions** (current chain) · Current · Session · All-time. Leaderboard rows live-reorder on point changes with floating `+N` delta chips, and a chain break paints an overlay with the breaker and PP loss until the next chain starts.
 - `/me` → `/player/{user_id}` — your stats, badges, history.
-- `/history/chains` · `/history/chain/{id}` — chain browser + replay.
-- `/history/sessions` · `/history/session/{id}` — session browser + summary.
-- `/admin/altar` — register / update / remove the altar channel.
-- `/admin/announcements` — manage announcement channels.
-- `/admin/roles` — admin roles (per-guild) + global admin users.
-- `/admin/settings` — scoring, reset hours, feature toggles.
-- `/admin/maintenance` — toggle maintenance mode.
-- `/admin/config` — read-only snapshot of current settings.
-- **Invite** — "Add Bot" button with copy-to-clipboard (admin-only, nav bar)
-- `/admin/templates` — live JSON editor for embed templates (stored in `data/templates/`).
-- `/admin/new-session` · `/admin/reset` · `/admin/rebuild` — session/state operations.
-- `/admin/audit` — audit trail.
+- `/sessions` → `/history/session/{id}` — session browser + summary.
+- Admin surface (five pages):
+  - `/admin` — dashboard tiles + top stats.
+  - `/admin/templates` — live JSON editor for embed templates (stored in `data/templates/`).
+  - `/admin/admins` — admin roles (per-guild) + global admin users.
+  - `/admin/audit` — audit trail.
+  - `/admin/settings` — two-column page: left lists Altar / Scoring / Behavior / Reset windows / Announcements / Maintenance cards; right sticky rail holds New Session · Reset · Rebuild.
+- Header: single row, `Live updates` badge (green/muted/red dot with tooltip for connection state), user menu with Navigate (Dashboard / Sessions) + My Profile + collapsible Switch Guild showing the active guild's icon + name.
 

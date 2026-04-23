@@ -8,6 +8,7 @@ trigger a second award because the PK already exists.
 
 from __future__ import annotations
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.db.models import ReactionAward
@@ -39,3 +40,31 @@ async def try_claim(
         )
     )
     return True
+
+
+async def count_for_chain(
+    session: AsyncSession, *, guild_id: int, chain_id: int
+) -> int:
+    """Total reaction awards in a single chain."""
+    stmt = select(func.count()).where(
+        ReactionAward.guild_id == guild_id,
+        ReactionAward.chain_id == chain_id,
+    )
+    result = await session.scalar(stmt)
+    return int(result or 0)
+
+
+async def count_per_user_for_chain(
+    session: AsyncSession, *, guild_id: int, chain_id: int
+) -> dict[int, int]:
+    """Per-user reaction award counts in a chain, keyed by user_id."""
+    stmt = (
+        select(ReactionAward.user_id, func.count())
+        .where(
+            ReactionAward.guild_id == guild_id,
+            ReactionAward.chain_id == chain_id,
+        )
+        .group_by(ReactionAward.user_id)
+    )
+    result = await session.execute(stmt)
+    return {int(uid): int(n) for uid, n in result.all()}

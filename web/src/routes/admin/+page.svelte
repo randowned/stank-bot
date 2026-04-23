@@ -1,33 +1,73 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
+	import { apiFetch, FetchError } from '$lib/api';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
-	import type { GuildInfo } from '$lib/types';
+	import type { GuildInfo, BoardState } from '$lib/types';
 
 	const guilds = $derived(($page.data.guilds as GuildInfo[] | undefined) ?? []);
 	const missingBot = $derived(guilds.filter((g) => g.is_admin && !g.bot_present));
 
 	const tiles = [
-		{ href: `${base}/admin/settings`, label: 'Settings', icon: '⚙️', desc: 'Scoring, cooldowns, resets' },
-		{ href: `${base}/admin/altar`, label: 'Altar', icon: '🗿', desc: 'Channel / sticker / emoji' },
-		{ href: `${base}/admin/roles`, label: 'Roles', icon: '👥', desc: 'Admin role & user grants' },
+		{ href: `${base}/admin/settings`, label: 'Settings', icon: '⚙️', desc: 'Altar, scoring, session ops' },
 		{ href: `${base}/admin/templates`, label: 'Templates', icon: '📝', desc: 'Edit bot embeds' },
-		{ href: `${base}/admin/announcements`, label: 'Announcements', icon: '📢', desc: 'Scheduled messages' },
-		{ href: `${base}/admin/audit`, label: 'Audit log', icon: '📋', desc: 'History of admin actions' },
-		{ href: `${base}/admin/maintenance`, label: 'Maintenance', icon: '🛠', desc: 'Pause event processing' },
-		{ href: `${base}/admin/config`, label: 'Config', icon: '🔍', desc: 'Read-only snapshot' }
+		{ href: `${base}/admin/admins`, label: 'Admins', icon: '👥', desc: 'Admin role & user grants' },
+		{ href: `${base}/admin/audit`, label: 'Audit log', icon: '📋', desc: 'History of admin actions' }
 	];
+
+	let board = $state<BoardState | null>(null);
+
+	onMount(async () => {
+		try {
+			board = await apiFetch<BoardState>('/v2/api/board');
+		} catch (err) {
+			if (!(err instanceof FetchError)) throw err;
+		}
+	});
+
+	function formatNextReset(iso: string | null): string {
+		if (!iso) return '—';
+		const d = new Date(iso);
+		return (
+			d.toLocaleString('en-US', {
+				month: 'short',
+				day: 'numeric',
+				hour: 'numeric',
+				minute: '2-digit',
+				timeZone: 'UTC'
+			}) + ' UTC'
+		);
+	}
 </script>
 
 <PageHeader title="Admin" subtitle="Per-guild configuration and operations" />
 
+{#if board}
+	<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+		<div class="panel text-center">
+			<div class="text-xl font-bold text-accent">{board.current}</div>
+			<div class="text-xs text-muted uppercase">Current chain</div>
+		</div>
+		<div class="panel text-center">
+			<div class="text-xl font-bold">{board.record}</div>
+			<div class="text-xs text-muted uppercase">Session record</div>
+		</div>
+		<div class="panel text-center">
+			<div class="text-xl font-bold">{board.alltime_record}</div>
+			<div class="text-xs text-muted uppercase">All-time</div>
+		</div>
+		<div class="panel text-center">
+			<div class="text-sm font-semibold">{formatNextReset(board.next_reset_at)}</div>
+			<div class="text-xs text-muted uppercase">Next reset</div>
+		</div>
+	</div>
+{/if}
+
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 	{#each tiles as tile (tile.href)}
-		<a
-			href={tile.href}
-			class="panel hover:border-accent transition-colors block"
-		>
+		<a href={tile.href} class="panel hover:border-accent transition-colors block">
 			<div class="flex items-start gap-3">
 				<div class="text-2xl" aria-hidden="true">{tile.icon}</div>
 				<div class="min-w-0">
@@ -55,23 +95,12 @@
 							{/if}
 							<div class="truncate">{g.name}</div>
 						</div>
-						<a
-							href="/auth/login?install_guild={g.id}"
-							class="text-sm text-accent hover:underline"
-						>Add bot</a>
+						<a href="/auth/login?install_guild={g.id}" class="text-sm text-accent hover:underline"
+							>Add bot</a
+						>
 					</li>
 				{/each}
 			</ul>
 		</Card>
 	</section>
 {/if}
-
-<section class="mt-6">
-	<Card title="Destructive operations">
-		<div class="flex flex-wrap gap-2">
-			<a href="{base}/admin/session/new" class="btn btn-secondary">New session</a>
-			<a href="{base}/admin/session/reset" class="btn btn-secondary">Reset</a>
-			<a href="{base}/admin/session/rebuild" class="btn btn-secondary">Rebuild</a>
-		</div>
-	</Card>
-</section>

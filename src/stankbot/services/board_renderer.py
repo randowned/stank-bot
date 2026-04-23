@@ -51,6 +51,7 @@ class BoardState:
     altar_sticker_url: str
     current: int
     current_unique: int
+    reactions: int
     record: int
     record_unique: int
     alltime_record: int

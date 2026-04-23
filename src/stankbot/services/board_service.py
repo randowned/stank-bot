@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stankbot.db.models import Player, Record, RecordScope
 from stankbot.db.repositories import chains as chains_repo
 from stankbot.db.repositories import events as events_repo
+from stankbot.db.repositories import reaction_awards as reaction_awards_repo
 from stankbot.services.board_renderer import BoardState, PlayerRow
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
@@ -64,9 +65,13 @@ async def build_board_state(
         current, current_unique = await chains_repo.chain_length_and_unique(
             session, current_chain.id
         )
+        reactions = await reaction_awards_repo.count_for_chain(
+            session, guild_id=guild_id, chain_id=current_chain.id
+        )
     else:
         current = 0
         current_unique = 0
+        reactions = 0
 
     # Records (cached)
     session_rec = await session.get(Record, (guild_id, altar.id, str(RecordScope.SESSION)))
@@ -143,6 +148,7 @@ async def build_board_state(
         altar_sticker_url=sticker_url,
         current=current,
         current_unique=current_unique,
+        reactions=reactions,
         record=session_rec.chain_length if session_rec else 0,
         record_unique=session_rec.unique_count if session_rec else 0,
         alltime_record=alltime_rec.chain_length if alltime_rec else 0,

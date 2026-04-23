@@ -46,6 +46,8 @@ export interface BoardState {
 	altar_sticker_url: string;
 	current: number;
 	current_unique: number;
+	reactions: number;
+	chain_length?: number;
 	record: number;
 	record_unique: number;
 	alltime_record: number;
@@ -61,6 +63,9 @@ export interface PlayerRow {
 	display_name: string;
 	earned_sp: number;
 	punishments: number;
+	net?: number;
+	reactions_in_chain?: number;
+	reacted_pct?: number;
 }
 
 export interface PlayerProfile {

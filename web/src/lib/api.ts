@@ -26,6 +26,8 @@ interface RequestOptions {
 	init?: RequestInit;
 	/** retry 5xx responses (default: 2 retries with 250ms / 750ms backoff) */
 	retry?: boolean;
+	/** force JSON request body even in the browser (default: msgpack in browser) */
+	forceJson?: boolean;
 }
 
 const RETRY_DELAYS_MS = [250, 750];
@@ -62,7 +64,7 @@ async function unpackBody<T>(response: Response): Promise<T> {
 	// `filterSerializedResponseHeaders`, and calling .get() on a filtered
 	// header throws. Fall back to JSON when the header isn't accessible —
 	// the main path (browser fetch) still gets msgpack negotiation.
-	let contentType = '';
+	let contentType: string;
 	try {
 		contentType = response.headers.get('content-type') || '';
 	} catch {
@@ -100,8 +102,19 @@ async function request<T>(
 
 	let init: RequestInit = { ...options.init, method, headers };
 	if (body !== undefined) {
-		if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-		init = { ...init, body: JSON.stringify(body) };
+		const useMsgpack = typeof window !== 'undefined' && !options.forceJson;
+		if (useMsgpack) {
+			if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/msgpack');
+			const packed = packr.pack(body) as Uint8Array;
+			const buf = packed.buffer.slice(
+				packed.byteOffset,
+				packed.byteOffset + packed.byteLength
+			) as ArrayBuffer;
+			init = { ...init, body: buf };
+		} else {
+			if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+			init = { ...init, body: JSON.stringify(body) };
+		}
 	}
 
 	let lastError: unknown;

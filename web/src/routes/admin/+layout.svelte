@@ -7,17 +7,10 @@
 
 	const sections = [
 		{ href: `${base}/admin`, label: 'Dashboard', icon: '🏠' },
-		{ href: `${base}/admin/settings`, label: 'Settings', icon: '⚙️' },
-		{ href: `${base}/admin/altar`, label: 'Altar', icon: '🗿' },
-		{ href: `${base}/admin/roles`, label: 'Roles', icon: '👥' },
 		{ href: `${base}/admin/templates`, label: 'Templates', icon: '📝' },
-		{ href: `${base}/admin/announcements`, label: 'Announcements', icon: '📢' },
+		{ href: `${base}/admin/admins`, label: 'Admins', icon: '👥' },
 		{ href: `${base}/admin/audit`, label: 'Audit log', icon: '📋' },
-		{ href: `${base}/admin/maintenance`, label: 'Maintenance', icon: '🛠' },
-		{ href: `${base}/admin/config`, label: 'Config', icon: '🔍' },
-		{ href: `${base}/admin/session/new`, label: 'New session', icon: '🆕' },
-		{ href: `${base}/admin/session/reset`, label: 'Reset', icon: '♻️' },
-		{ href: `${base}/admin/session/rebuild`, label: 'Rebuild', icon: '🧱' }
+		{ href: `${base}/admin/settings`, label: 'Settings', icon: '⚙️' }
 	];
 
 	let sidebarOpen = $state(false);

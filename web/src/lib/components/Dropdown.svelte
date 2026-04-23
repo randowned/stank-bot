@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { setContext } from 'svelte';
 
 	interface Props {
 		open?: boolean;
@@ -23,6 +24,8 @@
 			onclose?.();
 		}
 	}
+
+	setContext('dropdown', { close });
 
 	function handleDocClick(e: MouseEvent) {
 		if (!open) return;

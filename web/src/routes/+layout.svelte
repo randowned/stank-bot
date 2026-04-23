@@ -2,12 +2,10 @@
 	import '../app.css';
 	import { base } from '$app/paths';
 	import { browser } from '$app/environment';
-	import { page } from '$app/stores';
 	import {
 		user,
 		guildId,
 		guilds,
-		connectionStatus,
 		toasts,
 		removeToast,
 		addToast,
@@ -18,6 +16,7 @@
 	import { connect, disconnect } from '$lib/ws';
 	import type { User, GuildInfo } from '$lib/types';
 	import UserMenu from '$lib/components/UserMenu.svelte';
+	import LiveBadge from '$lib/components/LiveBadge.svelte';
 
 	let { data, children } = $props();
 
@@ -25,8 +24,6 @@
 	const guildIdData = $derived((data.guild_id as string | null) ?? null);
 	const guildList = $derived((data.guilds as GuildInfo[] | undefined) ?? []);
 	const isAdmin = $derived(Boolean(data.is_admin));
-	const currentPath = $derived($page.url.pathname);
-	const onAdminRoute = $derived(currentPath.startsWith(base + '/admin'));
 
 	$effect(() => {
 		user.set(userData);
@@ -49,12 +46,6 @@
 
 	function handleWsEvent(event: WsEvent): void {
 		switch (event.kind) {
-			case 'connected':
-				addToast('Connected to live updates', 'success');
-				break;
-			case 'reconnect-failed':
-				addToast('Unable to reconnect. Please refresh.', 'error', 0);
-				break;
 			case 'error':
 				addToast(event.message, 'error');
 				break;
@@ -69,22 +60,13 @@
 					'info'
 				);
 				break;
+			case 'connected':
+			case 'reconnect-failed':
 			case 'disconnected':
+				// LiveBadge surfaces transport state — no toast.
 				break;
 		}
 	}
-
-	const navItems = $derived([
-		{ href: base + '/', label: 'Board', icon: '🏠' },
-		{ href: base + '/chains', label: 'Chains', icon: '⛓️' },
-		{ href: base + '/sessions', label: 'Sessions', icon: '📜' }
-	]);
-
-	const adminItems = $derived([
-		{ href: base + '/admin/settings', label: 'Settings', icon: '⚙️' },
-		{ href: base + '/admin/altar', label: 'Altar', icon: '🗿' },
-		{ href: base + '/admin/templates', label: 'Templates', icon: '📝' }
-	]);
 
 	void browser;
 </script>
@@ -96,7 +78,7 @@
 		</div>
 	{/if}
 
-	<!-- Header -->
+	<!-- Header (single row) -->
 	<header class="sticky top-0 z-40 bg-panel border-b border-border">
 		<div class="flex items-center justify-between px-4 py-3 gap-3">
 			<a href={base} class="flex items-center gap-2 shrink-0">
@@ -104,21 +86,8 @@
 				<span class="font-semibold text-text">StankBot</span>
 			</a>
 
-			<div class="flex items-center gap-3 shrink-0">
-				{#if $connectionStatus === 'connected'}
-					<span
-						class="w-2 h-2 rounded-full bg-ok animate-pulse"
-						title="Live"
-						data-testid="connection-dot"
-					></span>
-				{:else}
-					<span
-						class="w-2 h-2 rounded-full bg-muted"
-						title="Offline"
-						data-testid="connection-dot"
-					></span>
-				{/if}
-
+			<div class="flex items-center gap-2 shrink-0">
+				<LiveBadge />
 				{#if $user}
 					<UserMenu
 						user={$user}
@@ -132,45 +101,6 @@
 				{/if}
 			</div>
 		</div>
-
-		<!-- Navigation -->
-		<nav class="flex gap-1 px-4 pb-3 overflow-x-auto scrollbar-thin">
-			{#each navItems as item}
-				<a
-					href={item.href}
-					class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
-						{currentPath === item.href ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
-				>
-					<span>{item.icon}</span>
-					<span class="whitespace-nowrap">{item.label}</span>
-				</a>
-			{/each}
-
-			{#if $user}
-				<a
-					href="{base}/player/{$user.id}"
-					class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
-						{currentPath === `${base}/player/${$user.id}` ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
-				>
-					<span>👤</span>
-					<span class="whitespace-nowrap">Me</span>
-				</a>
-			{/if}
-
-			{#if onAdminRoute && isAdmin}
-				<div class="w-px h-6 bg-border mx-1"></div>
-				{#each adminItems as item}
-					<a
-						href={item.href}
-						class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors
-							{currentPath === item.href ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
-					>
-						<span>{item.icon}</span>
-						<span class="whitespace-nowrap">{item.label}</span>
-					</a>
-				{/each}
-			{/if}
-		</nav>
 	</header>
 
 	<!-- Main Content -->
@@ -181,7 +111,7 @@
 	<!-- Toasts -->
 	{#if $toasts.length > 0}
 		<div
-			class="fixed bottom-20 left-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
+			class="fixed bottom-4 right-4 sm:right-4 inset-x-4 sm:inset-x-auto z-[60] flex flex-col gap-2 pointer-events-none items-stretch sm:items-end max-w-full sm:max-w-sm sm:ml-auto"
 		>
 			{#each $toasts as toast (toast.id)}
 				<div

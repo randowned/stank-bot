@@ -9,10 +9,12 @@ test.describe('User menu', () => {
 		await expect(page.locator('[data-testid="user-menu-trigger"]')).toBeVisible();
 	});
 
-	test('clicking trigger opens dropdown with profile + logout', async ({ page }) => {
+	test('clicking trigger opens dropdown with navigation + profile + logout', async ({ page }) => {
 		await page.locator('[data-testid="user-menu-trigger"]').click();
 		const menu = page.locator('[data-testid="dropdown-menu"]');
 		await expect(menu).toBeVisible();
+		await expect(menu.getByText('Dashboard')).toBeVisible();
+		await expect(menu.getByText('Sessions')).toBeVisible();
 		await expect(menu.getByText('My Profile')).toBeVisible();
 		await expect(menu.getByText('Logout')).toBeVisible();
 	});
@@ -32,19 +34,19 @@ test.describe('User menu', () => {
 			}),
 			page.getByRole('menuitem', { name: /Logout/ }).click()
 		]);
-		// Session cleared: /v2/auth should now return 401/403 (not 200 with a user)
 		const resp = await page.request.get('/v2/auth');
 		expect(resp.status()).toBeGreaterThanOrEqual(400);
 	});
 
-	test('guild switcher hidden when user has only one guild', async ({ page }) => {
+	test('guild switcher toggle does not close the menu on click', async ({ page }) => {
 		await page.locator('[data-testid="user-menu-trigger"]').click();
 		const menu = page.locator('[data-testid="dropdown-menu"]');
 		await expect(menu).toBeVisible();
-		await expect(menu.getByText(/Switch Guild/i)).toHaveCount(0);
+		await page.locator('[data-testid="guild-switcher-toggle"]').click();
+		await expect(menu).toBeVisible();
 	});
 
-	test('guild switcher appears when user has multiple guilds and switching updates session', async ({
+	test('guild switcher lists bot-present guilds and switching triggers reload', async ({
 		page,
 		mockLogin
 	}) => {
@@ -61,9 +63,9 @@ test.describe('User menu', () => {
 		});
 
 		await page.locator('[data-testid="user-menu-trigger"]').click();
-		const menu = page.locator('[data-testid="dropdown-menu"]');
-		await expect(menu.getByText(/Switch Guild/i)).toBeVisible();
-		await expect(menu.getByText('Alpha Server')).toBeVisible();
-		await expect(menu.getByText('Beta Server')).toBeVisible();
+		await page.locator('[data-testid="guild-switcher-toggle"]').click();
+		const items = page.locator('[data-testid="guild-switch-item"]');
+		await expect(items).toHaveCount(2);
+		await expect(items.first()).toContainText(/Alpha|Beta/);
 	});
 });

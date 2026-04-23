@@ -62,16 +62,32 @@ describe('api.ts', () => {
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
 
-	it('apiPost sends JSON body with correct headers', async () => {
+	it('apiPost sends msgpack body by default in the browser', async () => {
 		const fn = vi.fn(async (_url: string, init?: RequestInit) => {
 			expect(init?.method).toBe('POST');
+			const headers = new Headers(init?.headers);
+			expect(headers.get('Content-Type')).toBe('application/msgpack');
+			const body = init?.body as ArrayBuffer | Uint8Array | undefined;
+			expect(body).toBeTruthy();
+			expect((body as ArrayBuffer).byteLength ?? 0).toBeGreaterThan(0);
+			return jsonResponse({ ok: true });
+		});
+		const out = await apiPost<{ ok: boolean }>('/v2/api/x', { a: 1 }, {
+			fetch: fn as unknown as typeof fetch
+		});
+		expect(out).toEqual({ ok: true });
+	});
+
+	it('apiPost honors forceJson to send JSON body', async () => {
+		const fn = vi.fn(async (_url: string, init?: RequestInit) => {
 			const headers = new Headers(init?.headers);
 			expect(headers.get('Content-Type')).toBe('application/json');
 			expect(init?.body).toBe(JSON.stringify({ a: 1 }));
 			return jsonResponse({ ok: true });
 		});
 		const out = await apiPost<{ ok: boolean }>('/v2/api/x', { a: 1 }, {
-			fetch: fn as unknown as typeof fetch
+			fetch: fn as unknown as typeof fetch,
+			forceJson: true
 		});
 		expect(out).toEqual({ ok: true });
 	});

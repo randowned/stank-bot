@@ -91,6 +91,8 @@ manager = ConnectionManager()
 async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str) -> dict:
     """Fetch current board state as dict for WebSocket clients."""
     from stankbot.db.repositories import altars as altars_repo
+    from stankbot.db.repositories import chains as chains_repo
+    from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services.board_service import build_board_state
 
     altar = await altars_repo.primary(session, guild_id)
@@ -104,12 +106,28 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
         altar=altar,
     )
 
+    current_chain = await chains_repo.current_chain(session, guild_id, altar.id)
+    per_user_reactions: dict[int, int] = {}
+    if current_chain is not None:
+        per_user_reactions = await reaction_awards_repo.count_per_user_for_chain(
+            session, guild_id=guild_id, chain_id=current_chain.id
+        )
+
+    chain_length = state.current
+
     def row_to_dict(r):
+        earned = r.earned_sp
+        punishments = r.punishments
+        reacts = per_user_reactions.get(int(r.user_id), 0)
+        pct = round(reacts / chain_length * 100) if chain_length > 0 else 0
         return {
             "user_id": r.user_id,
             "display_name": r.display_name,
-            "earned_sp": r.earned_sp,
-            "punishments": r.punishments,
+            "earned_sp": earned,
+            "punishments": punishments,
+            "net": earned - punishments,
+            "reactions_in_chain": reacts,
+            "reacted_pct": max(0, min(100, pct)),
         }
 
     return {
@@ -118,6 +136,8 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
         "altar_sticker_url": state.altar_sticker_url,
         "current": state.current,
         "current_unique": state.current_unique,
+        "reactions": state.reactions,
+        "chain_length": chain_length,
         "record": state.record,
         "record_unique": state.record_unique,
         "alltime_record": state.alltime_record,
@@ -328,25 +348,7 @@ async def api_guilds(
     return JSONResponse(results)
 
 
-def _accepts_msgpack(request: Request) -> bool:
-    """Check if client prefers msgpack over JSON."""
-    accept = request.headers.get("accept", "")
-    return "msgpack" in accept.lower()
-
-
-class MsgPackResponse(JSONResponse):
-    """Response that switches between msgpack and JSON based on Accept header."""
-
-    def __init__(self, content: dict, request: Request) -> None:
-        self._use_msgpack = _accepts_msgpack(request)
-        if self._use_msgpack:
-            self._packed = msgpack.packb(content, use_single_float=True)
-        super().__init__(content, media_type="application/msgpack" if self._use_msgpack else None)
-
-    def render(self, content: dict) -> bytes:
-        if self._use_msgpack:
-            return self._packed
-        return super().render(content)
+from stankbot.web._transport import MsgPackResponse, _accepts_msgpack  # noqa: E402,F401
 
 
 @_API_ROUTER.get("/api/board")
@@ -372,7 +374,10 @@ async def api_leaderboard(
     limit: int = Query(20, ge=1, le=100),
 ) -> MsgPackResponse:
     """Return paginated leaderboard rows as msgpack or JSON."""
+    from stankbot.db.repositories import altars as altars_repo
+    from stankbot.db.repositories import chains as chains_repo
     from stankbot.db.repositories import events as events_repo
+    from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services.session_service import SessionService
 
     session_svc = SessionService(session)
@@ -388,15 +393,33 @@ async def api_leaderboard(
 
         names = await players_repo.display_names(session, guild_id, user_ids)
 
-    result = [
-        {
+    altar = await altars_repo.primary(session, guild_id)
+    chain_length = 0
+    per_user_reactions: dict[int, int] = {}
+    if altar is not None:
+        current_chain = await chains_repo.current_chain(session, guild_id, altar.id)
+        if current_chain is not None:
+            chain_length, _ = await chains_repo.chain_length_and_unique(
+                session, current_chain.id
+            )
+            per_user_reactions = await reaction_awards_repo.count_per_user_for_chain(
+                session, guild_id=guild_id, chain_id=current_chain.id
+            )
+
+    def _row(uid: int, sp: int, pp: int) -> dict:
+        reacts = per_user_reactions.get(int(uid), 0)
+        pct = round(reacts / chain_length * 100) if chain_length > 0 else 0
+        return {
             "user_id": uid,
             "display_name": names.get(uid, str(uid)),
             "earned_sp": sp,
             "punishments": pp,
+            "net": sp - pp,
+            "reactions_in_chain": reacts,
+            "reacted_pct": max(0, min(100, pct)),
         }
-        for uid, sp, pp in rows
-    ]
+
+    result = [_row(uid, sp, pp) for uid, sp, pp in rows]
     return MsgPackResponse(result, request)
 
 
