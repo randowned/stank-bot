@@ -210,8 +210,13 @@ async def mock_login_post(
 
 
 @router.get("")
-async def auth_check(request: Request, user: dict = Depends(require_login)) -> JSONResponse:
-    """Return current user info for SvelteKit authentication."""
+async def auth_check(request: Request) -> JSONResponse:
+    """Return current user info, or null if not authenticated."""
+    from stankbot.web.tools import current_user
+
+    user = current_user(request)
+    if user is None:
+        return JSONResponse(None)
     return JSONResponse(
         {
             "id": str(user["id"]),
