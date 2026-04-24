@@ -122,6 +122,7 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
         "guild_name": state.guild_name,
         "stank_emoji": state.stank_emoji,
         "altar_sticker_url": state.altar_sticker_url,
+        "session_id": session_id,
         "current": state.current,
         "current_unique": state.current_unique,
         "reactions": state.reactions,

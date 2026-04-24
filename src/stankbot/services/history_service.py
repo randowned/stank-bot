@@ -118,12 +118,14 @@ async def chain_summary(
 async def session_summary(
     session: AsyncSession, guild_id: int, session_id: int
 ) -> SessionSummary | None:
+    # SESSION_START event has session_id=NULL (it IS the session anchor), so
+    # events_in_session never returns it. Always fetch it directly for started_at.
+    start_row = await session.get(Event, session_id)
+    if start_row is None or start_row.guild_id != guild_id:
+        return None
+
     events = await events_repo.events_in_session(session, guild_id, session_id)
     if not events:
-        # Also check: the id might exist as a session_start with no child events yet.
-        start_row = await session.get(Event, session_id)
-        if start_row is None or start_row.guild_id != guild_id:
-            return None
         return SessionSummary(
             session_id=session_id,
             guild_id=guild_id,
@@ -135,14 +137,12 @@ async def session_summary(
             top_breaker=None,
         )
 
-    started_at: datetime | None = None
+    started_at: datetime | None = start_row.created_at
     ended_at: datetime | None = None
     chains_started = 0
     chains_broken = 0
     for ev in events:
-        if ev.type == EventType.SESSION_START:
-            started_at = ev.created_at
-        elif ev.type == EventType.SESSION_END:
+        if ev.type == EventType.SESSION_END:
             ended_at = ev.created_at
         elif ev.type == EventType.CHAIN_START:
             chains_started += 1

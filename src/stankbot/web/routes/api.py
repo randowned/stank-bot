@@ -455,24 +455,48 @@ async def api_session(
     if summary is None:
         return JSONResponse({"error": "Session not found"}, status_code=404)
 
+    # Include chains started in this session OR chains that have events in this
+    # session (cross-session-boundary chains that survived a reset).
+    from stankbot.db.repositories import chains as chains_repo
+
+    chain_ids_in_events_stmt = (
+        select(Event.chain_id)
+        .where(
+            Event.guild_id == guild_id,
+            Event.session_id == session_id,
+            Event.chain_id.is_not(None),
+        )
+        .distinct()
+    )
+    chain_ids_in_events = {r for (r,) in (await session.execute(chain_ids_in_events_stmt)).all()}
+
     chains_stmt = (
         select(Chain)
-        .where(Chain.guild_id == guild_id, Chain.session_id == session_id)
+        .where(
+            Chain.guild_id == guild_id,
+            (Chain.session_id == session_id) | Chain.id.in_(chain_ids_in_events),
+        )
         .order_by(Chain.id.desc())
     )
     chain_rows = list((await session.execute(chains_stmt)).scalars().all())
-    chains_payload = [
-        {
+
+    # For open chains (no broken_at), live-compute length/unique rather than
+    # relying on final_length which is only written at break time.
+    chains_payload = []
+    for c in chain_rows:
+        if c.broken_at is None:
+            live_len, live_unique = await chains_repo.chain_length_and_unique(session, c.id)
+        else:
+            live_len, live_unique = c.final_length or 0, c.final_unique or 0
+        chains_payload.append({
             "chain_id": c.id,
             "started_at": c.started_at.isoformat() if c.started_at else None,
             "broken_at": c.broken_at.isoformat() if c.broken_at else None,
-            "length": c.final_length or 0,
-            "unique_contributors": c.final_unique or 0,
+            "length": live_len,
+            "unique_contributors": live_unique,
             "starter_user_id": str(c.starter_user_id) if c.starter_user_id is not None else None,
             "broken_by_user_id": str(c.broken_by_user_id) if c.broken_by_user_id is not None else None,
-        }
-        for c in chain_rows
-    ]
+        })
 
     # Count total stanks (SP_BASE events) and reactions in session
     total_stanks_stmt = select(func.count(Event.id)).where(

@@ -226,7 +226,14 @@
 	<!-- Leaderboard -->
 	<div class="panel">
 		<div class="flex items-center justify-between mb-3">
-			<h2 class="text-lg font-semibold">Leaderboard</h2>
+			<div class="flex items-center gap-2">
+				<h2 class="text-lg font-semibold">Leaderboard</h2>
+				{#if board?.session_id}
+					<a href="{base}/session/{board.session_id}" class="text-xs text-muted hover:text-accent transition-colors">
+						Session #{board.session_id}
+					</a>
+				{/if}
+			</div>
 			<span class="text-xs text-muted uppercase">Stank Points</span>
 		</div>
 

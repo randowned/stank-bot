@@ -44,6 +44,7 @@ export interface BoardState {
 	guild_name: string;
 	stank_emoji: string;
 	altar_sticker_url: string;
+	session_id?: number | null;
 	current: number;
 	current_unique: number;
 	reactions: number;
