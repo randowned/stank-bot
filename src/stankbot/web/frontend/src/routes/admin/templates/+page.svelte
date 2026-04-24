@@ -31,15 +31,6 @@
 		points_embed: 'points'
 	};
 
-	const PRESETS = [
-		{ value: 'chain_board', label: 'Chain board' },
-		{ value: 'chain_record', label: 'Chain record' },
-		{ value: 'chain_break', label: 'Chain break' },
-		{ value: 'session_start', label: 'Session start' },
-		{ value: 'points', label: 'Points' },
-		{ value: 'cooldown', label: 'Cooldown' }
-	];
-
 	let doc = $state<TemplatesDoc | null>(null);
 	let loadError = $state<string | null>(null);
 
@@ -47,10 +38,9 @@
 	let jsonText = $state('');
 	let saveMsg = $state<string | null>(null);
 	let saving = $state(false);
-	let preset = $state('chain_board');
 	let preview = $state<Record<string, unknown> | null>(null);
 	let previewError = $state<string | null>(null);
-	let activeTab = $state<'edit' | 'preview'>('edit');
+	let activeTab = $state<'preview' | 'edit'>('preview');
 
 	let previewTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -67,9 +57,8 @@
 	}
 
 	function selectKey(k: string) {
-		if (!doc) return;
+		if (!doc || !k) return;
 		activeKey = k;
-		preset = KEY_TO_PRESET[k] ?? 'chain_board';
 		const tmpl = doc.templates[k] ?? {};
 		jsonText = JSON.stringify(tmpl, null, 2);
 		schedulePreview();
@@ -81,6 +70,7 @@
 	}
 
 	async function runPreview() {
+		if (!activeKey) return;
 		previewError = null;
 		let parsed: unknown;
 		try {
@@ -90,6 +80,7 @@
 			return;
 		}
 		try {
+			const preset = KEY_TO_PRESET[activeKey] ?? 'chain_board';
 			const res = await apiPost<{ rendered: Record<string, unknown> }>(
 				`/api/admin/templates/${activeKey}/preview`,
 				{ data: parsed, context_preset: preset }
@@ -140,41 +131,29 @@
 	<div class="mb-4 flex items-center gap-3">
 		<label class="text-sm text-muted shrink-0">Template:</label>
 		<Select
-			value={activeKey}
+			bind:value={activeKey}
 			options={templateOptions}
-			onchange={(v) => selectKey(v)}
+			onchange={(e) => selectKey((e.target as HTMLSelectElement).value)}
 		/>
 	</div>
 
 	<Card>
-		<div class="flex items-center justify-between mb-4">
+		<div class="flex items-center mb-4">
 			<div class="flex gap-1 border border-border rounded-md overflow-hidden">
-				<button
-					type="button"
-					class="px-3 py-1.5 text-sm transition-colors {activeTab === 'edit' ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
-					onclick={() => { activeTab = 'edit'; }}
-				>Edit</button>
 				<button
 					type="button"
 					class="px-3 py-1.5 text-sm transition-colors {activeTab === 'preview' ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
 					onclick={() => { activeTab = 'preview'; runPreview(); }}
 				>Preview</button>
+				<button
+					type="button"
+					class="px-3 py-1.5 text-sm transition-colors {activeTab === 'edit' ? 'bg-accent text-[#1a1425]' : 'text-muted hover:text-text'}"
+					onclick={() => { activeTab = 'edit'; }}
+				>Edit</button>
 			</div>
-			{#if activeTab === 'preview'}
-				<div class="flex items-center gap-2">
-					<label class="text-sm text-muted">Context:</label>
-					<Select bind:value={preset} options={PRESETS} onchange={() => runPreview()} />
-				</div>
-			{/if}
 		</div>
 
-		{#if activeTab === 'edit'}
-			<Textarea bind:value={jsonText} rows={22} oninput={schedulePreview} />
-			<div class="mt-3 flex items-center justify-end gap-3">
-				{#if saveMsg}<span class="text-sm text-muted">{saveMsg}</span>{/if}
-				<Button onclick={save} loading={saving}>Save</Button>
-			</div>
-		{:else}
+		{#if activeTab === 'preview'}
 			{#if previewError}
 				<p class="text-sm text-danger">{previewError}</p>
 			{:else if preview}
@@ -205,6 +184,12 @@
 					{/if}
 				</div>
 			{/if}
+		{:else}
+			<Textarea bind:value={jsonText} rows={22} oninput={schedulePreview} />
+			<div class="mt-3 flex items-center justify-end gap-3">
+				{#if saveMsg}<span class="text-sm text-muted">{saveMsg}</span>{/if}
+				<Button onclick={save} loading={saving}>Save</Button>
+			</div>
 		{/if}
 	</Card>
 {/if}

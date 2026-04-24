@@ -6,10 +6,12 @@
 	const inviteUrl = $derived(($page.data.invite_url as string | null) ?? null);
 
 	const tiles = [
-		{ href: `${base}/admin/settings`, label: 'Settings', icon: '⚙️', desc: 'Altar, scoring, session ops' },
-		{ href: `${base}/admin/templates`, label: 'Templates', icon: '📝', desc: 'Edit bot embeds' },
+		{ href: `${base}/admin/channels`, label: 'Channels', icon: '📡', desc: 'Altar and announcement channels' },
+		{ href: `${base}/admin/templates`, label: 'Templates', icon: '📝', desc: 'Edit bot embed templates' },
 		{ href: `${base}/admin/admins`, label: 'Admins', icon: '👥', desc: 'Admin role & user grants' },
-		{ href: `${base}/admin/audit`, label: 'Audit log', icon: '📋', desc: 'History of admin actions' }
+		{ href: `${base}/admin/audit`, label: 'Audit log', icon: '📋', desc: 'History of admin actions' },
+		{ href: `${base}/admin/sessions`, label: 'Sessions', icon: '🔄', desc: 'Start, rebuild, or reset sessions' },
+		{ href: `${base}/admin/settings`, label: 'Settings', icon: '⚙️', desc: 'Scoring, behavior, and resets' }
 	];
 
 	let copied = $state(false);
