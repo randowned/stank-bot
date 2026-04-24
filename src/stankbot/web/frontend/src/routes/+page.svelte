@@ -154,7 +154,7 @@
 
 {#if !isLoggedIn}
 	<!-- Welcome / Landing Page -->
-	<div class="relative min-h-[calc(100vh-52px)] flex items-center justify-center overflow-hidden">
+	<div class="relative min-h-[calc(100vh-57px)] flex items-center justify-center overflow-hidden">
 		<!-- Background image -->
 		<div
 			class="absolute inset-0 bg-cover bg-center bg-no-repeat"
