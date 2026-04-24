@@ -391,9 +391,19 @@ async def api_chain(
     from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services import history_service
 
+    from stankbot.services.session_service import SessionService
+
     summary = await history_service.chain_summary(session, guild_id, chain_id)
     if summary is None:
         return JSONResponse({"error": "Chain not found"}, status_code=404)
+
+    # If the chain is still open but its originating session has since ended,
+    # point the back-link at the current active session instead.
+    effective_session_id = summary.session_id
+    if summary.broken_at is None and summary.session_id is not None:
+        current_session_id = await SessionService(session).current(guild_id)
+        if current_session_id and current_session_id != summary.session_id:
+            effective_session_id = current_session_id
 
     total_reactions = await reaction_awards_repo.count_for_chain(
         session, guild_id=guild_id, chain_id=chain_id
@@ -423,7 +433,8 @@ async def api_chain(
     return JSONResponse(
         {
             "chain_id": summary.chain_id,
-            "session_id": summary.session_id,
+            "session_id": effective_session_id,
+            "rolled_over": summary.broken_at is None and effective_session_id != summary.session_id,
             "started_at": summary.started_at.isoformat(),
             "broken_at": summary.broken_at.isoformat() if summary.broken_at else None,
             "length": summary.length,
