@@ -208,7 +208,7 @@
 
 			<!-- Subtle footer -->
 			<p class="mt-10 text-xs text-muted/50">
-				Sign in with your Discord account to play
+				Sign in with your Discord account to access the live stank leaderboard, track your points, and see how you stack up against other stankers in the MAPHRA community.
 			</p>
 		</div>
 	</div>
