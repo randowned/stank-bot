@@ -203,6 +203,8 @@ class ChainListener(commands.Cog):
 
             config = await settings.effective_scoring(payload.guild_id, altar)
             sticker_key = emoji.id or -abs(hash(emoji.name or "")) % (10**12)
+            from stankbot.db.repositories import chains as chains_repo
+            current_chain = await chains_repo.current_chain(session, payload.guild_id, altar.id)
             await chain_svc.award_reaction_bonus(
                 guild_id=payload.guild_id,
                 altar=altar,
@@ -210,6 +212,7 @@ class ChainListener(commands.Cog):
                 user_id=payload.user_id,
                 sticker_id=sticker_key,
                 config=config,
+                chain_id=current_chain.id if current_chain else None,
             )
         if _V2_NOTIFICATIONS_AVAILABLE:
             await broadcast_rank_update(self.bot.session_factory, payload.guild_id)

@@ -32,6 +32,7 @@ export const test = base.extend<{
 	newSession: () => Promise<void>;
 	injectStank: (guildId: number, userId: number, displayName: string) => Promise<void>;
 	injectBreak: (guildId: number, userId: number, displayName: string) => Promise<void>;
+	injectReaction: (guildId: number, messageId: number, userId: number) => Promise<void>;
 	startRandomEvents: (interval?: number) => Promise<void>;
 	stopRandomEvents: () => Promise<void>;
 }>({
@@ -69,6 +70,7 @@ export const test = base.extend<{
 				console.error('injectStank failed:', response.status(), body);
 			}
 			expect(response.ok()).toBeTruthy();
+			return response.json() as Promise<{ message_id: number; chain_length: number; sp_awarded: number }>;
 		});
 	},
 
@@ -80,6 +82,19 @@ export const test = base.extend<{
 			if (!response.ok()) {
 				const body = await response.text().catch(() => 'unknown');
 				console.error('injectBreak failed:', response.status(), body);
+			}
+			expect(response.ok()).toBeTruthy();
+		});
+	},
+
+	injectReaction: async ({ page }, use) => {
+		await use(async (guildId, messageId, userId) => {
+			const response = await page.request.post('/api/mock/reaction', {
+				data: { guild_id: guildId, message_id: messageId, user_id: userId }
+			});
+			if (!response.ok()) {
+				const body = await response.text().catch(() => 'unknown');
+				console.error('injectReaction failed:', response.status(), body);
 			}
 			expect(response.ok()).toBeTruthy();
 		});

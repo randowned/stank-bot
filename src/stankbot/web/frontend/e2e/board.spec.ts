@@ -96,6 +96,39 @@ test.describe('Board', () => {
 		expect(netText).toMatch(/^\+/);
 	});
 
+	test('reaction increments reactions tile and row counter', async ({
+		page,
+		injectStank,
+		injectReaction
+	}) => {
+		const GUILD = 123456789;
+		const STANKER = 7001;
+		const REACTOR = 7002;
+
+		// Plant a stank so there's a message to react to
+		const stank = await injectStank(GUILD, STANKER, 'StankUser');
+		const messageId = stank.message_id;
+
+		// Reactions tile should start at 0
+		const reactionsTile = page.locator('[data-testid="tile-reactions"]').locator('div').first();
+		await expect(reactionsTile).toHaveText('0', { timeout: 3000 });
+
+		// Inject a reaction from a different user
+		await injectReaction(GUILD, messageId, REACTOR);
+
+		// Reactions tile should update to 1
+		await expect(reactionsTile).toHaveText('1', { timeout: 5000 });
+
+		// The stanker's row should show 1 reaction
+		const stankerRow = page.locator(`[data-testid="rank-row"][href$="/player/${STANKER}"]`);
+		await expect(stankerRow).toBeVisible({ timeout: 5000 });
+		// Reactor's row subtitle should show 1 reaction
+		const reactorRow = page.locator(`[data-testid="rank-row"][href$="/player/${REACTOR}"]`);
+		await expect(reactorRow).toBeVisible({ timeout: 5000 });
+		const subtitle = reactorRow.locator('.text-xs.text-muted');
+		await expect(subtitle).toContainText('1 reactions', { timeout: 5000 });
+	});
+
 	test('random events update the board', async ({ page, startRandomEvents, stopRandomEvents }) => {
 		await startRandomEvents(1);
 

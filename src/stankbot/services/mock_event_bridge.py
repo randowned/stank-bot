@@ -109,6 +109,7 @@ class MockEventBridge:
             "chain_length": result.chain_length,
             "chain_unique": result.chain_unique,
             "sp_awarded": result.sp_awarded,
+            "message_id": stank_input.message_id,
         }
 
     async def inject_break(
@@ -158,8 +159,10 @@ class MockEventBridge:
             altar = await self._get_altar(session, guild_id)
             settings = SettingsService(session)
             scoring = await settings.effective_scoring(guild_id, altar)
+            from stankbot.db.repositories import chains as chains_repo
             session_svc = SessionService(session)
             chain_svc = ChainService(session, session_id_provider=session_svc)
+            current_chain = await chains_repo.current_chain(session, guild_id, altar.id)
             sp = await chain_svc.award_reaction_bonus(
                 guild_id=guild_id,
                 altar=altar,
@@ -167,7 +170,14 @@ class MockEventBridge:
                 user_id=user_id,
                 sticker_id=sticker_id,
                 config=scoring,
+                chain_id=current_chain.id if current_chain else None,
             )
+
+        if sp > 0:
+            import asyncio
+            from stankbot.web.ws import broadcast_rank_update
+            asyncio.create_task(broadcast_rank_update(self.session_factory, guild_id))
+
         return {"sp_awarded": sp}
 
     async def inject_noise(

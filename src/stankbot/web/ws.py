@@ -215,14 +215,11 @@ async def notify_chain_update(
     )
 
 
-async def notify_rank_update(guild_id: int, rankings: list) -> None:
-    await manager.broadcast_json(
-        guild_id,
-        {
-            "t": 102,
-            "d": {"rankings": rankings, "updated_at": datetime.now(UTC).isoformat()},
-        },
-    )
+async def notify_rank_update(guild_id: int, rankings: list, reactions: int | None = None) -> None:
+    payload: dict = {"rankings": rankings, "updated_at": datetime.now(UTC).isoformat()}
+    if reactions is not None:
+        payload["reactions"] = reactions
+    await manager.broadcast_json(guild_id, {"t": 102, "d": payload})
 
 
 async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20) -> None:
@@ -282,7 +279,12 @@ async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20)
             }
             for uid, sp, pp in rows
         ]
-    await notify_rank_update(guild_id, payload)
+        total_reactions = (
+            await reaction_awards_repo.count_for_chain(session, guild_id=guild_id, chain_id=live_chain.id)
+            if live_chain is not None
+            else await reaction_awards_repo.count_for_session(session, guild_id=guild_id, session_id=session_id)
+        )
+    await notify_rank_update(guild_id, payload, reactions=total_reactions)
 
 
 async def notify_achievement(guild_id: int, user_id: int, badge: dict) -> None:
