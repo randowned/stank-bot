@@ -10,17 +10,19 @@
 	html {
 		scroll-behavior: smooth;
 		-webkit-tap-highlight-color: transparent;
+		/* Firefox: thin scrollbar, no space reserved when hidden */
 		scrollbar-width: thin;
 		scrollbar-color: transparent transparent;
 	}
 
 	html:hover {
-		scrollbar-color: rgba(255,255,255,0.15) transparent;
+		scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 	}
 
+	/* Webkit/Chromium (Electron): overlay scrollbar — does not push content */
 	::-webkit-scrollbar {
-		width: 4px;
-		height: 4px;
+		width: 6px;
+		height: 6px;
 	}
 
 	::-webkit-scrollbar-track {
@@ -30,16 +32,20 @@
 	::-webkit-scrollbar-thumb {
 		background: transparent;
 		border-radius: 9999px;
-		transition: background 0.2s;
 	}
 
-	html:hover ::-webkit-scrollbar-thumb,
+	*:hover::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.18);
+	}
+
 	::-webkit-scrollbar-thumb:hover {
-		background: rgba(255,255,255,0.15);
+		background: rgba(255, 255, 255, 0.3);
 	}
 
 	body {
 		@apply font-sans min-h-screen overflow-x-hidden;
+		/* overlay: scrollbar floats on top of content, takes no layout space */
+		overflow-y: overlay;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
 	}
