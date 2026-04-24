@@ -84,7 +84,7 @@
 		<Card title="Chains ({session.chains.length})">
 			<ul class="space-y-1">
 				{#each session.chains as c (c.chain_id)}
-					{@const rolledOver = !c.broken_at && !!session.ended_at}
+					{@const rolledOver = !!session.ended_at && (!c.broken_at || new Date(c.broken_at) > new Date(session.ended_at))}
 					<a
 						href="{base}/chain/{c.chain_id}"
 						class="flex items-center justify-between gap-3 px-2 py-2 rounded-md hover:bg-border/40 text-sm"
