@@ -98,6 +98,7 @@ export interface Badge {
 
 export interface ChainSummary {
 	chain_id: number;
+	session_id?: number | null;
 	started_at: string;
 	broken_at: string | null;
 	length: number;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import type { ChainSummary } from '$lib/types';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -91,5 +92,9 @@
 		<div class="panel">
 			<EmptyState icon="❓" title="Chain not found" message="This chain doesn't exist or isn't visible to you." />
 		</div>
+	{/if}
+
+	{#if chain?.session_id}
+		<a href="{base}/session/{chain.session_id}" class="btn btn-secondary w-full text-center">← Session #{chain.session_id}</a>
 	{/if}
 </div>

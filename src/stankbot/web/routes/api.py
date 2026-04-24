@@ -423,6 +423,7 @@ async def api_chain(
     return JSONResponse(
         {
             "chain_id": summary.chain_id,
+            "session_id": summary.session_id,
             "started_at": summary.started_at.isoformat(),
             "broken_at": summary.broken_at.isoformat() if summary.broken_at else None,
             "length": summary.length,
