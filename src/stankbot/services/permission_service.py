@@ -53,7 +53,7 @@ class PermissionService:
         return bool(admin_ids & role_set)
 
     async def add_admin_user(self, user_id: int) -> bool:
-        stmt = select(AdminUser).where(AdminUser.user_id == user_id)
+        stmt = select(AdminUser).where(AdminUser.guild_id == 0, AdminUser.user_id == user_id)
         existing = (await self.session.execute(stmt)).scalar_one_or_none()
         if existing is not None:
             return False
@@ -61,7 +61,7 @@ class PermissionService:
         return True
 
     async def remove_admin_user(self, user_id: int) -> bool:
-        stmt = select(AdminUser).where(AdminUser.user_id == user_id)
+        stmt = select(AdminUser).where(AdminUser.guild_id == 0, AdminUser.user_id == user_id)
         existing = (await self.session.execute(stmt)).scalars().all()
         if not existing:
             return False
@@ -70,7 +70,7 @@ class PermissionService:
         return True
 
     async def list_admin_users(self) -> list[int]:
-        stmt = select(AdminUser.user_id)
+        stmt = select(AdminUser.user_id).where(AdminUser.guild_id == 0)
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def add_admin_role(self, guild_id: int, role_id: int) -> bool:

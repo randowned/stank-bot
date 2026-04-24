@@ -17,7 +17,7 @@
 	let doc = $state<RolesDoc | null>(null);
 	let error = $state<string | null>(null);
 	let newRole = $state('');
-	let newUser = $state('');
+	let newUser = $state(''); // keep as string — number input coerces to Number, breaking .trim() and losing precision on large Discord IDs
 
 	async function load() {
 		try {
@@ -50,10 +50,11 @@
 	}
 
 	async function addUser() {
-		if (!newUser.trim()) return;
+		const trimmed = String(newUser).trim();
+		if (!trimmed) return;
 		error = null;
 		try {
-			await apiPost('/api/admin/roles/users/add', { user_id: Number(newUser) });
+			await apiPost('/api/admin/roles/users/add', { user_id: parseInt(trimmed, 10) });
 			newUser = '';
 			await load();
 		} catch (err) {
@@ -128,7 +129,7 @@
 			</ul>
 		{/if}
 		<FormField label="Add user ID">
-			<Input bind:value={newUser} type="number" placeholder="Discord user ID" />
+			<Input bind:value={newUser} type="text" placeholder="Discord user ID" />
 		</FormField>
 		<div class="flex justify-end mt-2">
 			<Button onclick={addUser}>Add</Button>
