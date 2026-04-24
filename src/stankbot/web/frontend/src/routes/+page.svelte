@@ -188,7 +188,9 @@
 			<p class="text-muted text-sm sm:text-base mb-8 max-w-sm leading-relaxed">
 				Build chains. Earn points. Rise on the leaderboard.
 				<br />
-				<span class="text-text/60">The stankiest game in the server.</span>
+				<span class="text-text/60">Stank responsibly, friends.</span>
+				<br />
+				<span class="mt-3 text-xs text-muted/50 italic">with love, StankBot and crew</span>
 			</p>
 
 			<!-- Discord Login Button -->
