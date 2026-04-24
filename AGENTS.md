@@ -76,13 +76,13 @@ All changes must be verified before they are considered done. The verification p
 - **For agent verification during development:** `cd src/stankbot/web/frontend && npm run test:e2e:dev` (Vite dev server, fastest iteration).
 - **For commit-and-push readiness:** `cd src/stankbot/web/frontend && npm run test:e2e` (production static build, closest to real deploy).
 
-Both require the backend running in `ENV=dev`. Use the one-command startup scripts:
+Both require the backend running in `ENV=dev-mock`. Use the one-command startup scripts:
 - Windows: `.\scripts\dev.ps1`
 - macOS/Linux: `./scripts/dev.sh`
 
 ### Mock event injection
 
-When verifying in `ENV=dev`, use the mock API to drive state changes without Discord:
+When verifying in `ENV=dev-mock`, use the mock API to drive state changes without Discord:
 
 | Endpoint | Action |
 |----------|--------|
@@ -150,9 +150,10 @@ Members post messages containing the `:Stank:` emoji/sticker in a designated **a
 - **Live chain handling:** [src/stankbot/services/chain_service.py](src/stankbot/services/chain_service.py). The ONLY place chain state transitions happen.
 - **Session boundaries:** [src/stankbot/services/session_service.py](src/stankbot/services/session_service.py). Emits `session_start`/`session_end` events — no snapshot tables.
 - **Schema:** [src/stankbot/db/models.py](src/stankbot/db/models.py). Authority for all tables.
-- **Embed rendering:** [src/stankbot/services/board_renderer.py](src/stankbot/services/board_renderer.py) + [template_engine.py](src/stankbot/services/template_engine.py).
+- **Embed rendering:** [src/stankbot/services/board_renderer.py](src/stankbot/services/board_renderer.py) + [template_engine.py](src/stankbot/services/template_engine.py) + [template_store.py](src/stankbot/services/template_store.py) + [embed_builders.py](src/stankbot/services/embed_builders.py).
 - **Cogs (Discord surface):** [src/stankbot/cogs/](src/stankbot/cogs/).
-- **Dashboard API:** [src/stankbot/web/v2_app.py](src/stankbot/web/v2_app.py) + [v2_admin.py](src/stankbot/web/v2_admin.py).
+- **Dashboard API:** [src/stankbot/web/app.py](src/stankbot/web/app.py) (factory) + [routes/api.py](src/stankbot/web/routes/api.py) + [routes/admin.py](src/stankbot/web/routes/admin.py) + [routes/auth.py](src/stankbot/web/routes/auth.py).
+- **WebSocket:** [src/stankbot/web/ws.py](src/stankbot/web/ws.py). Cookie-based auth; broadcast hub for live board updates.
 
 ## Reference files
 

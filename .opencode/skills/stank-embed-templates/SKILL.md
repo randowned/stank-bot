@@ -1,6 +1,6 @@
 ---
 name: stank-embed-templates
-description: Conventions for stank-bot's per-guild embed templates (board, record, session-start/end, points, cooldown). Trigger when editing src/stankbot/services/template_engine.py, board_renderer.py, default template strings, or dashboard routes that author templates.
+description: Conventions for stank-bot's per-guild embed templates (board, record, session-start/end, points, cooldown). Trigger when editing src/stankbot/services/template_engine.py, board_renderer.py, template_store.py, embed_builders.py, default template strings, or dashboard routes that author templates.
 ---
 
 # stank-bot embed template conventions
@@ -13,14 +13,15 @@ Embeds are authored per-guild on the web dashboard and rendered by `template_eng
    - They match Python identifiers intentionally so the service layer can pass a context dict directly without key translation.
    - No `{camelCase}`, no `{dashed-names}`, no `{spaces inside braces}`.
 
-2. **Context flows: service → renderer → template.**
+2. **Context flows: service → embed_builders → template_engine → Discord.**
    - The service builds a plain dict (`{"chain_length": 7, "top_stanker": "alice", ...}`).
-   - The renderer passes that dict to the template engine.
-   - The template substitutes `{chain_length}`, `{top_stanker}`, etc.
+   - `embed_builders.py` centralises context-dict construction for bot-posted embeds (records, chain-breaks, session rollovers, cooldown notices).
+   - The template engine loads the guild's template from `template_store.py`, then substitutes `{chain_length}`, `{top_stanker}`, etc.
    - Do not introduce a separate "template context" type that diverges from what services already return.
 
 3. **Templates are per-guild, authored via the dashboard.**
-   - Default templates live in code (for fresh guilds) but are copied into the guild's settings on first use.
+   - Default templates live in `default_templates.py` (for fresh guilds) but are copied into the guild's `guild_settings` rows on first use.
+   - `template_store.py` handles load/save/validate against the DB.
    - Do not hardcode guild-specific strings in renderers.
 
 4. **Known template slots:** board, record announcement, session-start, session-end, points, cooldown. If you're adding a new slot, add it to the dashboard authoring UI and the renderer at the same time.
@@ -36,4 +37,7 @@ Embeds are authored per-guild on the web dashboard and rendered by `template_eng
 
 - `src/stankbot/services/board_renderer.py`
 - `src/stankbot/services/template_engine.py`
-- Dashboard template authoring: `src/stankbot/web/routes/` (template-related routes).
+- `src/stankbot/services/template_store.py` — per-guild DB storage (load/save/validate via `guild_settings` table).
+- `src/stankbot/services/embed_builders.py` — centralised context-dict construction for bot-posted embeds (records, chain-breaks, session rollovers, cooldown notices).
+- `src/stankbot/services/default_templates.py` — built-in defaults (`ALL_DEFAULTS` dict).
+- Dashboard template authoring: `src/stankbot/web/routes/admin.py` (template endpoints).

@@ -38,10 +38,10 @@ Based on the symptom, read the smallest relevant surface:
 - **Chain / scoring:** `src/stankbot/services/chain_service.py`, `src/stankbot/services/scoring_service.py`.
 - **Session boundaries:** `src/stankbot/services/session_service.py`.
 - **Schema / migration:** `src/stankbot/db/models.py`, `migrations/`.
-- **Embed / rendering:** `src/stankbot/services/board_renderer.py`, `src/stankbot/services/template_engine.py`.
+- **Embed / rendering:** `src/stankbot/services/board_renderer.py`, `src/stankbot/services/template_engine.py`, `src/stankbot/services/template_store.py`, `src/stankbot/services/embed_builders.py`.
 - **Discord surface:** `src/stankbot/cogs/`.
 - **Dashboard / OAuth:** `src/stankbot/web/routes/`, `src/stankbot/web/app.py`.
-- **Boot / logging:** `src/stankbot/__main__.py`, `src/stankbot/logging_setup.py`.
+- **Boot / logging:** `src/stankbot/__main__.py`, `src/stankbot/logging.py`.
 
 ### 5. Report
 - Root cause (or best current hypothesis).
