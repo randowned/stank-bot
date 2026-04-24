@@ -139,7 +139,9 @@ async def callback(
     ]
     request.session["guild_id"] = config.default_guild_id
     target = request.session.pop("oauth_next", None) or "/"
-    return RedirectResponse(target, status_code=303)
+    response = RedirectResponse(target, status_code=303)
+    response.set_cookie("has_session", "1", httponly=False, samesite="lax", secure=config.env != "dev-mock")
+    return response
 
 
 @router.get("/mock-login")
@@ -168,7 +170,9 @@ async def mock_login_get(
     ]
     request.session["guild_id"] = guild_id
     target = next if next and _is_safe_redirect(next) else "/"
-    return RedirectResponse(target, status_code=303)
+    response = RedirectResponse(target, status_code=303)
+    response.set_cookie("has_session", "1", httponly=False, samesite="lax", secure=False)
+    return response
 
 
 @router.post("/mock-login")
@@ -206,7 +210,9 @@ async def mock_login_post(
         for g in guilds
     ]
     request.session["guild_id"] = int(guild_id)
-    return JSONResponse({"success": True})
+    response = JSONResponse({"success": True})
+    response.set_cookie("has_session", "1", httponly=False, samesite="lax", secure=False)
+    return response
 
 
 @router.get("")
@@ -229,4 +235,6 @@ async def auth_check(request: Request) -> JSONResponse:
 @router.get("/logout")
 async def logout(request: Request) -> RedirectResponse:
     request.session.clear()
-    return RedirectResponse("/", status_code=303)
+    response = RedirectResponse("/", status_code=303)
+    response.delete_cookie("has_session")
+    return response

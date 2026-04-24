@@ -2,10 +2,15 @@ import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 import type { GuildInfo } from '$lib/types';
 
+function hasSessionCookie(): boolean {
+	if (typeof document === 'undefined') return true; // SSR: always attempt
+	return document.cookie.split(';').some((c) => c.trim().startsWith('has_session='));
+}
+
 export const load: LayoutLoad = async ({ fetch, url }) => {
 	try {
 		const [authRes, envRes] = await Promise.all([
-			fetch('/auth'),
+			hasSessionCookie() ? fetch('/auth') : Promise.resolve(new Response('null', { status: 200 })),
 			fetch('/api/env')
 		]);
 
