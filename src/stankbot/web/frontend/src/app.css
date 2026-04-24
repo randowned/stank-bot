@@ -10,6 +10,32 @@
 	html {
 		scroll-behavior: smooth;
 		-webkit-tap-highlight-color: transparent;
+		scrollbar-width: thin;
+		scrollbar-color: transparent transparent;
+	}
+
+	html:hover {
+		scrollbar-color: rgba(255,255,255,0.15) transparent;
+	}
+
+	::-webkit-scrollbar {
+		width: 4px;
+		height: 4px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: transparent;
+		border-radius: 9999px;
+		transition: background 0.2s;
+	}
+
+	html:hover ::-webkit-scrollbar-thumb,
+	::-webkit-scrollbar-thumb:hover {
+		background: rgba(255,255,255,0.15);
 	}
 
 	body {
