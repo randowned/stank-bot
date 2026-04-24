@@ -38,6 +38,7 @@ class UserSummary:
 class ChainSummary:
     chain_id: int
     guild_id: int
+    session_id: int | None
     started_at: datetime
     broken_at: datetime | None
     length: int
@@ -105,6 +106,7 @@ async def chain_summary(
     return ChainSummary(
         chain_id=chain.id,
         guild_id=chain.guild_id,
+        session_id=chain.session_id,
         started_at=chain.started_at,
         broken_at=chain.broken_at,
         length=length,
