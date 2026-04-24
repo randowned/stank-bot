@@ -60,7 +60,7 @@
 		role="status"
 		aria-live="polite"
 	>
-		<span class="hidden sm:inline">Live updates</span>
+		<span>Live updates</span>
 		<span class="w-2 h-2 rounded-full {color} {pulse}" data-testid="connection-dot"></span>
 	</button>
 

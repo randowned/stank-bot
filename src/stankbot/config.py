@@ -31,7 +31,7 @@ class AppConfig(BaseSettings):
     )
 
     # --- Runtime environment ---
-    env: str = "preprod"
+    env: str = "dev"
 
     # --- Discord ---
     discord_token: SecretStr | None = None
@@ -54,7 +54,7 @@ class AppConfig(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "text"
 
-    # --- Dev mocks (ignored unless env == "dev") ---
+    # --- Dev mocks (ignored unless env == "dev-mock") ---
     mock_discord: bool = False
     mock_auth: bool = False
     mock_auto_events: bool = False
@@ -87,13 +87,13 @@ class AppConfig(BaseSettings):
     def _require_token(cls, value: object, info) -> object:  # type: ignore[no-untyped-def]
         # Allow empty token in dev mode with mock Discord.
         data = info.data
-        if data.get("env") == "dev" and data.get("mock_discord"):
+        if data.get("env") == "dev-mock" and data.get("mock_discord"):
             if value in (None, ""):
                 return "mock-token"
             return value
         if value in (None, ""):
             raise ValueError(
-                "DISCORD_TOKEN is empty. Set it in .env.preprod from Discord "
+                "DISCORD_TOKEN is empty. Set it in .env.dev from Discord "
                 "Developer Portal -> your Application -> Bot -> Reset Token."
             )
         return value
@@ -104,7 +104,7 @@ class AppConfig(BaseSettings):
         if not self.enable_web:
             return self
         # Skip web secret validation in dev mode when auth is mocked.
-        if self.env == "dev" and self.mock_auth:
+        if self.env == "dev-mock" and self.mock_auth:
             return self
         missing: list[str] = []
         if self.web_secret_key is None or not self.web_secret_key.get_secret_value():
@@ -131,7 +131,7 @@ class AppConfig(BaseSettings):
     def default_guild_id(self) -> int:
         if self.owner_default_guild_id is not None:
             return self.owner_default_guild_id
-        if self.env == "dev" and self.mock_default_guild_id is not None:
+        if self.env == "dev-mock" and self.mock_default_guild_id is not None:
             return self.mock_default_guild_id
         if self.guild_ids:
             return self.guild_ids[0]
@@ -153,7 +153,7 @@ class AppConfig(BaseSettings):
 
 def load_config() -> AppConfig:
     # Load the correct env file based on ENV before pydantic reads the environment.
-    env = os.environ.get("ENV", "preprod")
+    env = os.environ.get("ENV", "dev")
     env_file = f".env.{env}"
     if os.path.exists(env_file):
         load_dotenv(env_file, override=False)

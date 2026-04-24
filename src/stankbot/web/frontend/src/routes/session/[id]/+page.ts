@@ -8,8 +8,8 @@ interface SessionChain {
 	broken_at: string | null;
 	length: number;
 	unique_contributors: number;
-	starter_user_id: number | null;
-	broken_by_user_id: number | null;
+	starter_user_id: string | null;
+	broken_by_user_id: string | null;
 }
 
 interface SessionDetail {
@@ -18,8 +18,11 @@ interface SessionDetail {
 	ended_at: string | null;
 	chains_started: number;
 	chains_broken: number;
-	top_earner: [number, number] | null;
-	top_breaker: [number, number] | null;
+	top_earner: [string, number] | null;
+	top_breaker: [string, number] | null;
+	total_stanks?: number;
+	total_reactions?: number;
+	names?: Record<string, string>;
 	chains?: SessionChain[];
 }
 
@@ -29,5 +32,5 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		() => apiFetch<SessionDetail>(`/api/session/${sessionId}`, { fetch }),
 		{ fallback: null }
 	);
-	return { session };
+	return { session, names: session?.names ?? {} };
 };

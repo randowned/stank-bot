@@ -6,9 +6,9 @@
 
 ## What the bot does
 
-Players cooperate to build the longest chain of a designated sticker in a designated channel (the **altar**). The chain breaks when anyone posts a non-sticker message. Players earn Stank Points (SP) for contributing and Punishment Points (PP) for breaking chains.
+Players cooperate to build the longest chain of a designated sticker in a designated channel (the **altar**). The chain breaks when anyone posts a non-sticker message. Players earn Stank Points (SP) for contributing; breaking the chain costs SP.
 
-Rankings are **net SP** (earned SP minus PP).
+Rankings are **net SP** (earned SP minus SP lost to breaks).
 
 | Action | Points |
 |---|---|
@@ -17,7 +17,7 @@ Rankings are **net SP** (earned SP minus PP).
 | Last contributor when a chain breaks (not the breaker) | +15 SP finish bonus |
 | Last stank of one shift + first stank of the next (chain must survive the rollover) | +20 SP Team Player bonus |
 | React to an in-chain sticker with the altar emoji | +1 SP (once per user per message) |
-| Break the chain | −(25 + chain_length × 2) PP |
+| Break the chain | −(25 + chain_length × 2) SP |
 
 All values are per-guild defaults, editable on the web dashboard. The same user cannot stank twice within the configurable cooldown (default 20 minutes).
 
@@ -47,7 +47,7 @@ For frontend work and E2E testing, run in **mock mode** with a fake Discord back
 ./scripts/dev.sh
 ```
 
-This starts the backend (`ENV=dev`, reads `.env.dev`) and the Vite dev server on `http://localhost:5173`. The dashboard auto-logs you in as a mock user.
+This starts the backend (`ENV=dev-mock`, reads `.env.dev-mock`) and the Vite dev server on `http://localhost:5173`. The dashboard auto-logs you in as a mock user.
 
 Requires Python 3.12 and [`uv`](https://github.com/astral-sh/uv):
 
@@ -66,8 +66,8 @@ uv run alembic upgrade head   # only needed once
 If you need the real Gateway connection (testing bot logic):
 
 ```powershell
-cp .env.example .env.preprod   # fill in tokens
-$env:ENV="preprod"
+cp .env.example .env.dev   # fill in tokens
+$env:ENV="dev"
 uv run python -m stankbot
 ```
 
@@ -171,7 +171,7 @@ CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 
 ## Web dashboard
 
-- `/` — public leaderboard + chain state. Top tiles: **Reactions** (current chain) · Current · Session · All-time. Leaderboard rows live-reorder on point changes with floating `+N` delta chips, and a chain break paints an overlay with the breaker and PP loss until the next chain starts.
+- `/` — public leaderboard + chain state. Top tiles: **Reactions** (current chain, chain-scoped) · Current · Session · All-time. Leaderboard rows live-reorder on point changes with floating `+N` delta chips and show net SP (`+N SP` / `-N SP`) with reactions and stanks-in-chain subtitle. A chain break paints an overlay with the breaker and SP loss until the next chain starts.
 - `/me` → `/player/{user_id}` — your stats, badges, history.
 - `/sessions` → `/history/session/{id}` — session browser + summary.
 - Admin surface (five pages):

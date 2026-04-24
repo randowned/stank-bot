@@ -7,7 +7,7 @@ On callback we stash a compact profile + the guild list into the
 signed Starlette session cookie. Admin checks in :mod:`web.deps` read
 the permissions integer out of that cached guild list.
 
-In ``ENV=dev`` with ``mock_auth=true``, the OAuth flow is bypassed in
+In ``ENV=dev-mock`` with ``mock_auth=true``, the OAuth flow is bypassed in
 favour of automatic dev-login so you can open the dashboard without a
 real Discord account.
 """
@@ -59,7 +59,7 @@ async def login(
     next: str | None = None,
     config=Depends(get_config),
 ) -> RedirectResponse:
-    if config.env == "dev" and config.mock_auth:
+    if config.env == "dev-mock" and config.mock_auth:
         target = f"/auth/mock-login?next={quote(next or '/')}" if next else "/auth/mock-login"
         return RedirectResponse(target, status_code=302)
 
@@ -149,7 +149,7 @@ async def mock_login_get(
     config=Depends(get_config),
 ) -> RedirectResponse:
     """Auto-login for dev mode — creates a session as the default dev user."""
-    if config.env != "dev":
+    if config.env != "dev-mock":
         raise HTTPException(status_code=403, detail="Mock auth only available in dev mode")
 
     request.session["user"] = {
@@ -180,7 +180,7 @@ async def mock_login_post(
 
     Accepts a JSON body to override the default dev user.
     """
-    if config.env != "dev":
+    if config.env != "dev-mock":
         raise HTTPException(status_code=403, detail="Mock auth only available in dev mode")
 
     body = await request.json()

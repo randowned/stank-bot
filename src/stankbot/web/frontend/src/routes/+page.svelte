@@ -37,6 +37,36 @@
 
 	let prevChainLen = $state(board?.current ?? 0);
 
+	// Stat tile flash tracking
+	let flashReactions = $state(false);
+	let flashCurrent = $state(false);
+	let flashRecord = $state(false);
+
+	let prevReactions = $state(board?.reactions ?? 0);
+	let prevCurrent = $state(board?.current ?? 0);
+	let prevRecord = $state(board?.record ?? 0);
+
+	function triggerFlash(setter: (v: boolean) => void) {
+		setter(true);
+		setTimeout(() => setter(false), 900);
+	}
+
+	$effect(() => {
+		if (!board) return;
+		if (board.reactions !== untrack(() => prevReactions)) {
+			prevReactions = board.reactions;
+			triggerFlash((v) => (flashReactions = v));
+		}
+		if (board.current !== untrack(() => prevCurrent)) {
+			prevCurrent = board.current;
+			triggerFlash((v) => (flashCurrent = v));
+		}
+		if (board.record !== untrack(() => prevRecord)) {
+			prevRecord = board.record;
+			triggerFlash((v) => (flashRecord = v));
+		}
+	});
+
 	$effect(() => {
 		if (!board) return;
 		const current = board.current;
@@ -108,7 +138,7 @@
 		);
 	}
 
-	function getPlayerRank(rankings: PlayerRow[], userId: number): number | null {
+	function getPlayerRank(rankings: PlayerRow[], userId: string): number | null {
 		for (let i = 0; i < rankings.length; i++) {
 			if (rankings[i].user_id === userId) return i + 1;
 		}
@@ -127,7 +157,7 @@
 		<div class="flex items-center justify-between mb-3">
 			<div>
 				<h1 class="text-xl font-bold flex items-center gap-2" data-testid="guild-name">
-					<img src="/static/Stank.gif" alt="Stank" class="w-6 h-6" />
+					<img src="/stank.gif" alt="Stank" class="w-6 h-6" />
 					{data.guild_name}
 				</h1>
 			</div>
@@ -136,17 +166,17 @@
 		<!-- Stats Grid -->
 		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 			<div class="text-center" data-testid="tile-reactions">
-				<div class="text-xl font-bold text-accent">{formatNumber(board?.reactions ?? 0)}</div>
+				<div class="text-xl font-bold text-accent {flashReactions ? 'row-flash' : ''}">{formatNumber(board?.reactions ?? 0)}</div>
 				<div class="text-xs text-muted uppercase">Reactions</div>
 			</div>
 			<div class="text-center" data-testid="tile-current">
-				<div class="text-xl font-bold text-accent" data-testid="chain-counter">
+				<div class="text-xl font-bold text-accent {flashCurrent ? 'row-flash' : ''}" data-testid="chain-counter">
 					{formatNumber(board?.current ?? 0) + ' / ' + formatNumber(board?.current_unique ?? 0)}
 				</div>
 				<div class="text-xs text-muted uppercase">Current</div>
 			</div>
 			<div class="text-center" data-testid="tile-session">
-				<div class="text-xl font-bold">
+				<div class="text-xl font-bold {flashRecord ? 'row-flash' : ''}">
 					{formatNumber(board?.record ?? 0) + ' / ' + formatNumber(board?.record_unique ?? 0)}
 				</div>
 				<div class="text-xs text-muted uppercase">Session</div>
@@ -174,7 +204,7 @@
 				{@const starter = board.chain_starter}
 				<a href={getPlayerUrl(starter.user_id)} class="panel flex flex-col items-center gap-3">
 					<div class="text-sm text-muted uppercase">🏃 Starter</div>
-					<div>
+					<div class="text-center">
 						<div class="font-medium truncate">{starter.display_name}</div>
 						<div class="text-sm text-muted">{starter.earned_sp} SP</div>
 					</div>
@@ -184,9 +214,9 @@
 				{@const breaker = board.chainbreaker}
 				<a href={getPlayerUrl(breaker.user_id)} class="panel flex flex-col items-center gap-3">
 					<div class="text-sm text-muted uppercase">💀 Breaker</div>
-					<div>
+					<div class="text-center">
 						<div class="font-medium truncate">{breaker.display_name}</div>
-						<div class="text-sm text-muted">{breaker.punishments} PP</div>
+						<div class="text-sm text-muted">-{breaker.punishments} SP</div>
 					</div>
 				</a>
 			{/if}
@@ -195,7 +225,10 @@
 
 	<!-- Leaderboard -->
 	<div class="panel">
-		<h2 class="text-lg font-semibold mb-3">Leaderboard</h2>
+		<div class="flex items-center justify-between mb-3">
+			<h2 class="text-lg font-semibold">Leaderboard</h2>
+			<span class="text-xs text-muted uppercase">Stank Points</span>
+		</div>
 
 		{#if isLoading}
 			<div class="space-y-3">
@@ -216,9 +249,9 @@
 				{#each displayedRankings as row, i (row.user_id)}
 					{@const rank = i + 1}
 					{@const userId = data.user?.id}
-					{@const isMe = Boolean(userId && row.user_id === Number(userId))}
+					{@const isMe = Boolean(userId && row.user_id === userId)}
 					<div animate:flip={{ duration: 280 }}>
-						<LeaderboardRow {rank} {row} {isMe} />
+						<LeaderboardRow {rank} {row} {isMe} chainLength={board?.current ?? 0} />
 					</div>
 				{/each}
 			</div>
@@ -233,8 +266,8 @@
 	</div>
 
 	<!-- Your Rank (if not in loaded rankings) -->
-	{#if board && data.user && !displayedRankings.some((r) => r.user_id === Number(data.user.id))}
-		{@const myRank = getPlayerRank(displayedRankings, Number(data.user.id))}
+	{#if board && data.user && !displayedRankings.some((r) => r.user_id === data.user.id)}
+		{@const myRank = getPlayerRank(displayedRankings, data.user.id)}
 		{#if myRank}
 			<div class="panel">
 				<a href={getPlayerUrl(data.user.id)} class="flex items-center justify-between">

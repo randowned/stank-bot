@@ -99,8 +99,7 @@
 				{#each doc.global_user_ids as u (u)}
 					<li class="flex items-center justify-between text-sm">
 						<span>
-							<span class="font-mono">{u}</span>
-							{#if doc.names[u]}<span class="text-muted ml-2">{doc.names[u]}</span>{/if}
+							{doc.names[u] ? `${doc.names[u]} [#${u}]` : `#${u}`}
 						</span>
 						<button class="text-danger text-sm" onclick={() => removeUser(u)}>Remove</button>
 					</li>

@@ -211,6 +211,8 @@ class ChainListener(commands.Cog):
                 sticker_id=sticker_key,
                 config=config,
             )
+        if _V2_NOTIFICATIONS_AVAILABLE:
+            await broadcast_rank_update(self.bot.session_factory, payload.guild_id)
 
     # ---- announcement helpers -------------------------------------------
 

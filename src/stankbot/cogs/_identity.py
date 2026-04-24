@@ -87,5 +87,10 @@ async def ensure_player(
     name = await resolve_display_name(
         bot, guild_id=guild_id, user_id=user_id, hint=hint
     )
-    await players_repo.get_or_create(session, guild_id, user_id, name)
+    avatar: str | None = getattr(hint, "avatar", None)
+    avatar_hash: str | None = getattr(avatar, "key", None) if avatar else None
+    if not avatar_hash and hint is not None:
+        resolved_avatar = getattr(hint, "display_avatar", None)
+        avatar_hash = getattr(resolved_avatar, "key", None) if resolved_avatar else None
+    await players_repo.get_or_create(session, guild_id, user_id, name, avatar_hash)
     return name or str(user_id)

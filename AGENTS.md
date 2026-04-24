@@ -46,13 +46,13 @@ When delegating, brief the agent self-contained: state the goal, name the files/
 
 | Mode | Env file | Discord | Auth | Purpose |
 |------|----------|---------|------|---------|
-| `dev` | `.env.dev` | Mocked (`mock_discord=true`) | Mocked (`mock_auth=true`) | Local development, manual testing, E2E |
-| `preprod` | `.env.preprod` | Real token | Real OAuth | Staging / local with real Discord |
+| `dev` | `.env.dev` | Real token | Real OAuth | Local development with real Discord |
+| `dev-mock` | `.env.dev-mock` | Mocked (`mock_discord=true`) | Mocked (`mock_auth=true`) | Local development, manual testing, E2E (no credentials needed) |
 | `production` | System env / Railway | Real token | Real OAuth | Live deploy |
 
-- `.env.local` has been renamed to `.env.preprod`. Do not re-create `.env.local`.
-- `.env.dev` is committed as a template (no secrets) and uses a separate SQLite DB (`stankbot_dev.db`).
-- Never enable `mock_discord` or `mock_auth` outside `ENV=dev`. The code gates these with `if config.env == "dev"`; respect that invariant.
+- `.env.dev` holds real credentials (not committed). Use `ENV=dev` for real Discord testing.
+- `.env.dev-mock` is committed (no secrets) and uses a separate SQLite DB (`stankbot_dev.db`).
+- Never enable `mock_discord` or `mock_auth` outside `ENV=dev-mock`. The code gates these with `if config.env == "dev-mock"`; respect that invariant.
 
 ## Testing
 
@@ -95,7 +95,7 @@ When verifying in `ENV=dev`, use the mock API to drive state changes without Dis
 | `POST /api/mock/random/start` | Start auto-generated events |
 | `POST /api/mock/random/stop` | Stop auto-generated events |
 
-These endpoints are **only mounted when `ENV=dev`**. Never call them in preprod or production.
+These endpoints are **only mounted when `ENV=dev-mock`**. Never call them in dev or production.
 
 ### Playwright fixtures
 
@@ -163,4 +163,5 @@ Members post messages containing the `:Stank:` emoji/sticker in a designated **a
 - [README.md](README.md) — user-facing install & usage. Source of truth is the code; README must not drift.
 - [src/stankbot/web/frontend/e2e/](src/stankbot/web/frontend/e2e/) — Playwright E2E tests and fixtures.
 - [scripts/dev.ps1](scripts/dev.ps1) / [scripts/dev.sh](scripts/dev.sh) — one-command dev startup.
-- `.env.dev` — dev mode configuration template (mock Discord, mock auth, separate DB).
+- `.env.dev-mock` — dev-mock configuration template (mock Discord, mock auth, separate DB). Committed — no secrets.
+- `.env.dev` — real Discord credentials for local dev. Not committed.

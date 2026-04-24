@@ -92,7 +92,8 @@ test.describe('Board', () => {
 		const row = page.locator(`[data-testid="rank-row"][href$="/player/${liveUserId}"]`);
 		await expect(row).toBeVisible({ timeout: 5000 });
 		const netText = await row.locator('[data-testid="net-score"]').textContent();
-		expect(Number((netText ?? '0').trim())).toBeGreaterThan(0);
+		// format is now "+N SP" or "-N SP"
+		expect(netText).toMatch(/^\+/);
 	});
 
 	test('random events update the board', async ({ page, startRandomEvents, stopRandomEvents }) => {

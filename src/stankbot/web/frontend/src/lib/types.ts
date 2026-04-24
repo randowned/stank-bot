@@ -59,16 +59,18 @@ export interface BoardState {
 }
 
 export interface PlayerRow {
-	user_id: number;
+	user_id: string;
 	display_name: string;
+	discord_avatar?: string | null;
 	earned_sp: number;
 	punishments: number;
 	net?: number;
 	reactions_in_session?: number;
+	stanks_in_session?: number;
 }
 
 export interface PlayerProfile {
-	user_id: number;
+	user_id: string;
 	display_name: string;
 	session: {
 		earned_sp: number;
@@ -99,9 +101,10 @@ export interface ChainSummary {
 	broken_at: string | null;
 	length: number;
 	unique_contributors: number;
-	starter_user_id: number;
-	broken_by_user_id: number | null;
-	contributors: [number, number][];
+	starter_user_id: string | null;
+	broken_by_user_id: string | null;
+	contributors: [string, number][];
+	total_reactions?: number;
 }
 
 export interface SessionSummary {
@@ -110,8 +113,8 @@ export interface SessionSummary {
 	ended_at: string | null;
 	chains_started: number;
 	chains_broken: number;
-	top_earner: [number, number] | null;
-	top_breaker: [number, number] | null;
+	top_earner: [string, number] | null;
+	top_breaker: [string, number] | null;
 }
 
 export type ToastKind = 'info' | 'success' | 'warning' | 'error';

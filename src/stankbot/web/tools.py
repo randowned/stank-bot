@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 def _is_mock_auth(request: Request) -> bool:
     """Return True when dev mock auth is active."""
     config: AppConfig = request.app.state.config
-    return config.env == "dev" and config.mock_auth
+    return config.env == "dev-mock" and config.mock_auth
 
 
 def _is_admin_from_session(request: Request) -> bool:

@@ -19,6 +19,7 @@ async def get_or_create(
     guild_id: int,
     user_id: int,
     display_name: str | None = None,
+    discord_avatar: str | None = None,
 ) -> Player:
     player = await session.get(Player, (guild_id, user_id))
     if player is None:
@@ -26,13 +27,17 @@ async def get_or_create(
             guild_id=guild_id,
             user_id=user_id,
             display_name=display_name or str(user_id),
+            discord_avatar=discord_avatar,
         )
         session.add(player)
         await session.flush()
-    elif display_name and display_name != player.display_name:
-        player.display_name = display_name
-    elif not player.display_name:
-        player.display_name = str(user_id)
+    else:
+        if display_name and display_name != player.display_name:
+            player.display_name = display_name
+        elif not player.display_name:
+            player.display_name = str(user_id)
+        if discord_avatar and discord_avatar != player.discord_avatar:
+            player.discord_avatar = discord_avatar
     return player
 
 
@@ -64,6 +69,23 @@ async def display_names(
         )
     ).all()
     return {int(uid): (name or str(uid)) for uid, name in rows}
+
+
+async def display_names_and_avatars(
+    session: AsyncSession, guild_id: int, user_ids: Iterable[int]
+) -> dict[int, tuple[str, str | None]]:
+    """Return ``{user_id: (display_name, discord_avatar)}`` for the given users."""
+    ids = [int(u) for u in user_ids if u is not None]
+    if not ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(Player.user_id, Player.display_name, Player.discord_avatar).where(
+                Player.guild_id == guild_id, Player.user_id.in_(ids)
+            )
+        )
+    ).all()
+    return {int(uid): (name or str(uid), avatar) for uid, name, avatar in rows}
 
 
 async def touch_last_seen(

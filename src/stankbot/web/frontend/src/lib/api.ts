@@ -1,5 +1,4 @@
 import { Packr } from 'msgpackr';
-import { beginRequest, endRequest } from '$lib/stores/loading';
 
 export const API_BASE = '/api';
 
@@ -118,29 +117,23 @@ async function request<T>(
 		}
 	}
 
-	const trackLoading = typeof window !== 'undefined';
-	if (trackLoading) beginRequest();
-	try {
-		let lastError: unknown;
-		for (let attempt = 0; attempt < attempts; attempt++) {
-			try {
-				const response = await customFetch(url, init);
-				if (response.ok) return await unpackBody<T>(response);
-				if (response.status < 500 || attempt === attempts - 1) {
-					throw new FetchError(await parseError(response));
-				}
-				lastError = new FetchError(await parseError(response));
-			} catch (err) {
-				lastError = err;
-				if (attempt === attempts - 1) throw err;
-				if (err instanceof FetchError && err.status < 500) throw err;
+	let lastError: unknown;
+	for (let attempt = 0; attempt < attempts; attempt++) {
+		try {
+			const response = await customFetch(url, init);
+			if (response.ok) return await unpackBody<T>(response);
+			if (response.status < 500 || attempt === attempts - 1) {
+				throw new FetchError(await parseError(response));
 			}
-			await sleep(RETRY_DELAYS_MS[attempt]);
+			lastError = new FetchError(await parseError(response));
+		} catch (err) {
+			lastError = err;
+			if (attempt === attempts - 1) throw err;
+			if (err instanceof FetchError && err.status < 500) throw err;
 		}
-		throw lastError ?? new Error('unreachable');
-	} finally {
-		if (trackLoading) endRequest();
+		await sleep(RETRY_DELAYS_MS[attempt]);
 	}
+	throw lastError ?? new Error('unreachable');
 }
 
 export function apiFetch<T>(path: string, options?: RequestOptions): Promise<T> {

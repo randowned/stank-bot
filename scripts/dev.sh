@@ -1,13 +1,13 @@
 #!/bin/bash
 # StankBot one-command dev startup (macOS/Linux)
-# Starts the Python backend in ENV=dev and the Vite frontend dev server.
+# Starts the Python backend in ENV=dev-mock and the Vite frontend dev server.
 
 set -e
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-export ENV=dev
+export ENV=dev-mock
 
-echo "Starting StankBot in dev mode..."
+echo "Starting StankBot in dev-mock mode..."
 
 # Start backend
 python -m stankbot &

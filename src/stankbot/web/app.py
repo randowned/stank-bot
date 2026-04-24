@@ -65,7 +65,7 @@ def build_app(
     async def _healthz() -> JSONResponse:
         return JSONResponse({"status": "ok"})
 
-    if config.env == "dev":
+    if config.env == "dev-mock":
         from stankbot.web.routes import mock_events
 
         app.include_router(mock_events.router)

@@ -14,7 +14,7 @@
 	import type { WsEvent } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { isLoading } from '$lib/stores/loading';
+	import { navigating } from '$app/stores';
 	import { connect, disconnect } from '$lib/ws';
 	import type { User, GuildInfo } from '$lib/types';
 	import UserMenu from '$lib/components/UserMenu.svelte';
@@ -48,9 +48,6 @@
 
 	function handleWsEvent(event: WsEvent): void {
 		switch (event.kind) {
-			case 'error':
-				addToast(event.message, 'error');
-				break;
 			case 'achievement':
 				addToast(`Achievement unlocked: ${event.badge.name}!`, 'success');
 				break;
@@ -85,7 +82,7 @@
 	{/if}
 
 	<!-- Global loading bar -->
-	{#if $isLoading}
+	{#if $navigating}
 		<div
 			class="fixed top-0 left-0 right-0 z-[70] h-0.5 bg-accent animate-pulse pointer-events-none"
 			role="status"
@@ -96,8 +93,8 @@
 	<!-- Header (single row) -->
 	<header class="sticky top-0 z-40 bg-panel border-b border-border">
 		<div class="flex items-center justify-between px-4 py-3 gap-3">
-			<a href={base} class="flex items-center gap-2 shrink-0">
-				<img src="/static/Stank.gif" alt="Stank" class="w-6 h-6" />
+			<a href="{base}/" class="flex items-center gap-2 shrink-0">
+				<img src="/stank.gif" alt="Stank" class="w-6 h-6" />
 				<span class="font-semibold text-text">StankBot</span>
 			</a>
 

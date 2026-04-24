@@ -7,10 +7,15 @@
 	let { data } = $props();
 
 	const session = $derived(data.session);
+	const names = $derived((data.names as Record<string, string>) ?? {});
 
 	function fmt(s: string | null): string {
 		if (!s) return '—';
 		return new Date(s).toLocaleString();
+	}
+
+	function playerName(userId: string): string {
+		return names[userId] ?? `#${userId}`;
 	}
 </script>
 
@@ -36,6 +41,18 @@
 					<dt class="text-muted uppercase text-xs">Chains broken</dt>
 					<dd class="text-lg font-bold">{session.chains_broken}</dd>
 				</div>
+				{#if session.total_stanks !== undefined}
+				<div>
+					<dt class="text-muted uppercase text-xs">Total stanks</dt>
+					<dd class="text-lg font-bold">{session.total_stanks}</dd>
+				</div>
+				{/if}
+				{#if session.total_reactions !== undefined}
+				<div>
+					<dt class="text-muted uppercase text-xs">Total reactions</dt>
+					<dd class="text-lg font-bold">{session.total_reactions}</dd>
+				</div>
+				{/if}
 			</dl>
 		</Card>
 
@@ -45,7 +62,7 @@
 					href="{base}/player/{session.top_earner[0]}"
 					class="flex items-center justify-between hover:bg-border/40 -m-2 p-2 rounded-md"
 				>
-					<span class="font-mono text-sm">#{session.top_earner[0]}</span>
+					<span class="font-medium text-sm">{playerName(session.top_earner[0])}</span>
 					<span class="font-bold text-accent">{session.top_earner[1]} SP</span>
 				</a>
 			</Card>
@@ -57,8 +74,8 @@
 					href="{base}/player/{session.top_breaker[0]}"
 					class="flex items-center justify-between hover:bg-border/40 -m-2 p-2 rounded-md"
 				>
-					<span class="font-mono text-sm">#{session.top_breaker[0]}</span>
-					<span class="font-bold text-danger">{session.top_breaker[1]}×</span>
+					<span class="font-medium text-sm">{playerName(session.top_breaker[0])}</span>
+					<span class="font-bold text-danger">-{session.top_breaker[1]} SP</span>
 				</a>
 			</Card>
 		{/if}

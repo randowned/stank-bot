@@ -79,11 +79,19 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
         altar=altar,
     )
 
+    from stankbot.db.repositories import chains as chains_repo
+
     session_svc = SessionService(session)
     session_id = await session_svc.current(guild_id)
-    per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
-        session, guild_id=guild_id, session_id=session_id
-    )
+    live_chain = await chains_repo.current_chain(session, guild_id, altar.id)
+    if live_chain is not None:
+        per_user_reactions = await reaction_awards_repo.count_per_user_for_chain(
+            session, guild_id=guild_id, chain_id=live_chain.id
+        )
+    else:
+        per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
+            session, guild_id=guild_id, session_id=session_id
+        )
 
     chain_length = state.current
 
@@ -92,8 +100,9 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
         punishments = r.punishments
         reacts = per_user_reactions.get(int(r.user_id), 0)
         return {
-            "user_id": r.user_id,
+            "user_id": str(r.user_id),
             "display_name": r.display_name,
+            "discord_avatar": r.discord_avatar,
             "earned_sp": earned,
             "punishments": punishments,
             "net": earned - punishments,
@@ -134,7 +143,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         return
 
     config = getattr(app_state, "config", None)
-    is_dev_mock = config is not None and config.env == "dev" and getattr(config, "mock_auth", False)
+    is_dev_mock = config is not None and config.env == "dev-mock" and getattr(config, "mock_auth", False)
 
     session = websocket.session
     guild_id = session.get("guild") or session.get("active_guild_id")
@@ -191,7 +200,7 @@ async def notify_chain_update(
             "d": {
                 "current": current,
                 "current_unique": current_unique,
-                "starter_user_id": starter_user_id,
+                "starter_user_id": str(starter_user_id) if starter_user_id is not None else None,
             },
         },
     )
@@ -222,22 +231,35 @@ async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20)
     from stankbot.services.session_service import SessionService
 
     async with session_scope(session_factory) as session:
+        from stankbot.db.repositories import altars as altars_repo
+        from stankbot.db.repositories import chains as chains_repo
+
         session_svc = SessionService(session)
         session_id = await session_svc.current(guild_id)
         rows = await events_repo.leaderboard(
             session, guild_id, session_id=session_id, limit=limit
         )
         user_ids = [uid for uid, _, _ in rows]
-        names = (
-            await players_repo.display_names(session, guild_id, user_ids) if user_ids else {}
+        name_avatar_map = (
+            await players_repo.display_names_and_avatars(session, guild_id, user_ids)
+            if user_ids
+            else {}
         )
-        per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
-            session, guild_id=guild_id, session_id=session_id
-        )
+        altar = await altars_repo.primary(session, guild_id)
+        live_chain = await chains_repo.current_chain(session, guild_id, altar.id) if altar else None
+        if live_chain is not None:
+            per_user_reactions = await reaction_awards_repo.count_per_user_for_chain(
+                session, guild_id=guild_id, chain_id=live_chain.id
+            )
+        else:
+            per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
+                session, guild_id=guild_id, session_id=session_id
+            )
         payload = [
             {
-                "user_id": uid,
-                "display_name": names.get(uid, str(uid)),
+                "user_id": str(uid),
+                "display_name": name_avatar_map.get(uid, (str(uid), None))[0],
+                "discord_avatar": name_avatar_map.get(uid, (str(uid), None))[1],
                 "earned_sp": sp,
                 "punishments": pp,
                 "net": sp - pp,
@@ -251,7 +273,7 @@ async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20)
 async def notify_achievement(guild_id: int, user_id: int, badge: dict) -> None:
     await manager.broadcast_json(
         guild_id,
-        {"t": 105, "d": {"user_id": user_id, "badge": badge}},
+        {"t": 105, "d": {"user_id": str(user_id), "badge": badge}},
     )
 
 

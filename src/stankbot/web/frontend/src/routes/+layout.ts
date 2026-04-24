@@ -26,6 +26,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 			guild_id: envData.guild_id,
 			is_admin: envData.is_admin,
 			env: envData.env,
+			invite_url: envData.invite_url as string | null,
 			guilds
 		};
 	} catch {
@@ -34,6 +35,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 			guild_id: null,
 			is_admin: false,
 			env: 'production',
+			invite_url: null,
 			guilds: [] as GuildInfo[]
 		};
 	}

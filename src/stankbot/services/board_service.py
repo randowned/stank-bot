@@ -28,15 +28,16 @@ if TYPE_CHECKING:
 
 async def _display_names(
     session: AsyncSession, guild_id: int, user_ids: list[int]
-) -> dict[int, str]:
+) -> dict[int, tuple[str, str | None]]:
+    """Return ``{user_id: (display_name, discord_avatar)}``."""
     if not user_ids:
         return {}
-    stmt = select(Player.user_id, Player.display_name).where(
+    stmt = select(Player.user_id, Player.display_name, Player.discord_avatar).where(
         Player.guild_id == guild_id,
         Player.user_id.in_(user_ids),
     )
     rows = (await session.execute(stmt)).all()
-    return {int(uid): name or str(uid) for uid, name in rows}
+    return {int(uid): (name or str(uid), avatar) for uid, name, avatar in rows}
 
 
 def _truncate(name: str, max_len: int) -> str:
@@ -69,8 +70,10 @@ async def build_board_state(
         current = 0
         current_unique = 0
 
-    reactions = await reaction_awards_repo.count_for_session(
-        session, guild_id=guild_id, session_id=session_id
+    reactions = (
+        await reaction_awards_repo.count_for_chain(session, guild_id=guild_id, chain_id=current_chain.id)
+        if current_chain is not None
+        else 0
     )
 
     # Records (cached)
@@ -99,9 +102,10 @@ async def build_board_state(
     rankings = [
         PlayerRow(
             user_id=uid,
-            display_name=_truncate(names.get(uid, str(uid)), name_max),
+            display_name=_truncate(names.get(uid, (str(uid), None))[0], name_max),
             earned_sp=sp,
             punishments=pp,
+            discord_avatar=names.get(uid, (str(uid), None))[1],
         )
         for uid, sp, pp in board_rows
     ]
@@ -114,9 +118,10 @@ async def build_board_state(
         )
         starter_row = PlayerRow(
             user_id=starter_uid,
-            display_name=_truncate(names.get(starter_uid, str(starter_uid)), name_max),
+            display_name=_truncate(names.get(starter_uid, (str(starter_uid), None))[0], name_max),
             earned_sp=sp,
             punishments=pp,
+            discord_avatar=names.get(starter_uid, (str(starter_uid), None))[1],
         )
 
     breaker_row: PlayerRow | None = None
@@ -124,9 +129,10 @@ async def build_board_state(
         bid, pp = breaker_pair
         breaker_row = PlayerRow(
             user_id=bid,
-            display_name=_truncate(names.get(bid, str(bid)), name_max),
+            display_name=_truncate(names.get(bid, (str(bid), None))[0], name_max),
             earned_sp=0,
             punishments=pp,
+            discord_avatar=names.get(bid, (str(bid), None))[1],
         )
 
     # Next reset

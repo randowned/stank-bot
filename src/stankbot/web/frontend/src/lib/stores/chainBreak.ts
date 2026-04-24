@@ -1,7 +1,7 @@
 import { writable, type Writable } from 'svelte/store';
 
 export interface ChainBreakInfo {
-	user_id: number;
+	user_id: string;
 	display_name: string;
 	avatar_url: string | null;
 	pp_loss: number;

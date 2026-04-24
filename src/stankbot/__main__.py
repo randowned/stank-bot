@@ -48,7 +48,7 @@ async def run() -> None:
     from stankbot.services.template_store import seed_all
     seed_all()
 
-    use_mock = config.env == "dev" and config.mock_discord
+    use_mock = config.env == "dev-mock" and config.mock_discord
     if use_mock:
         from stankbot.discord_mock.bot import MockBot
 
@@ -97,7 +97,7 @@ async def run() -> None:
                 raise ConfigError(
                     "Discord rejected the bot token (DISCORD_TOKEN). "
                     "Open the Developer Portal -> Bot -> Reset Token, then "
-                    "paste the new token into .env.preprod and restart."
+                    "paste the new token into .env.dev and restart."
                 ) from exc
             if isinstance(exc, discord.PrivilegedIntentsRequired):
                 raise ConfigError(

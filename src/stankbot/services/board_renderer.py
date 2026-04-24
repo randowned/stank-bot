@@ -31,6 +31,7 @@ class PlayerRow:
     display_name: str
     earned_sp: int
     punishments: int
+    discord_avatar: str | None = None
 
     @property
     def net(self) -> int:

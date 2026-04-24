@@ -14,7 +14,7 @@ export type WsEvent =
 	| { kind: 'disconnected'; code: number; reason: string }
 	| { kind: 'reconnect-failed' }
 	| { kind: 'error'; code: string; message: string }
-	| { kind: 'achievement'; userId: number; badge: Badge }
+	| { kind: 'achievement'; userId: string; badge: Badge }
 	| { kind: 'session'; action: 'start' | 'end'; sessionId: number };
 
 /** Latest event; subscribers react on change. `null` between events. */

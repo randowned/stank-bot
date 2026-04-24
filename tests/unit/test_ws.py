@@ -211,7 +211,7 @@ class TestGetBoardState:
 
         result = await get_board_state(session, 123, "Test Server")
         assert result["current"] == 2
-        assert result["chain_starter"]["user_id"] == 1
+        assert result["chain_starter"]["user_id"] == "1"
 
 
 class TestConnectionManagerCleanup:

@@ -39,7 +39,7 @@ BOARD_EMBED: dict[str, Any] = {
             "name": "\U0001f465 Titles",
             "value": (
                 "\U0001f3c3\u200d\u27a1\ufe0f Chain starter   {chain_starter_name} \u00b7 **{chain_starter_sp} SP**\n"
-                "\U0001f480 The Chainbreaker   {chainbreaker_name} \u00b7 **{chainbreaker_punishments} PP**"
+                "\U0001f480 The Chainbreaker   {chainbreaker_name} \u00b7 **-{chainbreaker_punishments} SP**"
             ),
             "inline": False,
         },
@@ -89,7 +89,7 @@ CHAIN_BREAK_EMBED: dict[str, Any] = {
     "description": (
         "{breaker_name} broke a **{broken_length}-stank** chain "
         "({broken_unique} unique) in {altar_channel_mention}. "
-        "**-{pp_awarded} PP**."
+        "**-{pp_awarded} SP**."
     ),
     "thumbnail": "{altar_sticker_url}",
     "author": {"name": "StankBot", "url": "{board_url}"},
@@ -125,7 +125,7 @@ NEW_SESSION_EMBED: dict[str, Any] = {
             "value": (
                 "\U0001f517 Stanks {prev_session_record} / {prev_session_record_unique} unique\n"
                 "\U0001f3c6 Leader \u00b7 {session_top_player} \u00b7 **{session_top_sp} SP**\n"
-                "\U0001f480 Breaker \u00b7 {session_top_breaker} \u00b7 **{session_top_breaker_pp} PP**"
+                "\U0001f480 Breaker \u00b7 {session_top_breaker} \u00b7 **-{session_top_breaker_pp} SP**"
             ),
             "inline": False,
         },
@@ -137,7 +137,7 @@ NEW_SESSION_EMBED: dict[str, Any] = {
             "value": (
                 "\U0001f517 Stanks {alltime_record} / {alltime_record_unique} unique\n"
                 "\u2728 Leader \u00b7 {alltime_top_sp_player} \u00b7 **{alltime_top_sp} SP**\n"
-                "\U0001f480 Breaker \u00b7 {alltime_top_pp_player} \u00b7 **{alltime_top_pp} PP**"
+                "\U0001f480 Breaker \u00b7 {alltime_top_pp_player} \u00b7 **-{alltime_top_pp} SP**"
             ),
             "inline": False,
         },
@@ -162,7 +162,7 @@ POINTS_EMBED: dict[str, Any] = {
     "description": "Rank **#{rank}** \u00b7 {net_sp_sign}**{net_sp}** net",
     "fields": [
         {"name": "\u2728 SP earned", "value": "{earned_sp}", "inline": True},
-        {"name": "\U0001f480 PP", "value": "{punishments}", "inline": True},
+        {"name": "\U0001f480 SP Lost", "value": "{punishments}", "inline": True},
         {
             "name": "\u26d3\ufe0f Chains started",
             "value": "{chains_started}",

@@ -1,4 +1,4 @@
-"""Mock event API — only mounted when ENV=dev.
+"""Mock event API — only mounted when ENV=dev-mock.
 
 These endpoints allow manual and automated injection of fake stanks,
 breaks, and reactions for local development and Playwright E2E tests.
@@ -22,8 +22,8 @@ log = logging.getLogger(__name__)
 
 def _dev_only(request: Request) -> None:
     config = request.app.state.config
-    if config.env != "dev":
-        raise HTTPException(status_code=403, detail="Mock endpoints only available in dev mode")
+    if config.env != "dev-mock":
+        raise HTTPException(status_code=403, detail="Mock endpoints only available in dev-mock mode")
 
 
 def _get_bridge(request: Request):

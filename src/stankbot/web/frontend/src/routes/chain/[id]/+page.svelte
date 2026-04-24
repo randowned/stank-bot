@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { base } from '$app/paths';
 	import type { ChainSummary } from '$lib/types';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import LeaderboardRow from '$lib/components/LeaderboardRow.svelte';
 
 	let { data } = $props();
 
@@ -18,10 +18,6 @@
 			minute: '2-digit',
 			timeZone: 'UTC'
 		});
-	}
-
-	function getPlayerUrl(userId: number): string {
-		return `${base}/player/${userId}`;
 	}
 </script>
 
@@ -40,7 +36,7 @@
 		</PageHeader>
 
 		<div class="panel">
-			<div class="grid grid-cols-2 gap-3">
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 				<div>
 					<div class="text-xl font-bold text-accent">{chain.length}</div>
 					<div class="text-xs text-muted uppercase">Length</div>
@@ -49,6 +45,12 @@
 					<div class="text-xl font-bold">{chain.unique_contributors}</div>
 					<div class="text-xs text-muted uppercase">Unique</div>
 				</div>
+				{#if chain.total_reactions !== undefined}
+				<div>
+					<div class="text-xl font-bold">{chain.total_reactions}</div>
+					<div class="text-xs text-muted uppercase">Reactions</div>
+				</div>
+				{/if}
 				<div>
 					<div class="text-sm text-muted">Started</div>
 					<div class="text-sm">{formatDate(chain.started_at)}</div>
@@ -61,19 +63,18 @@
 		</div>
 
 		<div class="panel">
-			<h2 class="text-lg font-semibold mb-3">Contributors</h2>
+			<h2 class="text-lg font-semibold mb-3">Leaderboard</h2>
 			{#if chain.contributors.length}
 				<div class="space-y-2">
 					{#each chain.contributors as [userId, count], i}
-						<a href={getPlayerUrl(userId)} class="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-border/50">
-							<div class="w-6 h-6 flex items-center justify-center rounded-full bg-border text-sm">
-								{i + 1}
-							</div>
-							<div class="flex-1">
-								<div class="font-medium">{names[String(userId)] ?? `Player #${userId}`}</div>
-							</div>
-							<div class="text-accent font-semibold">{count}</div>
-						</a>
+						{@const fakeRow = {
+							user_id: userId,
+							display_name: names[userId] ?? `#${userId}`,
+							earned_sp: count,
+							punishments: 0,
+							net: count,
+						}}
+						<LeaderboardRow rank={i + 1} row={fakeRow} chainLength={chain.length} />
 					{/each}
 				</div>
 			{:else}
@@ -85,6 +86,4 @@
 			<EmptyState icon="❓" title="Chain not found" message="This chain doesn't exist or isn't visible to you." />
 		</div>
 	{/if}
-
-	<a href="{base}/chains" class="btn btn-secondary w-full text-center">← All Chains</a>
 </div>

@@ -28,17 +28,28 @@ async def ping() -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+_BOT_INVITE_SCOPES = "bot+applications.commands"
+_BOT_INVITE_PERMISSIONS = 2147560448  # Send Messages + Add Reactions + Read Message History + Use External Emojis + Use External Stickers
+
+
 @router.get("/api/env")
 async def api_env(request: Request) -> JSONResponse:
     config = request.app.state.config
     user = current_user(request)
     guild_id = get_active_guild_id(request) if user else None
+    invite_url = (
+        f"https://discord.com/oauth2/authorize"
+        f"?client_id={config.discord_app_id}"
+        f"&permissions={_BOT_INVITE_PERMISSIONS}"
+        f"&scope={_BOT_INVITE_SCOPES}"
+    )
     return JSONResponse(
         {
             "env": config.env,
             "guild_id": str(guild_id) if guild_id else None,
             "is_admin": _is_admin_from_session(request) if user else False,
-            "mock_auth": config.mock_auth if config.env == "dev" else False,
+            "mock_auth": config.mock_auth if config.env == "dev-mock" else False,
+            "invite_url": invite_url,
         }
     )
 
@@ -141,11 +152,11 @@ async def api_leaderboard(
     )
 
     user_ids = [uid for uid, _, _ in rows]
-    names = {}
+    name_avatar_map: dict = {}
     if user_ids:
         from stankbot.db.repositories import players as players_repo
 
-        names = await players_repo.display_names(session, guild_id, user_ids)
+        name_avatar_map = await players_repo.display_names_and_avatars(session, guild_id, user_ids)
 
     per_user_reactions = await reaction_awards_repo.count_per_user_for_session(
         session, guild_id=guild_id, session_id=session_id
@@ -153,9 +164,11 @@ async def api_leaderboard(
 
     def _row(uid: int, sp: int, pp: int) -> dict:
         reacts = per_user_reactions.get(int(uid), 0)
+        name, avatar = name_avatar_map.get(uid, (str(uid), None))
         return {
-            "user_id": uid,
-            "display_name": names.get(uid, str(uid)),
+            "user_id": str(uid),
+            "display_name": name,
+            "discord_avatar": avatar,
             "earned_sp": sp,
             "punishments": pp,
             "net": sp - pp,
@@ -203,7 +216,7 @@ async def api_player(
 
     return MsgPackResponse(
         {
-            "user_id": uid,
+            "user_id": str(uid),
             "display_name": player.display_name or str(uid),
             "session": {
                 "earned_sp": summary.earned_sp,
@@ -349,36 +362,6 @@ async def api_achievements(
     return JSONResponse({"achievements": catalog})
 
 
-@router.get("/api/chains")
-async def api_chains(
-    request: Request,
-    session: AsyncSession = Depends(get_db),
-    guild_id: int = Depends(get_active_guild_id),
-):
-    from sqlalchemy import select
-
-    from stankbot.db.models import Chain
-
-    stmt = select(Chain).where(Chain.guild_id == guild_id).order_by(Chain.id.desc()).limit(50)
-    chains = list((await session.execute(stmt)).scalars().all())
-
-    return MsgPackResponse(
-        [
-            {
-                "chain_id": c.id,
-                "started_at": c.started_at.isoformat(),
-                "broken_at": c.broken_at.isoformat() if c.broken_at else None,
-                "length": c.final_length or 0,
-                "unique_contributors": c.final_unique or 0,
-                "starter_user_id": c.starter_user_id,
-                "broken_by_user_id": c.broken_by_user_id,
-                "contributors": [],
-            }
-            for c in chains
-        ],
-        request,
-    )
-
 
 @router.get("/api/chain/{chain_id}")
 async def api_chain(
@@ -387,11 +370,16 @@ async def api_chain(
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
 ) -> JSONResponse:
+    from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services import history_service
 
     summary = await history_service.chain_summary(session, guild_id, chain_id)
     if summary is None:
         return JSONResponse({"error": "Chain not found"}, status_code=404)
+
+    total_reactions = await reaction_awards_repo.count_for_chain(
+        session, guild_id=guild_id, chain_id=chain_id
+    )
 
     return JSONResponse(
         {
@@ -400,9 +388,10 @@ async def api_chain(
             "broken_at": summary.broken_at.isoformat() if summary.broken_at else None,
             "length": summary.length,
             "unique_contributors": summary.unique_contributors,
-            "starter_user_id": summary.starter_user_id,
-            "broken_by_user_id": summary.broken_by_user_id,
-            "contributors": summary.contributors,
+            "starter_user_id": str(summary.starter_user_id) if summary.starter_user_id is not None else None,
+            "broken_by_user_id": str(summary.broken_by_user_id) if summary.broken_by_user_id is not None else None,
+            "contributors": [[str(uid), count] for uid, count in summary.contributors],
+            "total_reactions": total_reactions,
         }
     )
 
@@ -440,9 +429,10 @@ async def api_session(
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
 ) -> JSONResponse:
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
-    from stankbot.db.models import Chain
+    from stankbot.db.models import Chain, Event, EventType
+    from stankbot.db.repositories import players as players_repo
     from stankbot.services import history_service
 
     summary = await history_service.session_summary(session, guild_id, session_id)
@@ -462,11 +452,33 @@ async def api_session(
             "broken_at": c.broken_at.isoformat() if c.broken_at else None,
             "length": c.final_length or 0,
             "unique_contributors": c.final_unique or 0,
-            "starter_user_id": c.starter_user_id,
-            "broken_by_user_id": c.broken_by_user_id,
+            "starter_user_id": str(c.starter_user_id) if c.starter_user_id is not None else None,
+            "broken_by_user_id": str(c.broken_by_user_id) if c.broken_by_user_id is not None else None,
         }
         for c in chain_rows
     ]
+
+    # Count total stanks (SP_BASE events) and reactions in session
+    total_stanks_stmt = select(func.count(Event.id)).where(
+        Event.guild_id == guild_id,
+        Event.session_id == session_id,
+        Event.type == EventType.SP_BASE,
+    )
+    total_stanks = int((await session.execute(total_stanks_stmt)).scalar_one() or 0)
+    total_reactions_stmt = select(func.count(Event.id)).where(
+        Event.guild_id == guild_id,
+        Event.session_id == session_id,
+        Event.type == EventType.SP_REACTION,
+    )
+    total_reactions = int((await session.execute(total_reactions_stmt)).scalar_one() or 0)
+
+    # Resolve display names for top earner/breaker
+    name_ids = []
+    if summary.top_earner:
+        name_ids.append(int(summary.top_earner[0]))
+    if summary.top_breaker:
+        name_ids.append(int(summary.top_breaker[0]))
+    name_map = await players_repo.display_names(session, guild_id, name_ids) if name_ids else {}
 
     return JSONResponse(
         {
@@ -475,8 +487,11 @@ async def api_session(
             "ended_at": summary.ended_at.isoformat() if summary.ended_at else None,
             "chains_started": summary.chains_started,
             "chains_broken": summary.chains_broken,
-            "top_earner": summary.top_earner,
-            "top_breaker": summary.top_breaker,
+            "top_earner": [str(summary.top_earner[0]), summary.top_earner[1]] if summary.top_earner else None,
+            "top_breaker": [str(summary.top_breaker[0]), summary.top_breaker[1]] if summary.top_breaker else None,
+            "total_stanks": total_stanks,
+            "total_reactions": total_reactions,
+            "names": {str(uid): name for uid, name in name_map.items()},
             "chains": chains_payload,
         }
     )

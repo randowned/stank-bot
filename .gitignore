@@ -10,7 +10,6 @@ venv/
 .env
 .env.*
 !.env.example
-!.env.dev
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/

@@ -1,13 +1,13 @@
 # StankBot one-command dev startup (Windows)
-# Starts the Python backend in ENV=dev and the Vite frontend dev server.
+# Starts the Python backend in ENV=dev-mock and the Vite frontend dev server.
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
-# Ensure ENV=dev is set
-$env:ENV = "dev"
+# Ensure ENV=dev-mock is set
+$env:ENV = "dev-mock"
 
-Write-Host "Starting StankBot in dev mode..." -ForegroundColor Cyan
+Write-Host "Starting StankBot in dev-mock mode..." -ForegroundColor Cyan
 
 # Start backend
 $backend = Start-Process -FilePath "python" -ArgumentList "-m", "stankbot" -WorkingDirectory $repoRoot -PassThru -NoNewWindow

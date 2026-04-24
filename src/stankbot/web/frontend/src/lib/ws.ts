@@ -41,7 +41,7 @@ interface ChainUpdateMsg {
 	d: {
 		current: number;
 		current_unique: number;
-		starter_user_id: number | null;
+		starter_user_id: string | null;
 	};
 }
 
@@ -52,7 +52,7 @@ interface PongMsg {
 interface AchievementMsg {
 	t: typeof MsgType.ACHIEVEMENT;
 	d: {
-		user_id: number;
+		user_id: string;
 		badge: Badge;
 	};
 }

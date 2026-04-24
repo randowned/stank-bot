@@ -10,16 +10,19 @@
 		rank: number;
 		row: PlayerRow;
 		isMe?: boolean;
+		chainLength?: number;
 	}
 
-	let { rank, row, isMe = false }: Props = $props();
+	let { rank, row, isMe = false, chainLength = 0 }: Props = $props();
 
 	const href = $derived(`${base}/player/${row.user_id}`);
 	const net = $derived(row.net ?? row.earned_sp - row.punishments);
 	const reactionsInSession = $derived(row.reactions_in_session ?? 0);
+	const stanksInSession = $derived(row.stanks_in_session ?? 0);
 	const hasReactionMeta = $derived(row.reactions_in_session !== undefined);
 
-	const netColor = $derived(net > 0 ? 'text-ok' : net < 0 ? 'text-danger' : 'text-muted');
+	const netColor = $derived(net > 0 ? 'text-accent' : net < 0 ? 'text-danger' : 'text-muted');
+	const netLabel = $derived(`${net > 0 ? '+' : ''}${net.toLocaleString()} SP`);
 
 	let flash = $state(false);
 	const rowKey = $derived(
@@ -90,7 +93,7 @@
 	<div class="flex items-center gap-3">
 		<RankBadge {rank} />
 		<div class="w-px h-8 bg-border" aria-hidden="true"></div>
-		<Avatar name={row.display_name} userId={String(row.user_id)} size="md" />
+		<Avatar name={row.display_name} userId={String(row.user_id)} discordAvatar={row.discord_avatar ?? null} size="md" />
 	</div>
 	<div class="min-w-0">
 		<div class="font-medium truncate {isMe ? 'text-accent' : ''}">
@@ -100,11 +103,11 @@
 			{/if}
 		</div>
 		{#if hasReactionMeta}
-			<div class="text-xs text-muted truncate">{reactionsInSession} reacts</div>
+			<div class="text-xs text-muted truncate">{reactionsInSession} reactions — {stanksInSession} Stanks{chainLength > 0 ? ` (${stanksInSession}/${chainLength})` : ''}</div>
 		{/if}
 	</div>
 	<div class="relative min-w-[4ch] text-right">
-		<span class="text-2xl font-semibold tabular-nums {netColor}" data-testid="net-score">{net}</span>
+		<span class="text-2xl font-semibold tabular-nums {netColor}" data-testid="net-score">{netLabel}</span>
 		{#each chips as chip (chip.id)}
 			<PointsDelta
 				delta={chip.delta}
