@@ -96,7 +96,7 @@
 							<span class="text-muted text-xs">/ {c.unique_contributors}</span>
 						</span>
 						<span class="shrink-0 text-xs font-semibold {rolledOver ? 'text-accent' : c.broken_at ? 'text-danger' : 'text-ok'}">
-							{rolledOver ? 'ROLLED OVER' : c.broken_at ? 'BROKEN' : 'OPEN'}
+							{rolledOver ? 'ROLLOVER' : c.broken_at ? 'BROKEN' : 'OPEN'}
 						</span>
 					</a>
 				{/each}
