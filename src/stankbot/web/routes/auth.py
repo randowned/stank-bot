@@ -17,27 +17,16 @@ from __future__ import annotations
 import logging
 import secrets
 from typing import Any
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from stankbot.web.tools import get_config, require_login
+from stankbot.web.tools import get_config
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 log = logging.getLogger(__name__)
-
-
-def _is_safe_redirect(url: str) -> bool:
-    """Return True only for relative paths with no scheme or host component.
-
-    Rejects protocol-relative URLs like ``//evil.com`` that start with ``/``
-    but resolve to an external host.
-    """
-    parsed = urlparse(url)
-    return url.startswith("/") and not parsed.scheme and not parsed.netloc and not url.startswith("/api/")
-
 
 _AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
 _TOKEN_URL = "https://discord.com/api/oauth2/token"
@@ -56,12 +45,10 @@ _DEFAULT_MOCK_GUILDS = [
 @router.get("/login")
 async def login(
     request: Request,
-    next: str | None = None,
     config=Depends(get_config),
 ) -> RedirectResponse:
     if config.env == "dev-mock" and config.mock_auth:
-        target = f"/auth/mock-login?next={quote(next or '/')}" if next else "/auth/mock-login"
-        return RedirectResponse(target, status_code=302)
+        return RedirectResponse("/auth/mock-login", status_code=302)
 
     if config.oauth_client_secret is None:
         raise HTTPException(
@@ -70,8 +57,6 @@ async def login(
         )
     state = secrets.token_urlsafe(24)
     request.session["oauth_state"] = state
-    if next and _is_safe_redirect(next):
-        request.session["oauth_next"] = next
     params = {
         "client_id": str(config.discord_app_id),
         "redirect_uri": config.oauth_redirect_uri,
@@ -138,14 +123,12 @@ async def callback(
         for g in guilds
     ]
     request.session["guild_id"] = config.default_guild_id
-    target = request.session.pop("oauth_next", None) or "/"
     return RedirectResponse("/", status_code=303)
 
 
 @router.get("/mock-login")
 async def mock_login_get(
     request: Request,
-    next: str | None = None,
     config=Depends(get_config),
 ) -> RedirectResponse:
     """Auto-login for dev mode — creates a session as the default dev user."""
@@ -167,8 +150,7 @@ async def mock_login_get(
         }
     ]
     request.session["guild_id"] = guild_id
-    target = next if next and _is_safe_redirect(next) else "/"
-    return RedirectResponse(target, status_code=303)
+    return RedirectResponse("/", status_code=303)
 
 
 @router.post("/mock-login")

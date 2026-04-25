@@ -39,11 +39,6 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 	} catch (e) {
 		if (e && typeof e === 'object' && 'status' in e) throw e;
 
-		const isPublicPath = url.pathname.includes('/auth') || url.pathname === '/';
-		if (!isPublicPath) {
-			throw redirect(303, '/');
-		}
-
 		return {
 			user: null,
 			guild_id: null,
