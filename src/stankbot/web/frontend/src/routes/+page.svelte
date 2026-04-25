@@ -107,7 +107,9 @@
 	let sentinelEl: HTMLDivElement | undefined = $state();
 
 	$effect(() => {
-		if (!sentinelEl || !hasMore) return;
+		if (!hasMore) return;
+		const el = untrack(() => sentinelEl);
+		if (!el) return;
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries[0].isIntersecting) {
@@ -116,7 +118,7 @@
 			},
 			{ rootMargin: '200px' }
 		);
-		observer.observe(sentinelEl);
+		observer.observe(el);
 		return () => observer.disconnect();
 	});
 
