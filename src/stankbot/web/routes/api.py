@@ -86,6 +86,7 @@ async def api_board(
     from sqlalchemy import select
 
     from stankbot.db.models import PlayerChainTotal, PlayerTotal
+    from stankbot.db.repositories import altars as altars_repo
     from stankbot.db.repositories import chains as chains_repo
     from stankbot.db.repositories import players as players_repo
     from stankbot.services.session_service import SessionService
