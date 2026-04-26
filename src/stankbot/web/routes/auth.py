@@ -1,11 +1,9 @@
 """Discord OAuth2 login flow.
 
-Scopes requested: ``identify`` (so we know who logged in) + ``guilds``
-(so we can tell which servers they're in, and which they admin).
+Scopes requested: ``identify`` (so we know who logged in).
 
-On callback we stash a compact profile + the guild list into the
-signed Starlette session cookie. Admin checks in :mod:`web.deps` read
-the permissions integer out of that cached guild list.
+On callback we stash a compact profile into the signed Starlette session cookie.
+Guild membership is verified via Discord API at request time.
 
 In ``ENV=dev-mock`` with ``mock_auth=true``, the OAuth flow is bypassed in
 favour of automatic dev-login so you can open the dashboard without a
@@ -32,15 +30,6 @@ _AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
 _TOKEN_URL = "https://discord.com/api/oauth2/token"
 _API_BASE = "https://discord.com/api/v10"
 
-_DEFAULT_MOCK_GUILDS = [
-    {
-        "id": 123456789,
-        "name": "Dev Server",
-        "icon": None,
-        "permissions": 0x20,
-    }
-]
-
 
 @router.get("/login")
 async def login(
@@ -48,7 +37,8 @@ async def login(
     config=Depends(get_config),
 ) -> RedirectResponse:
     if config.env == "dev-mock" and config.mock_auth:
-        return RedirectResponse("/auth/mock-login", status_code=302)
+        next_url = request.query_params.get("next", "/")
+        return RedirectResponse(f"/auth/mock-login?next={next_url}", status_code=302)
 
     if config.oauth_client_secret is None:
         raise HTTPException(
@@ -57,14 +47,17 @@ async def login(
         )
     state = secrets.token_urlsafe(24)
     request.session["oauth_state"] = state
+    next_url = request.query_params.get("next")
     params = {
         "client_id": str(config.discord_app_id),
         "redirect_uri": config.oauth_redirect_uri,
         "response_type": "code",
-        "scope": "identify guilds",
+        "scope": "identify",
         "state": state,
         "prompt": "none",
     }
+    if next_url:
+        params["state"] = f"{state}?next={next_url}"
     return RedirectResponse(f"{_AUTHORIZE_URL}?{urlencode(params)}")
 
 
@@ -100,28 +93,17 @@ async def callback(
         access_token = tok.json()["access_token"]
         headers = {"Authorization": f"Bearer {access_token}"}
         me_resp = await client.get(f"{_API_BASE}/users/@me", headers=headers)
-        guilds_resp = await client.get(f"{_API_BASE}/users/@me/guilds", headers=headers)
 
-    if me_resp.status_code != 200 or guilds_resp.status_code != 200:
+    if me_resp.status_code != 200:
         raise HTTPException(status_code=400, detail="failed fetching profile")
 
     me: dict[str, Any] = me_resp.json()
-    guilds: list[dict[str, Any]] = guilds_resp.json()
 
     request.session["user"] = {
         "id": int(me["id"]),
         "username": me.get("global_name") or me.get("username") or str(me["id"]),
         "avatar": me.get("avatar"),
     }
-    request.session["guilds"] = [
-        {
-            "id": int(g["id"]),
-            "name": g.get("name", ""),
-            "icon": g.get("icon"),
-            "permissions": int(g.get("permissions", 0)),
-        }
-        for g in guilds
-    ]
     request.session["guild_id"] = config.default_guild_id
     return RedirectResponse("/", status_code=303)
 
@@ -141,14 +123,6 @@ async def mock_login_get(
         "avatar": None,
     }
     guild_id = config.mock_default_guild_id or config.default_guild_id
-    request.session["guilds"] = [
-        {
-            "id": guild_id,
-            "name": config.mock_default_guild_name,
-            "icon": None,
-            "permissions": 0x20,
-        }
-    ]
     request.session["guild_id"] = guild_id
     return RedirectResponse("/", status_code=303)
 
@@ -169,41 +143,71 @@ async def mock_login_post(
     user_id = body.get("user_id", config.mock_default_user_id)
     username = body.get("username", config.mock_default_user_name)
     avatar = body.get("avatar", None)
-    guilds = body.get("guilds", _DEFAULT_MOCK_GUILDS)
-    guild_id = body.get("guild", body.get("active_guild_id", guilds[0]["id"] if guilds else config.default_guild_id))
-    is_admin = body.get("is_admin", True)
+    guild_id = body.get("guild", body.get("active_guild_id", config.mock_default_guild_id or config.default_guild_id))
+    is_global_admin = body.get("is_global_admin", True)
+    is_guild_admin = body.get("is_guild_admin", True)
 
     request.session["user"] = {
         "id": int(user_id),
         "username": username,
         "avatar": avatar,
     }
-    request.session["guilds"] = [
-        {
-            "id": int(g["id"]),
-            "name": g.get("name", ""),
-            "icon": g.get("icon"),
-            "permissions": int(g.get("permissions", 0x20 if is_admin else 0)),
-        }
-        for g in guilds
-    ]
     request.session["guild_id"] = int(guild_id)
+    request.session["is_global_admin"] = bool(is_global_admin)
+    request.session["is_guild_admin"] = bool(is_guild_admin)
     return JSONResponse({"success": True})
 
 
 @router.get("")
 async def auth_check(request: Request) -> JSONResponse:
-    """Return current user info, or null if not authenticated."""
-    from stankbot.web.tools import current_user
+    """Return current user info + admin status, or null if not authenticated."""
+    from stankbot.services.permission_service import PermissionService
+    from stankbot.web.tools import (
+        current_user,
+        get_active_guild_id,
+    )
 
     user = current_user(request)
     if user is None:
         return JSONResponse(None)
+
+    config = request.app.state.config
+    guild_id = get_active_guild_id(request)
+    uid = int(user["id"])
+
+    bot_guilds = getattr(request.app.state, "bot_guilds", [])
+    guild_name = None
+    for g in bot_guilds:
+        if int(g.get("id", 0)) == guild_id:
+            guild_name = g.get("name")
+            break
+
+    is_global_admin = False
+    is_guild_admin = False
+    if config.env != "dev-mock":
+        factory = request.app.state.session_factory
+        async with factory() as session:
+            svc = PermissionService(session, owner_id=config.owner_id)
+            is_global_admin = await svc.is_global_admin(uid)
+            if is_global_admin:
+                is_guild_admin = True
+            else:
+                is_guild_admin = await svc.is_guild_admin(guild_id, uid)
+    else:
+        is_global_admin = request.session.get("is_global_admin", True)
+        is_guild_admin = request.session.get("is_guild_admin", True)
+
     return JSONResponse(
         {
-            "id": str(user["id"]),
-            "username": user.get("username", ""),
-            "avatar": user.get("avatar"),
+            "user": {
+                "id": str(user["id"]),
+                "username": user.get("username", ""),
+                "avatar": user.get("avatar"),
+            },
+            "guild_id": str(guild_id),
+            "guild_name": guild_name,
+            "is_admin": is_global_admin or is_guild_admin,
+            "is_global_admin": is_global_admin,
         }
     )
 

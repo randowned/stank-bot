@@ -37,6 +37,10 @@ class PermissionService:
         *,
         has_manage_guild: bool,
     ) -> bool:
+        """Legacy admin check for Discord bot commands.
+
+        Checks: owner, MANAGE_GUILD permission, global admin_users, or guild admin_roles.
+        """
         if self.owner_id is not None and user_id == self.owner_id:
             return True
         if has_manage_guild:
@@ -51,6 +55,26 @@ class PermissionService:
         stmt = select(AdminRole.role_id).where(AdminRole.guild_id == guild_id)
         admin_ids = set((await self.session.execute(stmt)).scalars().all())
         return bool(admin_ids & role_set)
+
+    async def is_global_admin(self, user_id: int) -> bool:
+        """Check if user is a global admin (owner or in admin_users table).
+
+        Global admins can access all guilds.
+        """
+        if self.owner_id is not None and user_id == self.owner_id:
+            return True
+        stmt = select(AdminUser.user_id).where(AdminUser.user_id == user_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    async def is_guild_admin(self, guild_id: int, user_id: int) -> bool:
+        """Check if user is a guild admin via admin_roles table.
+
+        Note: This requires the user's Discord role IDs to be passed in. For web auth,
+        prefer is_global_admin() and compute guild admin from admin_roles table.
+        This method is kept for Discord command compatibility.
+        """
+        return False
 
     async def add_admin_user(self, user_id: int) -> bool:
         stmt = select(AdminUser).where(AdminUser.guild_id == 0, AdminUser.user_id == user_id)

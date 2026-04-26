@@ -21,7 +21,7 @@
 	let guildSwitcherOpen = $state(false);
 	let switchingTo: string | null = $state(null);
 
-	const switchable = $derived(guilds.filter((g) => g.bot_present));
+	const switchable = $derived(guilds);
 	const active = $derived(guilds.find((g) => g.id === activeGuildId) ?? null);
 	const currentPath = $derived($page.url.pathname);
 	const isActive = (href: string) => currentPath === href;

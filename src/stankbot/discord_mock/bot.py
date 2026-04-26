@@ -100,6 +100,16 @@ class MockBot:
     def get_guild(self, guild_id: int) -> MockGuild | None:
         return self._mock_guilds.get(guild_id)
 
+    async def fetch_guild_member(self, guild_id: int, user_id: int) -> dict | None:
+        """Mock membership check - returns member if they exist in mock guild."""
+        guild = self._mock_guilds.get(guild_id)
+        if guild is None:
+            return None
+        member = guild.members.get(user_id)
+        if member is None:
+            return None
+        return {"user": {"id": str(member.id)}, "permissions": "0x20"}
+
     async def fetch_channel(self, channel_id: int):
         for guild in self._mock_guilds.values():
             if channel_id in guild.channels:

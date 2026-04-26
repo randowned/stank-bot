@@ -109,24 +109,23 @@ test.describe('Board', () => {
 		const stank = await injectStank(GUILD, STANKER, 'StankUser');
 		const messageId = stank.message_id;
 
-		// Reactions tile should start at 0 / 0 (chain / session)
-		const reactionsTile = page.locator('[data-testid="tile-reactions"]').locator('div').first();
-		await expect(reactionsTile).toHaveText(/^0 \/ \d+/, { timeout: 3000 });
+		// Wait for the stank broadcast to fully settle by checking the chain counter
+		await expect(page.locator('[data-testid="chain-counter"]')).toHaveText(/^1 /, { timeout: 5000 });
 
 		// Inject a reaction from a different user
 		await injectReaction(GUILD, messageId, REACTOR);
 
-		// Chain reactions (first number) should update to 1
-		await expect(reactionsTile).toHaveText(/^1 \/ /, { timeout: 5000 });
-
-		// The stanker's row should show 1 reaction
-		const stankerRow = page.locator(`[data-testid="rank-row"][href$="/player/${STANKER}"]`);
-		await expect(stankerRow).toBeVisible({ timeout: 5000 });
-		// Reactor's row subtitle should show 1 reaction
+		// Wait for the reactor's row to appear — this confirms the reaction's
+		// rank_update broadcast was processed, so no stale stank broadcast can
+		// overwrite the tile after we assert on it.
 		const reactorRow = page.locator(`[data-testid="rank-row"][href$="/player/${REACTOR}"]`);
 		await expect(reactorRow).toBeVisible({ timeout: 5000 });
 		const subtitle = reactorRow.locator('.text-xs.text-muted');
 		await expect(subtitle).toContainText('reacts', { timeout: 5000 });
+
+		// Chain reactions tile (first number) should now be 1
+		const reactionsTile = page.locator('[data-testid="tile-reactions"]').locator('div').first();
+		await expect(reactionsTile).toHaveText(/^1 \/ /, { timeout: 5000 });
 	});
 
 	test('random events update the board', async ({ page, startRandomEvents, stopRandomEvents }) => {

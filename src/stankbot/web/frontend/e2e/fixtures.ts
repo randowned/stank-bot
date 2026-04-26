@@ -6,18 +6,27 @@ export interface MockUser {
 	user_id: number;
 	username: string;
 	avatar?: string | null;
-	guilds?: Array<{ id: number; name: string; permissions: number }>;
 	guild?: number;
-	is_admin?: boolean;
+	is_global_admin?: boolean;
+	is_guild_admin?: boolean;
 }
 
 const defaultUser: MockUser = {
 	user_id: 111111111,
 	username: 'E2E Tester',
 	avatar: null,
-	guilds: [{ id: 123456789, name: 'Test Server', permissions: 0x20 }],
 	guild: 123456789,
-	is_admin: true
+	is_global_admin: false,
+	is_guild_admin: false
+};
+
+export const adminUser: MockUser = {
+	user_id: 222222222,
+	username: 'E2E Admin',
+	avatar: null,
+	guild: 123456789,
+	is_global_admin: true,
+	is_guild_admin: true
 };
 
 export interface BotGuild {
@@ -40,6 +49,13 @@ export const test = base.extend<{
 		await use(async (user = defaultUser) => {
 			const response = await page.request.post('/auth/mock-login', { data: user });
 			expect(response.ok()).toBeTruthy();
+			// Clear frontend caches so fresh data is fetched after login
+			await page.evaluate(() => {
+				try {
+					sessionStorage.removeItem('stankbot:auth');
+					sessionStorage.removeItem('stankbot:guilds');
+				} catch {}
+			});
 			await page.goto('/');
 		});
 	},
@@ -48,6 +64,10 @@ export const test = base.extend<{
 		await use(async (guilds) => {
 			const response = await page.request.post('/api/mock/bot-guilds', { data: { guilds } });
 			expect(response.ok()).toBeTruthy();
+			// Clear frontend guilds cache so next page load fetches fresh data
+			await page.evaluate(() => {
+				try { sessionStorage.removeItem('stankbot:guilds'); } catch {}
+			});
 		});
 	},
 

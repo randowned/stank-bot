@@ -68,7 +68,7 @@
 			{#if chain.leaderboard && chain.leaderboard.length}
 				<div class="space-y-2">
 					{#each chain.leaderboard as row, i}
-						<LeaderboardRow rank={i + 1} {row} chainLength={chain.length} />
+						<LeaderboardRow rank={i + 1} {row} />
 					{/each}
 				</div>
 			{:else if chain.contributors.length}
@@ -81,7 +81,7 @@
 							punishments: 0,
 							net: count,
 						}}
-						<LeaderboardRow rank={i + 1} row={fakeRow} chainLength={chain.length} />
+						<LeaderboardRow rank={i + 1} row={fakeRow} />
 					{/each}
 				</div>
 			{:else}

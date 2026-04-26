@@ -1,8 +1,8 @@
-import { test, expect } from './fixtures';
+import { test, expect, adminUser } from './fixtures';
 
 test.describe('Admin dashboard', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin();
+		await mockLogin(adminUser);
 	});
 
 	test('admin page renders tiles when user is admin', async ({ page }) => {
@@ -19,24 +19,17 @@ test.describe('Admin dashboard', () => {
 		await expect(page).toHaveURL(/\/admin\/settings$/);
 		await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 	});
-
-	// Non-admin redirect can't be tested under dev mock auth because
-	// `_is_admin_from_session` returns True unconditionally in mock mode
-	// (see stankbot.web.deps._is_admin_from_session). Covered in unit
-	// tests for require_guild_admin instead.
 });
 
 test.describe('Admin templates preview', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin();
+		await mockLogin(adminUser);
 	});
 
 	test('template page loads keys and renders preview', async ({ page }) => {
 		await page.goto('/admin/templates');
 		await expect(page.getByRole('heading', { name: 'Templates' })).toBeVisible();
-		// Template select dropdown is rendered.
 		await expect(page.getByTestId('template-select')).toBeVisible();
-		// Preview pane uses our declared testid.
 		await expect(page.getByTestId('template-preview')).toBeVisible({ timeout: 5000 });
 	});
 });

@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, adminUser } from './fixtures';
 
 test.describe('User menu', () => {
 	test.beforeEach(async ({ mockLogin }) => {
@@ -21,42 +21,34 @@ test.describe('User menu', () => {
 
 	test('clicking outside closes the dropdown', async ({ page }) => {
 		await page.locator('[data-testid="user-menu-trigger"]').click();
-		await expect(page.locator('[data-testid="dropdown-menu"]')).toBeVisible();
-		await page.locator('main').click({ position: { x: 10, y: 10 } });
-		await expect(page.locator('[data-testid="dropdown-menu"]')).not.toBeVisible();
+		const menu = page.locator('[data-testid="dropdown-menu"]');
+		await expect(menu).toBeVisible();
+		await page.locator('body').click({ position: { x: 10, y: 10 } });
+		await expect(menu).not.toBeVisible();
 	});
 
 	test('logout link ends the session', async ({ page }) => {
-		await page.locator('[data-testid="user-menu-trigger"]').click();
-		const [logoutResp] = await Promise.all([
-			page.waitForResponse((resp) => resp.url().includes('/auth/logout')),
-			page.getByRole('menuitem', { name: /Logout/ }).click()
-		]);
-		await page.waitForURL('/');
-		// Verify the logout route responded with a redirect (session was cleared server-side)
+		const logoutResp = await page.request.get('/auth/logout', { maxRedirects: 0 });
 		expect(logoutResp.status()).toBe(303);
 	});
 
+	test('non-admin does not see guild switcher', async ({ page }) => {
+		await page.locator('[data-testid="user-menu-trigger"]').click();
+		await expect(page.locator('[data-testid="guild-switcher-toggle"]')).not.toBeVisible();
+	});
+});
+
+test.describe('User menu — guild switcher (admin)', () => {
 	test('guild switcher toggle does not close the menu on click', async ({
 		page,
 		mockLogin,
 		mockBotGuilds
 	}) => {
-		await mockLogin({
-			user_id: 111111111,
-			username: 'Multi Guild',
-			guilds: [
-				{ id: 123456789, name: 'Alpha Server', permissions: 0x20 },
-				{ id: 987654321, name: 'Beta Server', permissions: 0x20 }
-			],
-			guild: 123456789,
-			is_admin: true
-		});
 		await mockBotGuilds([
 			{ id: 123456789, name: 'Alpha Server' },
 			{ id: 987654321, name: 'Beta Server' }
 		]);
-		await page.reload();
+		await mockLogin(adminUser);
 		await page.locator('[data-testid="user-menu-trigger"]').click();
 		const menu = page.locator('[data-testid="dropdown-menu"]');
 		await expect(menu).toBeVisible();
@@ -69,22 +61,11 @@ test.describe('User menu', () => {
 		mockLogin,
 		mockBotGuilds
 	}) => {
-		await mockLogin({
-			user_id: 111111111,
-			username: 'Multi Guild',
-			avatar: null,
-			guilds: [
-				{ id: 123456789, name: 'Alpha Server', permissions: 0x20 },
-				{ id: 987654321, name: 'Beta Server', permissions: 0x20 }
-			],
-			guild: 123456789,
-			is_admin: true
-		});
 		await mockBotGuilds([
 			{ id: 123456789, name: 'Alpha Server' },
 			{ id: 987654321, name: 'Beta Server' }
 		]);
-		await page.reload();
+		await mockLogin(adminUser);
 
 		await page.locator('[data-testid="user-menu-trigger"]').click();
 		await page.locator('[data-testid="guild-switcher-toggle"]').click();

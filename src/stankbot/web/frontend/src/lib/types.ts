@@ -34,8 +34,6 @@ export interface GuildInfo {
 	id: string;
 	name: string;
 	icon_url: string | null;
-	bot_present: boolean;
-	is_admin: boolean;
 	is_owner: boolean;
 	is_active: boolean;
 }

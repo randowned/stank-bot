@@ -14,18 +14,18 @@
 
 	const isLoggedIn = $derived(Boolean(data.user));
 
-	if (browser && data.state) {
-		boardState.set(data.state);
+	if (browser && untrack(() => data.state)) {
+		boardState.set(untrack(() => data.state));
 	}
 
-	const initialBoard = data.state as BoardState | null;
+	const initialBoard = untrack(() => data.state) as BoardState | null;
 	const board = $derived($boardState ?? initialBoard);
 	const isLoading = $derived(!board);
 
 	const PAGE_SIZE = 20;
 	let extraRankings: PlayerRow[] = $state([]);
-	let loadOffset = $state((board?.rankings ?? []).length);
-	let hasMore = $state((board?.rankings ?? []).length >= PAGE_SIZE);
+	let loadOffset = $state(untrack(() => (board?.rankings ?? []).length));
+	let hasMore = $state(untrack(() => (board?.rankings ?? []).length >= PAGE_SIZE));
 	let loadingMore = $state(false);
 
 	const mergedRankings = $derived<PlayerRow[]>([...(board?.rankings ?? []), ...extraRankings]);
@@ -37,16 +37,16 @@
 		})
 	);
 
-	let prevChainLen = $state(board?.current ?? 0);
+	let prevChainLen = $state(untrack(() => board?.current ?? 0));
 
 	// Stat tile flash tracking
 	let flashReactions = $state(false);
 	let flashCurrent = $state(false);
 	let flashRecord = $state(false);
 
-	let prevReactions = $state(board?.reactions ?? 0);
-	let prevCurrent = $state(board?.current ?? 0);
-	let prevRecord = $state(board?.record ?? 0);
+	let prevReactions = $state(untrack(() => board?.reactions ?? 0));
+	let prevCurrent = $state(untrack(() => board?.current ?? 0));
+	let prevRecord = $state(untrack(() => board?.record ?? 0));
 
 	function triggerFlash(setter: (v: boolean) => void) {
 		setter(true);
@@ -329,7 +329,7 @@
 					{@const userId = data.user?.id}
 					{@const isMe = Boolean(userId && row.user_id === userId)}
 					<div animate:flip={{ duration: 280 }}>
-						<LeaderboardRow {rank} {row} {isMe} chainLength={board?.current ?? 0} />
+						<LeaderboardRow {rank} {row} {isMe} />
 					</div>
 				{/each}
 			</div>
@@ -344,18 +344,21 @@
 	</div>
 
 	<!-- Your Rank (if not in loaded rankings) -->
-	{#if board && data.user && !displayedRankings.some((r) => r.user_id === data.user.id)}
-		{@const myRank = getPlayerRank(displayedRankings, data.user.id)}
-		{#if myRank}
-			<div class="panel">
-				<a href={getPlayerUrl(data.user.id)} class="flex items-center justify-between">
-					<div>
-						<div class="text-muted text-sm">Your rank</div>
-						<div class="text-xl font-bold">#{myRank}</div>
-					</div>
-					<span class="text-accent">→</span>
-				</a>
-			</div>
+	{#if board && data.user}
+		{@const userId = data.user.id}
+		{#if !displayedRankings.some((r) => r.user_id === userId)}
+			{@const myRank = getPlayerRank(displayedRankings, userId)}
+			{#if myRank}
+				<div class="panel">
+					<a href={getPlayerUrl(userId)} class="flex items-center justify-between">
+						<div>
+							<div class="text-muted text-sm">Your rank</div>
+							<div class="text-xl font-bold">#{myRank}</div>
+						</div>
+						<span class="text-accent">→</span>
+					</a>
+				</div>
+			{/if}
 		{/if}
 	{/if}
 </div>

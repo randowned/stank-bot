@@ -6,6 +6,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 
 # Ensure ENV=dev-mock is set
 $env:ENV = "dev-mock"
+$env:PYTHONPATH = "$repoRoot\src"
 
 Write-Host "Starting StankBot in dev-mock mode..." -ForegroundColor Cyan
 

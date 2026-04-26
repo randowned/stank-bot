@@ -68,7 +68,6 @@
 		class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors
 			{disabled ? 'text-muted/50 cursor-default' : 'text-muted hover:text-text hover:bg-border/40'}"
 		data-testid="live-badge"
-		role="status"
 		aria-live="polite"
 	>
 		<span>Live updates</span>

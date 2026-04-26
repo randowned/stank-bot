@@ -146,11 +146,12 @@
 	<ErrorState message={loadError} onretry={load} />
 {:else if doc}
 	<div class="mb-4 flex items-center gap-3">
-		<label class="text-sm text-muted shrink-0">Template:</label>
+		<label for="template-select" class="text-sm text-muted shrink-0">Template:</label>
 		<Select
 			bind:value={activeKey}
 			options={templateOptions}
 			onchange={(e) => selectKey((e.target as HTMLSelectElement).value)}
+			id="template-select"
 			testId="template-select"
 		/>
 	</div>

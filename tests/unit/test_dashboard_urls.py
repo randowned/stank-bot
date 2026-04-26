@@ -6,7 +6,6 @@ import pytest
 
 from stankbot.services.dashboard_urls import dashboard_url_for
 
-
 BASE = "https://bot.example.com"
 
 

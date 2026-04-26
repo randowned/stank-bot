@@ -10,12 +10,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.web.tools import (
-    _is_admin_from_session,
-    current_user,
     get_active_guild_id,
     get_db,
+    require_global_admin,
     require_guild_member,
-    require_login,
 )
 from stankbot.web.transport import MsgPackResponse
 from stankbot.web.ws import get_board_state
@@ -29,48 +27,16 @@ async def ping() -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
-_BOT_INVITE_SCOPES = "bot+applications.commands"
-_BOT_INVITE_PERMISSIONS = 2147560448  # Send Messages + Add Reactions + Read Message History + Use External Emojis + Use External Stickers
-
-
-@router.get("/api/env")
-async def api_env(request: Request) -> JSONResponse:
-    config = request.app.state.config
-    user = current_user(request)
-    guild_id = get_active_guild_id(request) if user else None
-    invite_url = (
-        f"https://discord.com/oauth2/authorize"
-        f"?client_id={config.discord_app_id}"
-        f"&permissions={_BOT_INVITE_PERMISSIONS}"
-        f"&scope={_BOT_INVITE_SCOPES}"
-    )
-    return JSONResponse(
-        {
-            "env": config.env,
-            "guild_id": str(guild_id) if guild_id else None,
-            "is_admin": _is_admin_from_session(request) if user else False,
-            "mock_auth": config.mock_auth if config.env == "dev-mock" else False,
-            "invite_url": invite_url,
-        }
-    )
-
-
 @router.get("/api/guilds")
 async def api_guilds(
     request: Request,
-    user: dict = Depends(require_login),
+    user: dict = Depends(require_global_admin),
 ) -> JSONResponse:
-    """Return the user's accessible guilds merged with bot-presence info."""
-    from stankbot.web.tools import _is_owner
+    """Return bot guilds for global admins (guild switcher)."""
+    from stankbot.web.tools import _is_owner, get_active_guild_id
 
-    config = request.app.state.config
     bot_guilds: list[dict] = getattr(request.app.state, "bot_guilds", [])
-    bot_guild_ids = {int(g["id"]) for g in bot_guilds}
-    bot_guild_by_id = {int(g["id"]): g for g in bot_guilds}
-
-    user_guilds = request.session.get("guilds", [])
-    is_owner = _is_owner(request)
-    active_guild_id = request.session.get("guild_id") or request.session.get("guild") or request.session.get("active_guild_id")
+    active_gid = get_active_guild_id(request)
 
     def icon_url(guild_id: int, icon_hash: str | None) -> str | None:
         if not icon_hash:
@@ -78,46 +44,20 @@ async def api_guilds(
         ext = "gif" if icon_hash.startswith("a_") else "png"
         return f"https://cdn.discordapp.com/icons/{guild_id}/{icon_hash}.{ext}"
 
-    results: list[dict] = []
-    seen: set[int] = set()
-
-    for g in user_guilds:
+    results = []
+    for g in bot_guilds:
         gid = int(g.get("id", 0))
-        if gid == 0 or gid in seen:
+        if gid == 0:
             continue
-        seen.add(gid)
-        perms = int(g.get("permissions", 0))
-        is_admin = is_owner or bool(perms & 0x20)
-        results.append(
-            {
-                "id": str(gid),
-                "name": g.get("name", ""),
-                "icon_url": icon_url(gid, g.get("icon")),
-                "bot_present": gid in bot_guild_ids,
-                "is_admin": is_admin,
-                "is_owner": is_owner,
-                "is_active": active_guild_id is not None and int(active_guild_id) == gid,
-            }
-        )
+        results.append({
+            "id": str(gid),
+            "name": g.get("name", ""),
+            "icon_url": icon_url(gid, g.get("icon")),
+            "is_owner": _is_owner(request),
+            "is_active": gid == active_gid,
+        })
 
-    if is_owner:
-        for gid, g in bot_guild_by_id.items():
-            if gid in seen:
-                continue
-            results.append(
-                {
-                    "id": str(gid),
-                    "name": str(g.get("name", "")),
-                    "icon_url": icon_url(gid, g.get("icon")),
-                    "bot_present": True,
-                    "is_admin": True,
-                    "is_owner": True,
-                    "is_active": active_guild_id is not None and int(active_guild_id) == gid,
-                }
-            )
-
-    results.sort(key=lambda g: (not g["is_active"], not g["bot_present"], g["name"].lower()))
-    _ = config  # reserved for future member_count enrichment via bot cache
+    results.sort(key=lambda g: (not g["is_active"], g["name"].lower()))
     return JSONResponse(results)
 
 
@@ -402,7 +342,6 @@ async def api_chain(
     from stankbot.db.repositories import players as players_repo
     from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services import history_service
-
     from stankbot.services.session_service import SessionService
 
     summary = await history_service.chain_summary(session, guild_id, chain_id)
@@ -467,11 +406,9 @@ async def api_sessions(
     guild_id: int = Depends(get_active_guild_id),
     _user: dict = Depends(require_guild_member),
 ) -> JSONResponse:
-    from sqlalchemy import select
+    from sqlalchemy import case, func, select
 
     from stankbot.db.models import Event, EventType
-
-    from sqlalchemy import case, func
 
     # Fetch the 50 most recent sessions
     sessions_stmt = (

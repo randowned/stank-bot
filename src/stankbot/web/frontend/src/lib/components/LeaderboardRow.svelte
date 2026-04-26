@@ -10,10 +10,9 @@
 		rank: number;
 		row: PlayerRow;
 		isMe?: boolean;
-		chainLength?: number;
 	}
 
-	let { rank, row, isMe = false, chainLength = 0 }: Props = $props();
+	let { rank, row, isMe = false }: Props = $props();
 
 	const href = $derived(`${base}/player/${row.user_id}`);
 	const net = $derived(row.net ?? row.earned_sp - row.punishments);
@@ -24,19 +23,16 @@
 	const hasReactionMeta = $derived(row.reactions_in_session !== undefined || row.reactions_in_chain !== undefined);
 
 	const netColor = $derived(net > 0 ? 'text-accent' : net < 0 ? 'text-danger' : 'text-muted');
-	const netLabel = $derived(`${net.toLocaleString()}`);
-	const reactionPct = $derived(
-		chainLength > 0 ? Math.round((reactionsInChain / chainLength) * 100) : 0
-	);
+	const netLabel = $derived(net > 0 ? `+${net.toLocaleString()}` : net.toLocaleString());
 
 	let flash = $state(false);
 	const rowKey = $derived(
 		`${row.user_id}:${row.earned_sp}:${row.punishments}:${reactionsInChain}`
 	);
 	let prevKey = $state('');
-	let prevSp = $state(row.earned_sp);
-	let prevPp = $state(row.punishments);
-	let prevReacts = $state(reactionsInChain);
+	let prevSp = $state(untrack(() => row.earned_sp));
+	let prevPp = $state(untrack(() => row.punishments));
+	let prevReacts = $state(untrack(() => reactionsInChain));
 
 	type DeltaChip = { id: number; delta: number; kind: 'stank' | 'reaction' | 'break' | 'finish' | 'other' };
 	let chips: DeltaChip[] = $state([]);

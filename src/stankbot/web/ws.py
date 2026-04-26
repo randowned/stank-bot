@@ -178,11 +178,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         if user is None:
             await websocket.close(code=4003, reason="Not authenticated")
             return
-        guilds = session.get("guilds", [])
-        is_member = any(int(g.get("id", 0)) == guild_id for g in guilds)
-        if not is_member:
-            owner_id = int(getattr(config, "owner_id", 0) or 0)
-            if int(user.get("id", 0)) != owner_id:
+
+        owner_id = int(getattr(config, "owner_id", 0) or 0)
+        if int(user.get("id", 0)) != owner_id:
+            from stankbot.web.tools import fetch_guild_member
+            member = await fetch_guild_member(config, guild_id, int(user["id"]))
+            if member is None:
                 await websocket.close(code=4003, reason="Not in guild")
                 return
 

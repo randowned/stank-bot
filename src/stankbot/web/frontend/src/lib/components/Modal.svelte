@@ -48,7 +48,7 @@
 	>
 		<div
 			class="w-full {sizeCls[size]} bg-panel border border-border rounded-lg shadow-xl"
-			role="document"
+			role="none"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 			tabindex="-1"

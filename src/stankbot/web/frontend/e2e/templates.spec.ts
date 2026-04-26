@@ -1,8 +1,8 @@
-import { test, expect } from './fixtures';
+import { test, expect, adminUser } from './fixtures';
 
 test.describe('Admin template editor', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin();
+		await mockLogin(adminUser);
 	});
 
 	test('page loads with default templates and preview', async ({ page }) => {

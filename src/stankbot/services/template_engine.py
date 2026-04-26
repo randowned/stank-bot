@@ -135,9 +135,8 @@ def render_embed(
     embed = discord.Embed()
     if title := template.get("title"):
         embed.title = sub(str(title), ctx)
-    if url := template.get("url"):
-        if resolved := sub(str(url), ctx):
-            embed.url = resolved
+    if (url := template.get("url")) and (resolved := sub(str(url), ctx)):
+        embed.url = resolved
     if description := template.get("description"):
         embed.description = sub(str(description), ctx)
     raw_color = template.get("color")
@@ -145,12 +144,10 @@ def render_embed(
         raw_color = sub(raw_color, ctx)
     if color := _parse_color(raw_color):
         embed.color = color
-    if thumbnail := template.get("thumbnail"):
-        if resolved := sub(str(thumbnail), ctx):
-            embed.set_thumbnail(url=resolved)
-    if image := template.get("image"):
-        if resolved := sub(str(image), ctx):
-            embed.set_image(url=resolved)
+    if (thumbnail := template.get("thumbnail")) and (resolved := sub(str(thumbnail), ctx)):
+        embed.set_thumbnail(url=resolved)
+    if (image := template.get("image")) and (resolved := sub(str(image), ctx)):
+        embed.set_image(url=resolved)
     if (author := template.get("author")) and isinstance(author, dict):
         name = author.get("name")
         icon = author.get("icon")

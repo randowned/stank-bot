@@ -175,6 +175,7 @@ class MockEventBridge:
 
         if sp > 0:
             import asyncio
+
             from stankbot.web.ws import broadcast_rank_update
             asyncio.create_task(broadcast_rank_update(self.session_factory, guild_id))
 

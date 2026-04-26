@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { page } from '$app/stores';
 	import PageHeader from '$lib/components/PageHeader.svelte';
+	import { BOT_INVITE_URL } from '$lib/config';
 
-	const inviteUrl = $derived(($page.data.invite_url as string | null) ?? null);
+	const inviteUrl = BOT_INVITE_URL;
 
 	const tiles = [
 		{ href: `${base}/admin/channels`, label: 'Channels', icon: '📡', desc: 'Altar and announcement channels' },

@@ -274,7 +274,6 @@ async def get_roles(
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
 ) -> MsgPackResponse:
-    from stankbot.web.tools import player_names_for
 
     svc = PermissionService(session)
     role_ids = await svc.list_admin_roles(guild_id)

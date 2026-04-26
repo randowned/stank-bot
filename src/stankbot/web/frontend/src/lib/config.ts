@@ -1,0 +1,1 @@
+export const BOT_INVITE_URL = 'https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=2147560448&scope=bot+applications.commands';

@@ -18,7 +18,16 @@ from typing import TYPE_CHECKING
 import discord
 from discord import app_commands
 from discord.ext import commands
+from sqlalchemy import select
 
+from stankbot.cogs._checks import (
+    SilentlySuppressed,
+    WrongChannel,
+    is_interaction_admin,
+    maintenance_mode_enabled,
+    silently_suppress,
+)
+from stankbot.db.models import ChannelBinding, ChannelPurpose
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import cooldowns as cooldowns_repo
 from stankbot.db.repositories import events as events_repo
@@ -35,17 +44,8 @@ from stankbot.services.default_templates import (
 )
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
-from stankbot.cogs._checks import (
-    SilentlySuppressed,
-    WrongChannel,
-    is_interaction_admin,
-    maintenance_mode_enabled,
-    silently_suppress,
-)
-from stankbot.db.models import ChannelBinding, ChannelPurpose
 from stankbot.services.template_engine import RenderContext, render_embed
 from stankbot.utils.time_utils import humanize_duration
-from sqlalchemy import select
 
 if TYPE_CHECKING:
     from stankbot.bot import StankBot
@@ -83,10 +83,9 @@ class StankCommands(commands.GroupCog, name="stank"):
         """Restrict ``/stank`` user commands to announcement channels."""
         if interaction.guild is None or interaction.channel is None:
             return True
-        if await maintenance_mode_enabled(self.bot, interaction.guild.id):
-            if not await is_interaction_admin(interaction):
-                await silently_suppress(interaction)
-                raise SilentlySuppressed()
+        if await maintenance_mode_enabled(self.bot, interaction.guild.id) and not await is_interaction_admin(interaction):
+            await silently_suppress(interaction)
+            raise SilentlySuppressed()
         async with self.bot.db() as session:
             rows = await session.execute(
                 select(ChannelBinding.channel_id).where(

@@ -73,8 +73,8 @@ All changes must be verified before they are considered done. The verification p
 
 ### E2E test execution
 
-- **For agent verification during development:** `cd src/stankbot/web/frontend && npm run test:e2e:dev` (Vite dev server, fastest iteration).
-- **For commit-and-push readiness:** `cd src/stankbot/web/frontend && npm run test:e2e` (production static build, closest to real deploy).
+- **For agent verification during development:** `cd src/stankbot/web/frontend && npm run test:e2e` (reuses the running Vite dev server).
+- **For commit-and-push readiness:** same command; the Playwright config starts the Vite dev server automatically if one isn't already running.
 
 Both require the backend running in `ENV=dev-mock`. Use the one-command startup scripts:
 - Windows: `.\scripts\dev.ps1`
@@ -102,8 +102,11 @@ These endpoints are **only mounted when `ENV=dev-mock`**. Never call them in dev
 `src/stankbot/web/frontend/e2e/fixtures.ts` exposes:
 
 - `mockLogin(user?)` — authenticate Playwright as a mock user.
+- `mockBotGuilds(guilds)` — set bot guilds for guild switcher tests.
+- `newSession()` — break any active chain, end session, and reload.
 - `injectStank(guildId, userId, displayName)` — trigger a stank and assert WS + DOM updates.
 - `injectBreak(guildId, userId, displayName)` — trigger a chain break.
+- `injectReaction(guildId, messageId, userId)` — inject a reaction bonus.
 - `startRandomEvents(interval?)` / `stopRandomEvents()` — drive background state changes.
 
 Use `data-testid` selectors in Svelte components for stable Playwright queries. Prefer fixtures over manual `page.goto` + `page.fill` sequences.

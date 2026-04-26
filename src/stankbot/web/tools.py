@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import AsyncIterator, Iterable
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
+import httpx
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -18,6 +21,62 @@ from stankbot.db.models import Guild, Player
 if TYPE_CHECKING:
     from stankbot.config import AppConfig
 
+log = logging.getLogger(__name__)
+
+_member_cache: dict[tuple[int, int], tuple[float, dict[str, Any] | None]] = {}
+_MEMBER_CACHE_TTL = 300
+
+
+async def fetch_guild_member(
+    config: AppConfig, guild_id: int, user_id: int
+) -> dict[str, Any] | None:
+    """Check if user is a member of guild via Discord API.
+
+    Uses bot token to call GET /guilds/{guild_id}/members/{user_id}.
+    Results are cached in-memory for 5 minutes.
+
+    Returns member dict with 'permissions' or None if not found.
+    """
+    global _member_cache
+
+    cache_key = (guild_id, user_id)
+    now = time.time()
+
+    if cache_key in _member_cache:
+        ts, cached = _member_cache[cache_key]
+        if now - ts < _MEMBER_CACHE_TTL:
+            return cached
+        del _member_cache[cache_key]
+
+    token = config.discord_token.get_secret_value()
+    if not token:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_id}",
+                headers={"Authorization": f"Bot {token}"},
+            )
+        if resp.status_code == 404:
+            _member_cache[cache_key] = (now, None)
+            return None
+        if resp.status_code != 200:
+            log.warning(
+                "fetch_guild_member failed: guild=%d user=%d status=%d",
+                guild_id,
+                user_id,
+                resp.status_code,
+            )
+            return None
+
+        data = resp.json()
+        _member_cache[cache_key] = (now, data)
+        return data
+    except Exception:
+        log.exception("fetch_guild_member error: guild=%d user=%d", guild_id, user_id)
+        return None
+
 
 def _is_mock_auth(request: Request) -> bool:
     """Return True when dev mock auth is active."""
@@ -25,55 +84,11 @@ def _is_mock_auth(request: Request) -> bool:
     return config.env == "dev-mock" and config.mock_auth
 
 
-def _is_admin_from_session(request: Request) -> bool:
-    """Cookie-based admin check for nav rendering.
-
-    Mirrors the MANAGE_GUILD + owner paths in ``require_guild_admin`` but
-    skips the DB-configured admin extras so this can run synchronously in
-    a Jinja context processor. Owner is always admin. For non-owners:
-    checks MANAGE_GUILD permission in the active guild.
-    """
-    if _is_mock_auth(request):
-        return True
-    user = current_user(request)
-    if user is None:
-        return False
-    if _is_owner(request):
-        return True
-    guild_id = get_active_guild_id(request)
-    guilds = request.session.get("guilds", [])
-    match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
-    if match is None:
-        return False
-    perms = int(match.get("permissions", 0))
-    return bool(perms & 0x20)
-
-
-def _admin_context(request: Request) -> dict[str, Any]:
-    bot_guilds: list[dict[str, object]] = getattr(request.app.state, "bot_guilds", [])
-    user_guild_ids = {int(g.get("id", 0)) for g in request.session.get("guilds", [])}
-    return {
-        "is_admin": _is_admin_from_session(request),
-        "is_owner": _is_owner(request),
-        "active_guild_id": get_active_guild_id(request),
-        "bot_guilds": [
-            {
-                "id": g["id"],
-                "name": g["name"],
-                "icon": g.get("icon"),
-                "in_oauth": g["id"] in user_guild_ids,
-            }
-            for g in bot_guilds
-        ],
-    }
-
-
 def get_templates(request: Request) -> Jinja2Templates:
     templates = getattr(request.app.state, "_templates", None)
     if templates is None:
         templates = Jinja2Templates(
             directory=str(request.app.state.templates_dir),
-            context_processors=[_admin_context],
         )
         request.app.state._templates = templates
     return templates
@@ -118,13 +133,14 @@ class _NotInGuild(HTTPException):
         self.response = response
 
 
-def _is_guild_member(request: Request, guild_id: int) -> bool:
-    """Return True if the session user is a member of the given guild."""
-    guilds = request.session.get("guilds", [])
-    return any(int(g.get("id", 0)) == guild_id for g in guilds)
+async def _is_guild_member(request: Request, guild_id: int, user_id: int) -> bool:
+    """Return True if the user is a member of the given guild (via Discord API)."""
+    config: AppConfig = request.app.state.config
+    member = await fetch_guild_member(config, guild_id, user_id)
+    return member is not None
 
 
-def require_login(request: Request) -> dict[str, Any]:
+async def require_login(request: Request) -> dict[str, Any]:
     user = current_user(request)
     if user is None:
         accept = request.headers.get("accept", "")
@@ -143,12 +159,12 @@ def require_login(request: Request) -> dict[str, Any]:
     return user
 
 
-def require_guild_member(request: Request) -> dict[str, Any]:
+async def require_guild_member(request: Request) -> dict[str, Any]:
     """Dependency for public dashboard routes.
 
     Redirects unauthenticated visitors to ``/`` (which shows the login UI).
     Raises ``_NotInGuild`` (rendered as ``unauthorized.html``) for users who
-    are logged in but not a member of the configured guild.
+    are logged in but not a member of the default guild.
     Owner is always allowed even if not a member.
     In dev mock-auth mode, auto-login is assumed.
     """
@@ -156,7 +172,6 @@ def require_guild_member(request: Request) -> dict[str, Any]:
         user = current_user(request)
         if user is not None:
             return user
-        # Fabricate a mock user on the fly for routes that don't pre-login.
         config: AppConfig = request.app.state.config
         return {
             "id": config.mock_default_user_id,
@@ -179,7 +194,10 @@ def require_guild_member(request: Request) -> dict[str, Any]:
     if _is_owner(request):
         return user
     config: AppConfig = request.app.state.config
-    if not _is_guild_member(request, config.default_guild_id):
+    default_gid = config.default_guild_id
+    uid = int(user["id"])
+    is_member = await _is_guild_member(request, default_gid, uid)
+    if not is_member:
         templates = get_templates(request)
         raise _NotInGuild(
             templates.TemplateResponse(
@@ -246,6 +264,47 @@ def _is_owner(request: Request) -> bool:
     return int(user.get("id", 0)) == int(getattr(config, "owner_id", 0) or 0)
 
 
+async def require_global_admin(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    user: dict[str, Any] = Depends(require_login),
+) -> dict[str, Any]:
+    """Verify the session-user is a global admin.
+
+    Global admins are: bot owner, or entries in admin_users table (guild_id=0).
+    They can access all guilds and see the guild switcher.
+    """
+    if _is_mock_auth(request):
+        if not request.session.get("is_global_admin", True):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="not a global admin"
+            )
+        return user
+
+    from stankbot.services.permission_service import PermissionService
+
+    config: AppConfig = request.app.state.config
+
+    if _is_owner(request):
+        return user
+
+    svc = PermissionService(session, owner_id=config.owner_id)
+    uid = int(user["id"])
+
+    if await svc.is_global_admin(uid):
+        return user
+
+    templates = get_templates(request)
+    raise _NotInGuild(
+        templates.TemplateResponse(
+            request,
+            "unauthorized.html",
+            {"request": request, "user": user},
+            status_code=403,
+        )
+    )
+
+
 async def require_guild_admin(
     request: Request,
     session: AsyncSession = Depends(get_db),
@@ -253,12 +312,16 @@ async def require_guild_admin(
 ) -> dict[str, Any]:
     """Verify the session-user is an admin of the active guild.
 
-    Owner (config.owner_id) is always admin of any guild (superadmin).
-    For non-owners: requires MANAGE_GUILD permission OR global admin_users
-    entry OR admin_roles entry for the active guild.
-    In dev mock-auth mode, all users are treated as admins.
+    Owner (config.owner_id) is always admin.
+    Global admins (in admin_users table) have access to all guilds.
+    Guild admins (in admin_roles for the guild) have access to that guild.
+    In dev mock-auth mode, respects session flags (is_global_admin / is_guild_admin).
     """
     if _is_mock_auth(request):
+        if not (request.session.get("is_global_admin", True) or request.session.get("is_guild_admin", True)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="not a guild admin"
+            )
         return user
 
     from stankbot.services.permission_service import PermissionService
@@ -280,21 +343,24 @@ async def require_guild_admin(
     if _is_owner(request):
         return user
 
-    guilds = request.session.get("guilds", [])
-    match = next((g for g in guilds if int(g.get("id", 0)) == guild_id), None)
-    if match is None:
-        raise _unauthorized()
-
-    perms = int(match.get("permissions", 0))
-    has_manage_guild = bool(perms & 0x20)
-
     svc = PermissionService(session, owner_id=config.owner_id)
-    is_admin = await svc.is_admin(
-        guild_id,
-        int(user["id"]),
-        [],
-        has_manage_guild=has_manage_guild,
-    )
-    if not is_admin:
+    uid = int(user["id"])
+
+    is_global = await svc.is_global_admin(uid)
+    if is_global:
+        return user
+
+    if await svc.is_guild_admin(guild_id, uid):
+        return user
+
+    config: AppConfig = request.app.state.config
+    member = await fetch_guild_member(config, guild_id, uid)
+    if member is None:
         raise _unauthorized()
-    return user
+
+    perms = int(member.get("permissions", 0))
+    has_manage_guild = bool(perms & 0x20)
+    if has_manage_guild:
+        return user
+
+    raise _unauthorized()

@@ -44,8 +44,8 @@
 
 	const base =
 		'inline-flex items-center justify-center gap-2 rounded-md font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed';
-	const full = fullWidth ? 'w-full' : '';
-	const cls = `${base} ${sizeCls[size]} ${variantCls[variant]} ${full} ${klass}`.trim();
+	const full = $derived(fullWidth ? 'w-full' : '');
+	const cls = $derived(`${base} ${sizeCls[size]} ${variantCls[variant]} ${full} ${klass}`.trim());
 </script>
 
 {#if href}

@@ -12,7 +12,6 @@
 		lastWsEvent
 	} from '$lib/stores';
 	import type { WsEvent } from '$lib/stores';
-	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { navigating } from '$app/stores';
 	import { connect, disconnect } from '$lib/ws';
@@ -77,12 +76,6 @@
 </script>
 
 <div class="min-h-screen flex flex-col">
-	{#if data.env === 'dev-mock'}
-		<div class="bg-gold text-bg text-xs px-2 py-1 text-center font-bold">
-			DEV MODE — Mock Discord / Mock Auth Active
-		</div>
-	{/if}
-
 	<!-- Global loading bar -->
 	{#if $navigating}
 		<div

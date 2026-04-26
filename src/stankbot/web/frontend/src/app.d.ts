@@ -10,8 +10,9 @@ declare global {
 		interface PageData {
 			user: User | null;
 			guild_id?: string | null;
+			guild_name?: string | null;
 			is_admin?: boolean;
-			env?: string;
+			is_global_admin?: boolean;
 			guilds?: GuildInfo[];
 		}
 	}
