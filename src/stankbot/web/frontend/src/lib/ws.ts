@@ -83,6 +83,7 @@ let ws: WebSocket | null = null;
 let pingInterval: ReturnType<typeof setInterval> | null = null;
 let lastPingTime = 0;
 let reconnectAttempts = 0;
+let intentionalClose = false;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 1000;
 
@@ -100,6 +101,7 @@ export function connect(url?: string): void {
 	if (!canConnect()) return;
 	if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 
+	intentionalClose = false;
 	connectionStatus.set('connecting');
 
 	const target = url ?? defaultUrl();
@@ -134,14 +136,17 @@ export function connect(url?: string): void {
 			connectionStatus.set('disconnected');
 			stopPingLoop();
 
-			if (event.code !== 1000) {
+			if (event.code !== 1000 && !intentionalClose) {
 				emitWsEvent({ kind: 'disconnected', code: event.code, reason: event.reason });
 				attemptReconnect();
 			}
+			intentionalClose = false;
 		};
 
 		ws.onerror = (error) => {
-			console.error('[ws] error', error);
+			if (!intentionalClose) {
+				console.error('[ws] error', error);
+			}
 			connectionStatus.set('error');
 			emitWsEvent({ kind: 'error', code: 'ws_error', message: 'Connection error' });
 		};
@@ -153,6 +158,7 @@ export function connect(url?: string): void {
 
 export function disconnect(): void {
 	stopPingLoop();
+	intentionalClose = true;
 	if (ws) {
 		ws.close(1000, 'Client disconnect');
 		ws = null;

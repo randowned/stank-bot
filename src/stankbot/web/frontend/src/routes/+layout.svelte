@@ -38,13 +38,19 @@
 		handleWsEvent(event);
 	});
 
+	// Only reconnect when the user ID actually changes (login/logout),
+	// not on every navigation that reloads layout data.
+	const userId = $derived(userData?.id ?? null);
+	let connectedUserId: string | null = null;
+
 	$effect(() => {
-		if (userData) {
+		if (userId && userId !== connectedUserId) {
+			connectedUserId = userId;
 			connect();
-		} else {
+		} else if (!userId) {
+			connectedUserId = null;
 			disconnect();
 		}
-		return () => disconnect();
 	});
 
 	function handleWsEvent(event: WsEvent): void {
