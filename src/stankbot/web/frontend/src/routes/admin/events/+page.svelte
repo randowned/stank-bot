@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { apiFetch, FetchError } from '$lib/api';
 	import { formatDateTime } from '$lib/datetime';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
+	import { onGameEvent } from '$lib/ws';
+	import type { GameEventData } from '$lib/ws';
 
 	interface Entry {
 		id: number;
@@ -29,6 +31,7 @@
 	let exhausted = $state(false);
 	let error = $state<string | null>(null);
 	let filterText = $state('');
+	let freshIds = $state(new Set<number>());
 
 	let sentinel: HTMLElement | undefined = $state();
 	let observer: IntersectionObserver | undefined;
@@ -55,6 +58,15 @@
 		if (delta > 0) return 'delta-pos';
 		if (delta < 0) return 'delta-neg';
 		return '';
+	}
+
+	function matchesFilter(event: GameEventData | Entry): boolean {
+		const q = filterText.trim().toLowerCase();
+		if (!q) return true;
+		return (
+			event.type.toLowerCase().includes(q) ||
+			(event.reason ?? '').toLowerCase().includes(q)
+		);
 	}
 
 	function loadPage(reset = false) {
@@ -104,7 +116,33 @@
 		return () => clearTimeout(debounceTimer);
 	});
 
-	onMount(() => loadPage(true));
+	let unsubGameEvent: (() => void) | undefined;
+
+	onMount(() => {
+		loadPage(true);
+		unsubGameEvent = onGameEvent((event) => {
+			if (!matchesFilter(event)) return;
+			const entry: Entry = {
+				id: event.id,
+				created_at: null,
+				type: event.type,
+				user_id: event.user_id,
+				user_name: event.user_name,
+				delta: event.delta,
+				reason: event.reason,
+				chain_id: null,
+				message_id: null,
+			};
+			entries = [entry, ...entries];
+			if (entries.length > LIMIT * 3) entries = entries.slice(0, LIMIT * 3);
+			freshIds.add(event.id);
+			setTimeout(() => freshIds.delete(event.id), 1000);
+		});
+	});
+
+	onDestroy(() => {
+		unsubGameEvent?.();
+	});
 </script>
 
 <PageHeader title="Game events" subtitle="All stanks, breaks, reactions, achievements, and session events" />
@@ -122,7 +160,7 @@
 	{:else if entries.length === 0 && !loading}
 		<EmptyState icon="📜" title="No events yet" message="Inject some stanks or breaks to see events here" />
 	{:else}
-		<div class="overflow-x-auto">
+		<div class="overflow-x-auto" data-testid="events-table">
 			<table class="w-full text-sm">
 				<thead>
 					<tr class="text-left text-muted border-b border-border">
@@ -135,7 +173,9 @@
 				</thead>
 				<tbody>
 					{#each entries as e (e.id)}
-						<tr class="border-b border-border/60 align-top">
+						<tr
+							class="row border-b border-border/60 align-top {freshIds.has(e.id) ? 'row-fresh' : ''}"
+						>
 							<td class="py-2 pr-2 whitespace-nowrap text-muted text-xs">
 								{formatDateTime(e.created_at, '')}
 							</td>
@@ -210,5 +250,18 @@
 	}
 	.delta-neg {
 		color: #ef4444;
+	}
+	.row-fresh {
+		animation: slideIn 0.35s ease-out;
+	}
+	@keyframes slideIn {
+		from {
+			opacity: 0;
+			transform: translateY(-16px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 </style>

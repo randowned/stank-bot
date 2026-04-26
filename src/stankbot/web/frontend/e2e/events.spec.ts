@@ -14,13 +14,10 @@ test.describe('Game events page', () => {
 		await injectBreak(GUILD, BREAKER, 'BreakerUser');
 
 		await page.goto('/admin/events');
-		await expect(page.getByText('Game events')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
 
-		// Should see at least sp_base and chain_break type badges
 		await expect(page.getByText('sp base').first()).toBeVisible({ timeout: 5000 });
 		await expect(page.getByText('chain break').first()).toBeVisible({ timeout: 5000 });
-
-		// Username should appear
 		await expect(page.getByText('StankerUser').first()).toBeVisible();
 	});
 
@@ -29,11 +26,10 @@ test.describe('Game events page', () => {
 		const STANKER = 8001;
 
 		const result = await injectStank(GUILD, STANKER, 'StankerUser');
-
-		// Inject reaction on the stank message
 		await injectReaction(GUILD, result.message_id, 8002);
 
 		await page.goto('/admin/events');
+		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
 		await expect(page.getByText('sp reaction').first()).toBeVisible({ timeout: 10000 });
 	});
 
@@ -46,20 +42,14 @@ test.describe('Game events page', () => {
 		await injectBreak(GUILD, BREAKER, 'BreakerUser');
 
 		await page.goto('/admin/events');
+		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText('sp base').first()).toBeVisible({ timeout: 5000 });
 
-		// Wait for events to load
-		await expect(page.getByText('sp base').first()).toBeVisible({ timeout: 10000 });
-
-		// Type "break" in the filter
 		const searchInput = page.locator('input[placeholder*="Search"]');
 		await searchInput.fill('break');
-
-		// Wait for debounce + re-fetch
 		await page.waitForTimeout(500);
 
-		// Should now show only break-related events
 		await expect(page.getByText('chain break').first()).toBeVisible({ timeout: 5000 });
-		// sp base should be gone (filtered out)
 		await expect(page.getByText('sp base')).toHaveCount(0);
 	});
 
@@ -71,5 +61,25 @@ test.describe('Game events page', () => {
 	test('empty state shown when no events exist', async ({ page }) => {
 		await page.goto('/admin/events');
 		await expect(page.getByText('No events yet')).toBeVisible({ timeout: 10000 });
+	});
+
+	test('new event appears via WebSocket after injection', async ({ page, injectStank }) => {
+		const GUILD = 123456789;
+
+		await page.goto('/admin/events');
+		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
+
+		// Inject a stank — WS should push the event and the table should update
+		await injectStank(GUILD, 10001, 'WSTester');
+
+		// The new event should appear at the top without page reload
+		await expect(page.getByText('sp base').first()).toBeVisible({ timeout: 5000 });
+		const rows = page.locator('[data-testid="events-table"] tbody tr');
+		await expect(rows.first()).toBeVisible();
+	});
+
+	test('dashboard has Events tile', async ({ page }) => {
+		await page.goto('/admin');
+		await expect(page.getByText('Game event log')).toBeVisible();
 	});
 });

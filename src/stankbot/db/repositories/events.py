@@ -8,6 +8,7 @@ session services — so every mutation MUST go through ``append``.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
@@ -79,6 +80,24 @@ async def append(
                 sp_delta=sp_delta,
                 pp_delta=pp_delta,
             )
+
+    # Broadcast live event via WebSocket (fire-and-forget, gated by active connections).
+    try:
+        from stankbot.web.ws import broadcast_game_event, has_active_connections
+        if has_active_connections(guild_id):
+            asyncio.create_task(
+                broadcast_game_event(
+                    guild_id,
+                    event_id=event.id,
+                    event_type=event.type,
+                    user_id=user_id,
+                    user_name=None,
+                    delta=event.delta,
+                    reason=event.reason,
+                )
+            )
+    except Exception:
+        pass  # WS not available (tests, CLI mode, import error)
 
     return event
 

@@ -19,8 +19,9 @@ export enum MsgType {
 	PONG = 104,
 	ACHIEVEMENT = 105,
 	SESSION = 106,
-	ERROR = 107,
-	VERSION_MISMATCH = 108
+	GAME_EVENT = 107,
+	ERROR = 108,
+	VERSION_MISMATCH = 109
 }
 
 interface PingMsg {
@@ -68,6 +69,20 @@ interface AchievementMsg {
 	};
 }
 
+export interface GameEventData {
+	id: number;
+	type: string;
+	user_id: string | null;
+	user_name: string | null;
+	delta: number;
+	reason: string | null;
+}
+
+interface GameEventMsg {
+	t: typeof MsgType.GAME_EVENT;
+	d: GameEventData;
+}
+
 interface SessionMsg {
 	t: typeof MsgType.SESSION;
 	d: {
@@ -101,6 +116,7 @@ type ServerMsg =
 	| PongMsg
 	| AchievementMsg
 	| SessionMsg
+	| GameEventMsg
 	| ErrorMsg
 	| VersionMismatchMsg;
 
@@ -291,6 +307,12 @@ function handleMessage(msg: ServerMsg): void {
 			emitWsEvent({ kind: 'achievement', userId: msg.d.user_id, badge: msg.d.badge });
 			break;
 
+		case MsgType.GAME_EVENT:
+			for (const cb of gameEventCallbacks) {
+				cb(msg.d);
+			}
+			break;
+
 		case MsgType.SESSION:
 			emitWsEvent({ kind: 'session', action: msg.d.action, sessionId: msg.d.session_id });
 			break;
@@ -312,4 +334,16 @@ function handleMessage(msg: ServerMsg): void {
 
 export function isConnected(): boolean {
 	return ws !== null && ws.readyState === WebSocket.OPEN;
+}
+
+// ---- Game event callbacks (for live events page) -----------------------
+
+type GameEventCallback = (event: GameEventData) => void;
+let gameEventCallbacks: GameEventCallback[] = [];
+
+export function onGameEvent(cb: GameEventCallback): () => void {
+	gameEventCallbacks.push(cb);
+	return () => {
+		gameEventCallbacks = gameEventCallbacks.filter((c) => c !== cb);
+	};
 }

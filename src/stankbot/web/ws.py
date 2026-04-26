@@ -16,6 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 log = logging.getLogger(__name__)
 
+# WS message type constants (shared with frontend ws.ts)
+MSG_TYPE_STATE = 101
+MSG_TYPE_RANK_UPDATE = 102
+MSG_TYPE_CHAIN_UPDATE = 103
+MSG_TYPE_GAME_EVENT = 107
+
 router = APIRouter(prefix="")
 
 
@@ -338,6 +344,25 @@ async def notify_achievement(guild_id: int, user_id: int, badge: dict) -> None:
         guild_id,
         {"t": 105, "d": {"user_id": str(user_id), "badge": badge}},
     )
+
+
+def has_active_connections(guild_id: int) -> bool:
+    """Return True if at least one WS client is connected for this guild."""
+    return bool(manager.active_connections.get(guild_id))
+
+
+async def broadcast_game_event(guild_id: int, event_id: int, event_type: str, user_id: int | None,
+                                user_name: str | None, delta: int, reason: str | None) -> None:
+    """Broadcast a single game event to all WS clients for the guild."""
+    entry: dict = {
+        "id": event_id,
+        "type": event_type,
+        "user_id": str(user_id) if user_id else None,
+        "user_name": user_name,
+        "delta": delta,
+        "reason": reason,
+    }
+    await manager.broadcast_json(guild_id, {"t": MSG_TYPE_GAME_EVENT, "d": entry})
 
 
 async def notify_session(

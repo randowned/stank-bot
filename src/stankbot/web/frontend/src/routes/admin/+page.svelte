@@ -10,6 +10,7 @@
 		{ href: `${base}/admin/templates`, label: 'Templates', icon: '📝', desc: 'Edit bot embed templates' },
 		{ href: `${base}/admin/admins`, label: 'Admins', icon: '👥', desc: 'Admin role & user grants' },
 		{ href: `${base}/admin/audit`, label: 'Audit log', icon: '📋', desc: 'History of admin actions' },
+		{ href: `${base}/admin/events`, label: 'Events', icon: '📜', desc: 'Game event log (stanks, breaks, reactions)' },
 		{ href: `${base}/admin/sessions`, label: 'Sessions', icon: '🔄', desc: 'Start, rebuild, or reset sessions' },
 		{ href: `${base}/admin/settings`, label: 'Settings', icon: '⚙️', desc: 'Scoring, behavior, and resets' }
 	];
