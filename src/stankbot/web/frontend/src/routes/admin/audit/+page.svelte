@@ -100,6 +100,23 @@
 		<ErrorState message={error} onretry={() => loadPage(true)} />
 	{:else if entries.length === 0 && !loading}
 		<EmptyState icon="📋" title="No audit entries" />
+	{:else if entries.length === 0 && loading}
+		<div class="w-full">
+			<div class="flex items-center gap-2 border-b border-border py-2">
+				<div class="h-4 bg-border/60 animate-pulse rounded w-20 pr-2"></div>
+				<div class="h-4 bg-border/60 animate-pulse rounded w-16 pr-2"></div>
+				<div class="h-4 bg-border/60 animate-pulse rounded w-24 pr-2"></div>
+				<div class="h-4 bg-border/60 animate-pulse rounded flex-1"></div>
+			</div>
+			{#each Array(5) as _}
+				<div class="flex items-center gap-2 border-b border-border/60 py-3">
+					<div class="h-3 bg-border/60 animate-pulse rounded w-24 pr-2"></div>
+					<div class="h-3 bg-border/60 animate-pulse rounded w-16 pr-2"></div>
+					<div class="h-3 bg-border/60 animate-pulse rounded w-20 pr-2"></div>
+					<div class="h-3 bg-border/60 animate-pulse rounded flex-1"></div>
+				</div>
+			{/each}
+		</div>
 	{:else}
 		<table class="w-full text-sm">
 			<thead>

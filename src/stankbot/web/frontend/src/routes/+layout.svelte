@@ -19,6 +19,7 @@
 	import type { User, GuildInfo } from '$lib/types';
 	import UserMenu from '$lib/components/UserMenu.svelte';
 	import LiveBadge from '$lib/components/LiveBadge.svelte';
+	import NavSkeleton from '$lib/components/NavSkeleton.svelte';
 
 	let { data, children } = $props();
 
@@ -89,16 +90,22 @@
 	const pathname = $derived($page.url.pathname);
 	const isAdminRoute = $derived(pathname.startsWith(`${base}/admin`) || pathname.startsWith('/admin'));
 	const mainClass = $derived(isAdminRoute ? 'flex-1' : 'flex-1 w-full max-w-3xl mx-auto');
+
+	const isNavigatingAdmin = $derived(
+		$navigating ? ($navigating.to?.url?.pathname ?? '').startsWith('/admin') || ($navigating.to?.url?.pathname ?? '').startsWith(`${base}/admin`) : false
+	);
 </script>
 
 <div class="min-h-screen flex flex-col">
-	<!-- Global loading bar -->
+	<!-- Global navigation skeleton -->
 	{#if $navigating}
 		<div
-			class="fixed top-0 left-0 right-0 z-[70] h-0.5 bg-accent animate-pulse pointer-events-none"
+			class="fixed left-0 right-0 bottom-0 top-[57px] z-50 bg-bg overflow-y-auto"
 			role="status"
-			aria-label="Loading"
-		></div>
+			aria-label="Loading page"
+		>
+			<NavSkeleton isAdminRoute={isNavigatingAdmin} />
+		</div>
 	{/if}
 
 	<!-- Header (single row) -->

@@ -24,10 +24,6 @@
 			sidebarOpen = v;
 		});
 	});
-
-	function toggleSidebar() {
-		adminSidebarOpen.update((v) => !v);
-	}
 </script>
 
 {#if sidebarOpen}

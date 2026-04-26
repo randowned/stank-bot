@@ -144,6 +144,24 @@
 
 {#if loadError}
 	<ErrorState message={loadError} onretry={load} />
+{:else if !doc}
+	<div class="mb-4">
+		<div class="h-9 bg-border/60 animate-pulse rounded-md w-64 mb-4"></div>
+	</div>
+	<div class="panel">
+		<div class="flex gap-1 border border-border rounded-md overflow-hidden w-40 mb-4">
+			<div class="h-8 bg-border/60 animate-pulse rounded w-20"></div>
+			<div class="h-8 bg-border/60 animate-pulse rounded w-20"></div>
+		</div>
+		<div class="h-96 bg-border/60 animate-pulse rounded-md"></div>
+		<div class="mt-3 flex items-center justify-between gap-3">
+			<div class="flex gap-2">
+				<div class="h-9 w-16 bg-border/60 animate-pulse rounded-md"></div>
+				<div class="h-9 w-20 bg-border/60 animate-pulse rounded-md"></div>
+			</div>
+			<div class="h-9 w-16 bg-border/60 animate-pulse rounded-md"></div>
+		</div>
+	</div>
 {:else if doc}
 	<div class="mb-4 flex items-center gap-3">
 		<label for="template-select" class="text-sm text-muted shrink-0">Template:</label>

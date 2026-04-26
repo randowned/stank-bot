@@ -99,6 +99,15 @@
 					<li class="text-muted text-sm">No roles configured.</li>
 				{/each}
 			</ul>
+		{:else}
+			<div class="mb-4 space-y-2">
+				{#each Array(3) as _}
+					<div class="flex items-center justify-between">
+						<div class="h-4 bg-border/60 animate-pulse rounded w-40"></div>
+						<div class="h-4 bg-border/60 animate-pulse rounded w-16"></div>
+					</div>
+				{/each}
+			</div>
 		{/if}
 		<FormField label="Add role ID">
 			<Input bind:value={newRole} type="number" placeholder="Discord role ID" />
@@ -127,6 +136,15 @@
 					<li class="text-muted text-sm">No global admins.</li>
 				{/each}
 			</ul>
+		{:else}
+			<div class="mb-4 space-y-2">
+				{#each Array(2) as _}
+					<div class="flex items-center justify-between">
+						<div class="h-4 bg-border/60 animate-pulse rounded w-36"></div>
+						<div class="h-4 bg-border/60 animate-pulse rounded w-16"></div>
+					</div>
+				{/each}
+			</div>
 		{/if}
 		<FormField label="Add user ID">
 			<Input bind:value={newUser} type="text" placeholder="Discord user ID" />

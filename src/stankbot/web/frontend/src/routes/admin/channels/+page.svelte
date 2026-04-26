@@ -103,7 +103,23 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 	<Card title="Altar">
 		{#if !altarLoaded}
-			<p class="text-muted text-sm">Loading…</p>
+			<div class="space-y-3">
+				<div>
+					<div class="h-3 bg-border/60 animate-pulse rounded w-20 mb-1"></div>
+					<div class="h-9 bg-border/60 animate-pulse rounded w-full"></div>
+				</div>
+				<div>
+					<div class="h-3 bg-border/60 animate-pulse rounded w-24 mb-1"></div>
+					<div class="h-9 bg-border/60 animate-pulse rounded w-full"></div>
+				</div>
+				<div>
+					<div class="h-3 bg-border/60 animate-pulse rounded w-28 mb-1"></div>
+					<div class="h-9 bg-border/60 animate-pulse rounded w-full"></div>
+				</div>
+				<div class="flex justify-end">
+					<div class="h-9 w-12 bg-border/60 animate-pulse rounded-md"></div>
+				</div>
+			</div>
 		{:else if !altar}
 			<EmptyState
 				icon="🗿"
