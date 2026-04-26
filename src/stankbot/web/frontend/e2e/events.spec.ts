@@ -78,6 +78,26 @@ test.describe('Game events page', () => {
 		await expect(rows.first()).toBeVisible();
 	});
 
+	test('WS-injected event row shows a date in the When column', async ({ page, injectStank }) => {
+		const GUILD = 123456789;
+
+		await page.goto('/admin/events');
+		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
+
+		await injectStank(GUILD, 50001, 'DateCheckUser');
+
+		// Find the row for our user and check its When cell is not empty
+		const targetRow = page
+			.locator('[data-testid="events-table"] tbody tr')
+			.filter({ hasText: 'DateCheckUser' })
+			.first();
+		await expect(targetRow).toBeVisible({ timeout: 5000 });
+
+		const whenCell = targetRow.locator('td').first();
+		const cellText = await whenCell.innerText();
+		expect(cellText.trim().length).toBeGreaterThan(0);
+	});
+
 	test('dashboard has Events tile', async ({ page }) => {
 		await page.goto('/admin');
 		await expect(page.getByText('Game event log')).toBeVisible();
