@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 import type { GuildInfo } from '$lib/types';
+import { apiFetch } from '$lib/api';
 
 interface AuthResponse {
 	user: { id: string; username: string; avatar: string | null } | null;
@@ -18,10 +19,9 @@ let guildsCache: GuildInfo[] | null = null;
 export const load: LayoutLoad = async ({ fetch, url }) => {
 	try {
 		if (!authCache) {
-			const authRes = await fetch('/auth');
-			if (authRes.ok) {
-				authCache = await authRes.json();
-			} else {
+			try {
+				authCache = await apiFetch<AuthResponse>('/auth', { fetch });
+			} catch {
 				authCache = null;
 				guildsCache = null;
 			}
@@ -35,10 +35,9 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 		}
 
 		if (auth?.is_global_admin && guildsCache === null) {
-			const guildsRes = await fetch('/api/guilds');
-			if (guildsRes.ok) {
-				guildsCache = await guildsRes.json();
-			} else {
+			try {
+				guildsCache = await apiFetch<GuildInfo[]>('/api/guilds', { fetch });
+			} catch {
 				guildsCache = [];
 			}
 		}
