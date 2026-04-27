@@ -409,6 +409,9 @@ async def api_chain(
     per_user_reactions = await reaction_awards_repo.count_per_user_for_chain(
         session, guild_id=guild_id, chain_id=chain_id
     )
+    per_user_stanks = await events_repo.count_sp_base_per_user_for_chain(
+        session, guild_id=guild_id, chain_id=chain_id
+    )
     lb_rows = await events_repo.leaderboard_for_chain(session, guild_id, chain_id)
     user_ids = [uid for uid, _, _ in lb_rows]
     name_avatar_map = (
@@ -423,7 +426,8 @@ async def api_chain(
             "earned_sp": sp,
             "punishments": pp,
             "net": sp - pp,
-            "reactions_in_session": per_user_reactions.get(uid, 0),
+            "reactions_in_chain": per_user_reactions.get(uid, 0),
+            "stanks_in_chain": per_user_stanks.get(uid, 0),
         }
         for uid, sp, pp in lb_rows
     ]

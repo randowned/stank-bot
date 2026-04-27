@@ -106,6 +106,7 @@ class MockEventBridge:
         self._notify(guild_id, result)
         return {
             "outcome": result.outcome,
+            "chain_id": result.chain_id,
             "chain_length": result.chain_length,
             "chain_unique": result.chain_unique,
             "sp_awarded": result.sp_awarded,

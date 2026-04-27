@@ -90,7 +90,7 @@ export const test = base.extend<{
 				console.error('injectStank failed:', response.status(), body);
 			}
 			expect(response.ok()).toBeTruthy();
-			return response.json() as Promise<{ message_id: number; chain_length: number; sp_awarded: number }>;
+			return response.json() as Promise<{ message_id: number; chain_id: number; chain_length: number; sp_awarded: number }>;
 		});
 	},
 

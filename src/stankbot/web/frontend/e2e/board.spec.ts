@@ -153,7 +153,7 @@ test.describe('Board', () => {
 		expect(count).toBeGreaterThan(0);
 	});
 
-	test('session and chain counters display in row subtitle', async ({
+	test('subtitle shows session totals on board', async ({
 		page,
 		injectStank,
 		injectReaction
@@ -177,8 +177,8 @@ test.describe('Board', () => {
 		await expect(reactorRow).toBeVisible({ timeout: 5000 });
 		const subtitle = reactorRow.locator('.text-xs.text-muted');
 
-		// Should show "X / Y reacts · A / B Stanks" format
-		await expect(subtitle).toHaveText(/\d+ \/ \d+ reacts · \d+ \/ \d+ Stanks/);
+		// Should show "X Stanks (session total) · Y reacts (session total)" format
+		await expect(subtitle).toHaveText(/\d+ Stanks \(session total\) · \d+ reacts \(session total\)/);
 	});
 
 	test('random events update the board', async ({ page, startRandomEvents, stopRandomEvents }) => {

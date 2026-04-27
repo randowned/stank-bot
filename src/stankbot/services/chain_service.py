@@ -72,7 +72,8 @@ class ChainResult:
     # SP/PP awarded on this message (sum of sub-events).
     sp_awarded: int = 0
     pp_awarded: int = 0
-    # When outcome=VALID_STANK: the new chain length and unique count.
+    # When outcome=VALID_STANK: the chain id, length, and unique count.
+    chain_id: int = 0
     chain_length: int = 0
     chain_unique: int = 0
     # When outcome=COOLDOWN: seconds remaining.
@@ -297,6 +298,7 @@ class ChainService:
         return ChainResult(
             outcome=ChainOutcome.VALID_STANK,
             sp_awarded=sp_awarded,
+            chain_id=current.id,
             chain_length=new_length,
             chain_unique=new_unique,
         )

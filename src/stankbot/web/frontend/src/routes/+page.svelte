@@ -321,7 +321,7 @@
 					{@const userId = data.user?.id}
 					{@const isMe = Boolean(userId && row.user_id === userId)}
 					<div animate:flip={{ duration: 280 }}>
-						<LeaderboardRow {rank} {row} {isMe} />
+						<LeaderboardRow {rank} {row} {isMe} context="board" />
 					</div>
 				{/each}
 			</div>

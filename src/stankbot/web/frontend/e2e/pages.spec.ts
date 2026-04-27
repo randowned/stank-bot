@@ -72,3 +72,27 @@ test.describe('Sessions list page', () => {
 		await expect(sessionLinks.first()).toBeVisible({ timeout: 10000 });
 	});
 });
+
+test.describe('Chain detail page', () => {
+	test.beforeEach(async ({ mockLogin, newSession }) => {
+		await mockLogin();
+		await newSession();
+	});
+
+	test('chain page shows chain totals in subtitle', async ({ page, injectStank }) => {
+		const GUILD = 123456789;
+
+		const stank1 = await injectStank(GUILD, 5001, 'ChainStanker');
+		const chainId = stank1.chain_id;
+
+		await injectStank(GUILD, 5002, 'SecondStanker');
+
+		await page.goto(`/chain/${chainId}`);
+
+		await expect(page.getByText('ChainStanker')).toBeVisible({ timeout: 10000 });
+		const rows = page.locator('[data-testid="rank-row"]');
+		await expect(rows.first()).toBeVisible({ timeout: 10000 });
+		const subtitle = rows.first().locator('.text-xs.text-muted');
+		await expect(subtitle).toContainText('(chain total)', { timeout: 5000 });
+	});
+});

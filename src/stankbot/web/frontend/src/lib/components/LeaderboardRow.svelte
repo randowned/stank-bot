@@ -10,29 +10,33 @@
 		rank: number;
 		row: PlayerRow;
 		isMe?: boolean;
+		context?: 'board' | 'chain';
 	}
 
-	let { rank, row, isMe = false }: Props = $props();
+	let { rank, row, isMe = false, context = 'board' }: Props = $props();
 
 	const href = $derived(`${base}/player/${row.user_id}`);
 	const net = $derived(row.net ?? row.earned_sp - row.punishments);
-	const reactionsInChain = $derived(row.reactions_in_chain ?? row.reactions_in_session ?? 0);
-	const reactionsInSession = $derived(row.reactions_in_session ?? 0);
-	const stanksInChain = $derived(row.stanks_in_chain ?? 0);
-	const stanksInSession = $derived(row.stanks_in_session ?? 0);
-	const hasReactionMeta = $derived(row.reactions_in_session !== undefined || row.reactions_in_chain !== undefined);
+	const contextLabel = $derived(context === 'chain' ? 'chain total' : 'session total');
+	const stankCount = $derived(context === 'chain' ? (row.stanks_in_chain ?? 0) : (row.stanks_in_session ?? 0));
+	const reactionCount = $derived(context === 'chain' ? (row.reactions_in_chain ?? 0) : (row.reactions_in_session ?? 0));
+	const hasReactionMeta = $derived(
+		context === 'chain'
+			? (row.reactions_in_chain !== undefined || row.stanks_in_chain !== undefined)
+			: (row.reactions_in_session !== undefined || row.stanks_in_session !== undefined)
+	);
 
 	const netColor = $derived(net > 0 ? 'text-accent' : net < 0 ? 'text-danger' : 'text-muted');
 	const netLabel = $derived(net > 0 ? `+${net.toLocaleString()}` : net.toLocaleString());
 
 	let flash = $state(false);
 	const rowKey = $derived(
-		`${row.user_id}:${row.earned_sp}:${row.punishments}:${reactionsInChain}`
+		`${row.user_id}:${row.earned_sp}:${row.punishments}:${reactionCount}`
 	);
 	let prevKey = $state('');
 	let prevSp = $state(untrack(() => row.earned_sp));
 	let prevPp = $state(untrack(() => row.punishments));
-	let prevReacts = $state(untrack(() => reactionsInChain));
+	let prevReacts = $state(untrack(() => reactionCount));
 
 	type DeltaChip = { id: number; delta: number; kind: 'stank' | 'reaction' | 'break' | 'finish' | 'other' };
 	let chips: DeltaChip[] = $state([]);
@@ -45,18 +49,18 @@
 			prevKey = key;
 			prevSp = row.earned_sp;
 			prevPp = row.punishments;
-			prevReacts = reactionsInChain;
+			prevReacts = reactionCount;
 			return;
 		}
 		if (key !== prev) {
 			const dSp = row.earned_sp - untrack(() => prevSp);
 			const dPp = row.punishments - untrack(() => prevPp);
-			const dRe = reactionsInChain - untrack(() => prevReacts);
+			const dRe = reactionCount - untrack(() => prevReacts);
 
 			prevKey = key;
 			prevSp = row.earned_sp;
 			prevPp = row.punishments;
-			prevReacts = reactionsInChain;
+			prevReacts = reactionCount;
 
 			flash = true;
 			const flashId = setTimeout(() => (flash = false), 900);
@@ -104,7 +108,7 @@
 			{/if}
 		</div>
 		{#if hasReactionMeta}
-			<div class="text-xs text-muted truncate">{reactionsInChain} / {reactionsInSession} reacts · {stanksInChain} / {stanksInSession} Stanks</div>
+			<div class="text-xs text-muted truncate">{stankCount} Stanks ({contextLabel}) · {reactionCount} reacts ({contextLabel})</div>
 		{/if}
 	</div>
 	<div class="relative min-w-[4ch] text-right">
