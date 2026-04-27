@@ -152,7 +152,7 @@
 		<!-- Background image -->
 		<div
 			class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-			style="background-image: url('/background.png');"
+			style="background-image: url('/background.webp');"
 		></div>
 		<!-- Dark gradient overlay -->
 		<div class="absolute inset-0 bg-gradient-to-b from-bg/80 via-bg/60 to-bg/90"></div>
@@ -164,7 +164,7 @@
 			<div class="mb-6 relative">
 				<div class="absolute inset-0 rounded-full bg-accent/20 blur-xl animate-pulse"></div>
 				<img
-					src="/stank.gif"
+					src="/stank.webp"
 					alt="Stank"
 					class="w-20 h-20 relative drop-shadow-[0_0_20px_rgba(164,124,255,0.4)]"
 				/>
@@ -214,7 +214,7 @@
 		<div class="flex items-center justify-between mb-3">
 			<div>
 				<h1 class="text-xl font-bold flex items-center gap-2" data-testid="guild-name">
-					<img src="/stank.gif" alt="Stank" class="w-6 h-6" />
+					<img src="/stank.webp" alt="Stank" class="w-6 h-6" />
 					{data.guild_name}
 				</h1>
 			</div>

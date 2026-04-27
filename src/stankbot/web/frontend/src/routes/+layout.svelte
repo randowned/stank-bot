@@ -123,7 +123,7 @@
 					</button>
 				{/if}
 				<a href="{base}/" class="flex items-center gap-2 shrink-0">
-					<img src="/stank.gif" alt="Stank" class="w-6 h-6" />
+					<img src="/stank.webp" alt="Stank" class="w-6 h-6" />
 					<span class="font-semibold text-text">StankBot</span>
 				</a>
 			</div>
