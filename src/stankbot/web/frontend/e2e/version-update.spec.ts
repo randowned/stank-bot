@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures';
+import { Packr } from 'msgpackr';
 
 test.describe('Version update notification', () => {
 	test.beforeEach(async ({ mockLogin }) => {
@@ -30,7 +31,7 @@ test.describe('Version update notification', () => {
 		// Wait for the update toast to appear
 		const toast = page.locator('[data-testid="update-toast"]');
 		await expect(toast).toBeVisible({ timeout: 10000 });
-		await expect(toast).toContainText('new version is available');
+		await expect(toast).toContainText('Updated version available');
 
 		// Reload button should be visible
 		const reloadBtn = page.locator('[data-testid="update-reload-btn"]');
@@ -136,5 +137,52 @@ test.describe('Version update notification', () => {
 
 		// Toast should still be visible
 		await expect(toast).toBeVisible();
+	});
+
+	test('WS message type is 109 (VERSION_MISMATCH) on version mismatch', async ({ page }) => {
+		// Get the server version
+		const apiResp = await page.request.get('/api/version');
+		const { version: serverVersion } = await apiResp.json();
+
+		// Override server version via mock to guarantee mismatch
+		await page.request.post('/api/mock/version', { data: { version: '99.0.0' } });
+
+		// Intercept WebSocket frames at the Playwright layer
+		const frameBuffers: Buffer[] = [];
+		page.on('websocket', (ws) => {
+			ws.on('framereceived', (frame) => {
+				if (frame.payload instanceof Buffer) {
+					frameBuffers.push(frame.payload);
+				}
+			});
+		});
+
+		// Set a mismatched version in localStorage
+		await page.evaluate(
+			(v) => localStorage.setItem('stankbot:version', v),
+			`${serverVersion}.old`
+		);
+
+		// Reload to connect with mismatched version
+		await page.reload();
+
+		// Wait for the update toast to appear (confirms mismatch was processed)
+		const toast = page.locator('[data-testid="update-toast"]');
+		await expect(toast).toBeVisible({ timeout: 10000 });
+
+		// Decode captured frames and find VERSION_MISMATCH (type 109)
+		const packr = new Packr({ useRecords: false });
+		const mismatchFrames = frameBuffers
+			.map((buf) => {
+				try { return packr.unpack(new Uint8Array(buf)); } catch { return null; }
+			})
+			.filter((msg): msg is { t: number; d: Record<string, unknown> } =>
+				msg !== null && typeof msg.t === 'number' && msg.t === 109
+			);
+		expect(mismatchFrames.length).toBeGreaterThan(0);
+
+		const mismatch = mismatchFrames[0].d as { server_version: string; client_version: string };
+		expect(mismatch.server_version).toBe('99.0.0');
+		expect(mismatch.client_version).toBe(`${serverVersion}.old`);
 	});
 });

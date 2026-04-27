@@ -140,15 +140,12 @@ test.describe('Board', () => {
 			await injectStank(GUILD, 8000 + i, `PaginatedUser${i}`);
 		}
 
-		// Wait for some rows to appear
-		await expect(page.locator('[data-testid="rank-row"]').first()).toBeVisible({ timeout: 5000 });
+		// Wait for the last few rows to appear so pagination is active
+		await expect(page.locator('[data-testid="rank-row"]')).toHaveCount(20, { timeout: 10000 });
 
-		// Scroll down to trigger loadMore
-		const sentinel = page.locator('[data-testid="pagination-sentinel"]');
-		if (sentinel) {
-			await sentinel.scrollIntoViewIfNeeded();
-			await page.waitForTimeout(1000);
-		}
+		// Scroll down and wait for more rows to load
+		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+		await page.waitForTimeout(2000);
 
 		// Verify some rows show counters (stanks/reacted format)
 		const rowsWithCounters = page.locator('[data-testid="rank-row"]').filter({ hasText: /Stanks/ });
@@ -181,7 +178,7 @@ test.describe('Board', () => {
 		const subtitle = reactorRow.locator('.text-xs.text-muted');
 
 		// Should show "X / Y reacts · A / B Stanks" format
-		await expect(subtitle).toMatch(/\d+ \/ \d+ reacts · \d+ \/ \d+ Stanks/);
+		await expect(subtitle).toHaveText(/\d+ \/ \d+ reacts · \d+ \/ \d+ Stanks/);
 	});
 
 	test('random events update the board', async ({ page, startRandomEvents, stopRandomEvents }) => {

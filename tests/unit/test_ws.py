@@ -24,13 +24,16 @@ from stankbot.web.ws import (
 class MsgType:
     SUBSCRIBE = 1
     PING = 2
+    VERSION_RESPONSE = 3
     STATE = 101
     RANK_UPDATE = 102
     CHAIN_UPDATE = 103
     PONG = 104
     ACHIEVEMENT = 105
     SESSION = 106
-    ERROR = 107
+    GAME_EVENT = 107
+    ERROR = 108
+    VERSION_MISMATCH = 109
 
 
 class TestConnectionManager:
@@ -76,62 +79,77 @@ class TestConnectionManager:
 
 class TestMessageTypes:
     def test_msgtype_values(self) -> None:
-        assert MsgType.SUBSCRIBE == 1
-        assert MsgType.PING == 2
-        assert MsgType.STATE == 101
-        assert MsgType.RANK_UPDATE == 102
-        assert MsgType.CHAIN_UPDATE == 103
-        assert MsgType.PONG == 104
-        assert MsgType.ACHIEVEMENT == 105
-        assert MsgType.SESSION == 106
-        assert MsgType.ERROR == 107
+        from stankbot.web.ws import (
+            MSG_TYPE_PING,
+            MSG_TYPE_VERSION_RESPONSE,
+            MSG_TYPE_STATE,
+            MSG_TYPE_RANK_UPDATE,
+            MSG_TYPE_CHAIN_UPDATE,
+            MSG_TYPE_PONG,
+            MSG_TYPE_ACHIEVEMENT,
+            MSG_TYPE_SESSION,
+            MSG_TYPE_GAME_EVENT,
+            MSG_TYPE_ERROR,
+            MSG_TYPE_VERSION_MISMATCH,
+        )
+        assert MSG_TYPE_PING == 2
+        assert MSG_TYPE_VERSION_RESPONSE == 3
+        assert MSG_TYPE_STATE == 101
+        assert MSG_TYPE_RANK_UPDATE == 102
+        assert MSG_TYPE_CHAIN_UPDATE == 103
+        assert MSG_TYPE_PONG == 104
+        assert MSG_TYPE_ACHIEVEMENT == 105
+        assert MSG_TYPE_SESSION == 106
+        assert MSG_TYPE_GAME_EVENT == 107
+        assert MSG_TYPE_ERROR == 108
+        assert MSG_TYPE_VERSION_MISMATCH == 109
 
 
 class TestBroadcastFunctions:
     @pytest.mark.asyncio
     async def test_notify_chain_update(self) -> None:
         with patch.object(manager, 'broadcast_json', new_callable=AsyncMock) as mock:
-            from stankbot.web.ws import notify_chain_update
+            from stankbot.web.ws import notify_chain_update, MSG_TYPE_CHAIN_UPDATE
             await notify_chain_update(123, 50, 10, 456)
             mock.assert_called_once()
             call_args = mock.call_args[0]
             assert call_args[0] == 123
-            assert call_args[1]["t"] == 103
+            assert call_args[1]["t"] == MSG_TYPE_CHAIN_UPDATE
             assert call_args[1]["d"]["current"] == 50
 
     @pytest.mark.asyncio
     async def test_notify_rank_update(self) -> None:
         with patch.object(manager, 'broadcast_json', new_callable=AsyncMock) as mock:
-            from stankbot.web.ws import notify_rank_update
+            from stankbot.web.ws import notify_rank_update, MSG_TYPE_RANK_UPDATE
             rankings = [{"user_id": 1, "display_name": "Test", "earned_sp": 100, "punishments": 0}]
             await notify_rank_update(123, rankings)
             mock.assert_called_once()
             call_args = mock.call_args[0]
             assert call_args[0] == 123
-            assert call_args[1]["t"] == 102
+            assert call_args[1]["t"] == MSG_TYPE_RANK_UPDATE
 
     @pytest.mark.asyncio
     async def test_notify_achievement(self) -> None:
         with patch.object(manager, 'broadcast_json', new_callable=AsyncMock) as mock:
-            from stankbot.web.ws import notify_achievement
+            from stankbot.web.ws import notify_achievement, MSG_TYPE_ACHIEVEMENT
             badge = {"key": "first_stank", "name": "First Stank", "icon": "✨"}
             await notify_achievement(123, 456, badge)
             mock.assert_called_once()
             call_args = mock.call_args[0]
             assert call_args[0] == 123
-            assert call_args[1]["t"] == 105
+            assert call_args[1]["t"] == MSG_TYPE_ACHIEVEMENT
 
     @pytest.mark.asyncio
     async def test_notify_session(self) -> None:
         with patch.object(manager, 'broadcast_json', new_callable=AsyncMock) as mock:
             from datetime import datetime
 
-            from stankbot.web.ws import notify_session
+            from stankbot.web.ws import notify_session, MSG_TYPE_SESSION
             await notify_session(123, 1, "start", datetime.now(UTC), None)
             mock.assert_called_once()
             call_args = mock.call_args[0]
             assert call_args[0] == 123
-            assert call_args[1]["t"] == 106
+            assert call_args[1]["t"] == MSG_TYPE_SESSION
 
 
 @pytest.mark.usefixtures("session")

@@ -17,10 +17,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 log = logging.getLogger(__name__)
 
 # WS message type constants (shared with frontend ws.ts)
+MSG_TYPE_PING = 2
+MSG_TYPE_VERSION_RESPONSE = 3
 MSG_TYPE_STATE = 101
 MSG_TYPE_RANK_UPDATE = 102
 MSG_TYPE_CHAIN_UPDATE = 103
+MSG_TYPE_PONG = 104
+MSG_TYPE_ACHIEVEMENT = 105
+MSG_TYPE_SESSION = 106
 MSG_TYPE_GAME_EVENT = 107
+MSG_TYPE_ERROR = 108
+MSG_TYPE_VERSION_MISMATCH = 109
 
 router = APIRouter(prefix="")
 
@@ -218,7 +225,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             state = await get_board_state(db, guild_id, guild_name)
         if state:
             state["version"] = getattr(app_state, "app_version", "0.0.0")
-            packed = msgpack.packb({"t": 101, "d": state}, use_single_float=True)
+            packed = msgpack.packb({"t": MSG_TYPE_STATE, "d": state}, use_single_float=True)
             await websocket.send_bytes(packed)
     except Exception as e:
         log.warning("Failed to send initial state to WS client: %s", e)
@@ -229,15 +236,15 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 data = await websocket.receive_bytes()
                 msg = msgpack.unpackb(data, raw=False)
                 msg_type = msg.get("t")
-                if msg_type == 2:
-                    await websocket.send_bytes(msgpack.packb({"t": 104}))
-                elif msg_type == 3:
+                if msg_type == MSG_TYPE_PING:
+                    await websocket.send_bytes(msgpack.packb({"t": MSG_TYPE_PONG}))
+                elif msg_type == MSG_TYPE_VERSION_RESPONSE:
                     client_version = msg.get("d", {}).get("version", "")
                     server_version = getattr(app_state, "app_version", "0.0.0")
                     if client_version != server_version:
                         await websocket.send_bytes(
                             msgpack.packb(
-                                {"t": 108, "d": {"server_version": server_version, "client_version": client_version}},
+                                {"t": MSG_TYPE_VERSION_MISMATCH, "d": {"server_version": server_version, "client_version": client_version}},
                                 use_single_float=True,
                             )
                         )
@@ -261,7 +268,7 @@ async def notify_chain_update(
     await manager.broadcast_json(
         guild_id,
         {
-            "t": 103,
+            "t": MSG_TYPE_CHAIN_UPDATE,
             "d": {
                 "current": current,
                 "current_unique": current_unique,
@@ -277,7 +284,7 @@ async def notify_rank_update(guild_id: int, rankings: list, reactions: int | Non
         payload["reactions"] = reactions
     if session_reactions is not None:
         payload["session_reactions"] = session_reactions
-    await manager.broadcast_json(guild_id, {"t": 102, "d": payload})
+    await manager.broadcast_json(guild_id, {"t": MSG_TYPE_RANK_UPDATE, "d": payload})
 
 
 async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20) -> None:
@@ -356,7 +363,7 @@ async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20)
 async def notify_achievement(guild_id: int, user_id: int, badge: dict) -> None:
     await manager.broadcast_json(
         guild_id,
-        {"t": 105, "d": {"user_id": str(user_id), "badge": badge}},
+        {"t": MSG_TYPE_ACHIEVEMENT, "d": {"user_id": str(user_id), "badge": badge}},
     )
 
 
@@ -387,7 +394,7 @@ async def notify_session(
     await manager.broadcast_json(
         guild_id,
         {
-            "t": 106,
+            "t": MSG_TYPE_SESSION,
             "d": {
                 "session_id": session_id,
                 "action": action,

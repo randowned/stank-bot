@@ -1,6 +1,12 @@
 import { test, expect, defaultUser, adminUser } from './fixtures';
 
 const GUILD = 123456789;
+let idCounter = 0;
+
+function makeId(): number {
+	idCounter++;
+	return 80000 + (Date.now() % 10000) * 10 + idCounter;
+}
 
 test.describe('Player profile session vs all-time', () => {
 	test.beforeEach(async ({ mockLogin }) => {
@@ -10,9 +16,9 @@ test.describe('Player profile session vs all-time', () => {
 	test('session and alltime show different values after activity in current session', async ({ page, injectStank, injectBreak, newSession }) => {
 		await newSession();
 
-		const userId = 70001;
+		const userId = makeId();
 		const stankResult = await injectStank(GUILD, userId, 'TestPlayer');
-		await injectBreak(GUILD, 70002, 'BreakerUser');
+		await injectBreak(GUILD, makeId(), 'BreakerUser');
 
 		await page.goto(`/player/${userId}`);
 		await expect(page.getByTestId('session-stats')).toBeVisible({ timeout: 10000 });
@@ -27,7 +33,7 @@ test.describe('Player profile session vs all-time', () => {
 	test('session stats reflect activity in current session only', async ({ page, injectStank, newSession }) => {
 		await newSession();
 
-		const userId = 70011;
+		const userId = makeId();
 		const stankResult = await injectStank(GUILD, userId, 'SessionPlayer');
 
 		await page.goto(`/player/${userId}`);
@@ -41,7 +47,7 @@ test.describe('Player profile session vs all-time', () => {
 	});
 
 	test('alltime accumulates from previous sessions after session rollover', async ({ page, injectStank, injectBreak, newSession }) => {
-		const userId = 70021;
+		const userId = makeId();
 		await injectStank(GUILD, userId, 'Accumulator1');
 		await injectBreak(GUILD, userId, 'Accumulator1');
 
@@ -66,7 +72,7 @@ test.describe('Player profile session vs all-time', () => {
 	test('after rebuild-from-db, session and alltime still differ correctly', async ({ page, injectStank, newSession }) => {
 		await newSession();
 
-		const userId = 70031;
+		const userId = makeId();
 		await injectStank(GUILD, userId, 'RebuildTestUser');
 
 		await page.goto(`/player/${userId}`);
@@ -93,9 +99,9 @@ test.describe('Player profile session vs all-time', () => {
 	test('chains_started and chains_broken only show in alltime, not session', async ({ page, injectStank, injectBreak, newSession }) => {
 		await newSession();
 
-		const userId = 70041;
+		const userId = makeId();
 		await injectStank(GUILD, userId, 'ChainStarter');
-		await injectBreak(GUILD, 70042, 'ChainBreaker');
+		await injectBreak(GUILD, makeId(), 'ChainBreaker');
 
 		await page.goto(`/player/${userId}`);
 		await expect(page.getByTestId('session-stats')).toBeVisible({ timeout: 10000 });
@@ -117,7 +123,7 @@ test.describe('Player profile page loads', () => {
 	});
 
 	test('player profile page renders for existing player', async ({ page, injectStank }) => {
-		const userId = 70051;
+		const userId = makeId();
 		await injectStank(GUILD, userId, 'ExistingPlayer');
 
 		await page.goto(`/player/${userId}`);

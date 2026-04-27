@@ -4,6 +4,8 @@ Operational guide for AI agents (Claude Code, etc.) working in this repository. 
 
 Procedures live in `.claude/commands/` (user-triggered) and `.claude/skills/` (auto-invoked). This file is the map — not the procedures themselves.
 
+> **`.claude/` is a local symlink to `.opencode/`.** Both directories point to the same files. Do not create or edit anything under `.claude/` — always use `.opencode/` instead. The `.claude/settings.local.json` file is local-only and not tracked in git.
+
 ## Workflow rules
 
 These rules override any default behavior. Follow them strictly.
@@ -16,6 +18,7 @@ These rules override any default behavior. Follow them strictly.
 ### Commits
 - **Never commit unless the user explicitly asks.** After finishing a change, stop and wait.
 - Shipping is handled by `/commit-and-push` (version bump + README sync + commit + push). Docs-only sync is `/update-docs`.
+- **Never auto-execute `/commit-and-push` or `/update-docs`** — these must only run when the user explicitly invokes them. If there are uncommitted/unstaged changes in the repo, do not commit, push, or bump without being told.
 - **No `Co-Authored-By` trailer.** Never add AI co-author trailers. (Also enforced via `~/.claude/CLAUDE.md`.)
 
 ### Debugging production
@@ -41,6 +44,11 @@ When delegating, brief the agent self-contained: state the goal, name the files/
 - Stay inside the repo; don't touch external systems without being asked.
 - Prefer editing existing code to adding new files. The project is intentionally multi-file, but resist inventing new modules when an existing one is the right home.
 - Do not invent abstractions (base classes, plugin interfaces, DI frameworks) until a second concrete implementation forces the shape.
+- **Windows (PowerShell)** does not support `&&` for chaining commands. Use `; cmd2` (run unconditionally) or two separate tool calls.
+
+### Database migrations
+
+When creating an Alembic migration, the `down_revision` must point to the actual current head in `migrations/versions/`. The migration chain has broken twice (`v2.26.1`, `v2.26.2`) from an incorrect `down_revision`. Run `alembic history` before creating a new migration to confirm the latest head's revision ID.
 
 ### Environments
 
@@ -71,14 +79,63 @@ All changes must be verified before they are considered done. The verification p
 2. **Dev mode smoke test:** Start dev mode, verify the UI visually and via network tab.
 3. **E2E coverage:** Same rule as backend — if no E2E test covers the modified flow, **you must add one**.
 
+### Frontend patterns
+
+**Framework stack.** SvelteKit 2 with `@sveltejs/adapter-static` (SPA mode, no SSR). Svelte 5 runes (`$state`, `$derived`, `$effect`) in `.svelte` files. Traditional `writable` stores from `svelte/store` for cross-component state (board, auth, toasts, WS events).
+
+**API calls MUST use `apiFetch`**, not `fetch`. The custom `apiFetch` wrapper in `src/lib/api.ts` negotiates msgpack encoding for request body and response parsing. The same `Packr` instance is shared with the WebSocket client for consistent binary encoding. The `loadWithFallback` wrapper in `src/lib/api-utils.ts` handles page load errors gracefully — use it in `+page.ts` load functions instead of try/catch.
+
+**Auth state is cached in sessionStorage** under keys `stankbot:auth` and `stankbot:guilds`. After login/logout, these caches must be cleared (the `mockLogin` fixture does this automatically). The `+layout.ts` root layout fetches `/auth` and `/api/guilds` once per SPA navigation and caches the results.
+
+**Reusable components** live in `$lib/components/` — use existing ones (`Button`, `Input`, `Toggle`, `Dropdown`, `Modal`, `Tabs`, `Avatar`, etc.) before creating new ones. Every component should use `data-testid` attributes for stable E2E queries.
+
+**WebSocket connection lifecycle** is managed in `src/lib/ws.ts`. It auto-reconnects with exponential backoff, deduplicates connections, and dispatches events to the `lastWsEvent` store (see `src/lib/stores/ws-events.ts`). The store pattern is: `emitWsEvent({ kind: '...', ... })` → layout subscribes and reacts. Do not create additional WS connections — use the existing one.
+
+**Stores** in `src/lib/stores/` are the single source of truth for:
+- `boardState` — leaderboard rankings, chain state, reactions
+- `connectionStatus` — WS connection state
+- `lastWsEvent` — side-channel events (toasts, achievements, version mismatch)
+- `toasts` — notification queue (auto-dismiss after 3s)
+- `playerProfiles` — player profile cache (per-guild per-user)
+
+**Common pitfalls from historical fixes:**
+- SPA navigation does NOT reload stores (`+layout.ts`). Auth/board data is cached until a manual reload or explicit refetch (v2.19.1).
+- WS connections must be deduplicated — guard with `ws?.readyState === WebSocket.OPEN` before creating (v2.17.14).
+- The Vite dev server proxies `/api`, `/ws`, `/auth`, `/ping` to the backend at `localhost:8000`. If the backend isn't running, all API calls fail silently or return `ECONNREFUSED`.
+- When adding a new store, export it from `src/lib/stores/index.ts` so `$lib/stores` resolves it.
+
 ### E2E test execution
 
 - **For agent verification during development:** `cd src/stankbot/web/frontend && npm run test:e2e` (reuses the running Vite dev server).
 - **For commit-and-push readiness:** same command; the Playwright config starts the Vite dev server automatically if one isn't already running.
 
-Both require the backend running in `ENV=dev-mock`. Use the one-command startup scripts:
+**Critical: E2E tests require TWO processes — the backend AND the frontend.**
+`npm run test:e2e` only starts the Vite dev server. It does NOT start the Python FastAPI backend. If the backend isn't already running, all API proxy calls return ECONNREFUSED and every test that calls `mockLogin()` fails.
+
+Use the one-command startup scripts to run both:
 - Windows: `.\scripts\dev.ps1`
 - macOS/Linux: `./scripts/dev.sh`
+
+To start them manually (requires two shells):
+1. **Shell 1 — Backend:** Set `$env:ENV="dev-mock"` and `$env:PYTHONPATH="<repo>\src"`, then run `python -m stankbot` (stays running).
+2. **Shell 2 — Tests:** `cd src/stankbot/web/frontend && npm run test:e2e` (starts Vite + runs Playwright).
+
+### E2E test patterns
+
+**DB state pollution.** The SQLite DB (`stankbot_dev.db`) persists between E2E test runs. Hardcoded user IDs accumulate SP/PP across runs, causing flaky assertions on exact values. Use unique-per-run user IDs (`Date.now() % 1_000_000_000` or a counter-based `makeId()`) when the specific SP value matters, not just that it's truthy. Fixtures like `newSession()` break the chain and end the session but do NOT clear event history.
+
+**Playwright WebSocket frame interception.** To capture server-to-client WS frames in Playwright:
+```typescript
+const frames: Buffer[] = [];
+page.on('websocket', (ws) => {
+    ws.on('framereceived', (frame) => {
+        if (frame.payload instanceof Buffer) frames.push(frame.payload);
+    });
+});
+```
+- Use `'framereceived'` event (fires per message), NOT `'frames'` (may not fire reliably).
+- For msgpack binary frames, `frame.payload` is a Buffer; decode with `msgpackr.unpack(new Uint8Array(buf))`.
+- Set up the handler BEFORE calling `page.reload()` or `page.goto()` so it catches the WS connection.
 
 ### Mock event injection
 
@@ -122,6 +179,7 @@ Detailed enforcement lives in auto-invoked skills:
 - **`stank-event-sourcing`** — `events` table is source of truth; totals are derived; log is append-only; rebuilds replay, never patch. Triggers when touching code that mutates domain state.
 - **`stank-service-purity`** — `services/` is framework-agnostic (no `discord.py`); `cogs/` translates Discord ↔ services; `web/` imports services directly. Triggers when editing those layers.
 - **`stank-embed-templates`** — template variables are `{snake_case}` so services pass context dicts directly. Triggers when editing templates / renderers.
+- **`stank-ws-protocol`** — frontend `MsgType` enum and backend `MSG_TYPE_*` constants must stay in sync. Triggers when editing WS message type definitions.
 
 ## What this project is
 
@@ -153,10 +211,16 @@ Members post messages containing the `:Stank:` emoji/sticker in a designated **a
 - **Live chain handling:** [src/stankbot/services/chain_service.py](src/stankbot/services/chain_service.py). The ONLY place chain state transitions happen.
 - **Session boundaries:** [src/stankbot/services/session_service.py](src/stankbot/services/session_service.py). Emits `session_start`/`session_end` events — no snapshot tables.
 - **Schema:** [src/stankbot/db/models.py](src/stankbot/db/models.py). Authority for all tables.
+- **Reaction awards:** [src/stankbot/db/repositories/reaction_awards.py](src/stankbot/db/repositories/reaction_awards.py). Tracks per (message, user) first-reaction-only; chain_id scoping is critical to correctness.
 - **Embed rendering:** [src/stankbot/services/board_renderer.py](src/stankbot/services/board_renderer.py) + [template_engine.py](src/stankbot/services/template_engine.py) + [template_store.py](src/stankbot/services/template_store.py) + [embed_builders.py](src/stankbot/services/embed_builders.py).
 - **Cogs (Discord surface):** [src/stankbot/cogs/](src/stankbot/cogs/).
 - **Dashboard API:** [src/stankbot/web/app.py](src/stankbot/web/app.py) (factory) + [routes/api.py](src/stankbot/web/routes/api.py) + [routes/admin.py](src/stankbot/web/routes/admin.py) + [routes/auth.py](src/stankbot/web/routes/auth.py).
-- **WebSocket:** [src/stankbot/web/ws.py](src/stankbot/web/ws.py). Cookie-based auth; broadcast hub for live board updates.
+- **WebSocket:** [src/stankbot/web/ws.py](src/stankbot/web/ws.py). Cookie-based auth; broadcast hub for live board updates. The frontend uses msgpack for both WS and HTTP (`apiFetch` negotiates msgpack encoding).
+- **Auth flow:** [src/stankbot/web/routes/auth.py](src/stankbot/web/routes/auth.py) + [src/stankbot/cogs/auth_cog.py](src/stankbot/cogs/auth_cog.py). Mock login (`/auth/mock-login`), session cookies, admin check, guild permissions. E2E tests use the `mockLogin(user?)` fixture which also clears the frontend session cache.
+- **Frontend API client:** [src/stankbot/web/frontend/src/lib/api.ts](src/stankbot/web/frontend/src/lib/api.ts) — `apiFetch` wrapper with msgpack negotiation, retry, error handling.
+- **Frontend stores:** [src/stankbot/web/frontend/src/lib/stores/](src/stankbot/web/frontend/src/lib/stores/) — cross-component state for board, auth, toasts, WS events.
+- **Frontend components:** [src/stankbot/web/frontend/src/lib/components/](src/stankbot/web/frontend/src/lib/components/) — reusable UI primitives (`Button`, `Modal`, `Tabs`, `Dropdown`, etc.).
+- **WebSocket client:** [src/stankbot/web/frontend/src/lib/ws.ts](src/stankbot/web/frontend/src/lib/ws.ts) — connection lifecycle, msgpack encoding, `MsgType` enum shared with backend.
 
 ## Reference files
 

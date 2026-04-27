@@ -22,8 +22,9 @@ describe('WebSocket Client', () => {
 				PONG: 104,
 				ACHIEVEMENT: 105,
 				SESSION: 106,
-				ERROR: 107,
-				VERSION_MISMATCH: 108
+				GAME_EVENT: 107,
+				ERROR: 108,
+				VERSION_MISMATCH: 109
 			};
 			expect(MsgType.STATE).toBe(101);
 			expect(MsgType.RANK_UPDATE).toBe(102);
@@ -31,8 +32,9 @@ describe('WebSocket Client', () => {
 			expect(MsgType.PONG).toBe(104);
 			expect(MsgType.ACHIEVEMENT).toBe(105);
 			expect(MsgType.SESSION).toBe(106);
-			expect(MsgType.ERROR).toBe(107);
-			expect(MsgType.VERSION_MISMATCH).toBe(108);
+			expect(MsgType.GAME_EVENT).toBe(107);
+			expect(MsgType.ERROR).toBe(108);
+			expect(MsgType.VERSION_MISMATCH).toBe(109);
 		});
 	});
 
