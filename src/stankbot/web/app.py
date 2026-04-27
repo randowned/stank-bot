@@ -20,9 +20,10 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
+from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.staticfiles import StaticFiles
 
 from stankbot.bot import StankBot
 from stankbot.config import AppConfig
@@ -32,6 +33,18 @@ from stankbot.web.tools import _LoginRedirect, _NotInGuild
 
 log = logging.getLogger(__name__)
 WEB_DIR = Path(os.environ.get("WEB_DIR", str(Path(__file__).parent / "frontend")))
+
+
+class _SPAStaticFiles(StaticFiles):
+    """Serve index.html for any unmatched path (SPA fallback)."""
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                return await super().get_response("", scope)
+            raise
 
 def build_app(
     config: AppConfig,
@@ -92,6 +105,6 @@ def build_app(
 
     build_dir = WEB_DIR / "build"
     if build_dir.is_dir() and (build_dir / "index.html").is_file():
-        app.mount("/", StaticFiles(directory=str(build_dir), html=True), name="static")
+        app.mount("/", _SPAStaticFiles(directory=str(build_dir), html=True), name="static")
 
     return app
