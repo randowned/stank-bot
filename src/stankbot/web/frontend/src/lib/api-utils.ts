@@ -1,5 +1,11 @@
 import { FetchError } from './api';
 
+export function toErrorMessage(err: unknown, fallback = 'Request failed'): string {
+	if (err instanceof FetchError) return err.message;
+	if (err instanceof Error) return err.message;
+	return fallback;
+}
+
 export interface LoadWithFallbackOptions<T> {
 	/** Invoked when the fetcher throws. Use to log, report, or surface errors. */
 	onError?: (error: unknown) => void;

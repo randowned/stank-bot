@@ -35,12 +35,7 @@
 	const netSeries = $derived(history.map((p) => p.sp - p.pp));
 
 	import { formatDateTime } from '$lib/datetime';
-
-	function formatNumber(n: number): string {
-		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-		if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-		return n.toString();
-	}
+	import { formatNumber } from '$lib/format';
 </script>
 
 <div class="p-4 space-y-4">

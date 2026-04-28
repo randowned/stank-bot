@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { apiFetch, apiPost, FetchError } from '$lib/api';
+	import { apiFetch, apiPost } from '$lib/api';
+	import { toErrorMessage } from '$lib/api-utils';
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import FormField from '$lib/components/FormField.svelte';
+	import ErrorState from '$lib/components/ErrorState.svelte';
+	import RemovableItem from '$lib/components/RemovableItem.svelte';
 
 	interface RolesDoc {
 		role_ids: string[];
@@ -23,7 +26,7 @@
 		try {
 			doc = await apiFetch<RolesDoc>('/api/admin/roles');
 		} catch (err) {
-			error = err instanceof FetchError ? err.message : 'Failed to load';
+			error = toErrorMessage(err, 'Failed to load');
 		}
 	}
 
@@ -35,7 +38,7 @@
 			newRole = '';
 			await load();
 		} catch (err) {
-			error = err instanceof FetchError ? err.message : 'Add failed';
+			error = toErrorMessage(err, 'Add failed');
 		}
 	}
 
@@ -45,7 +48,7 @@
 			await apiPost('/api/admin/roles/remove', { role_id: Number(role) });
 			await load();
 		} catch (err) {
-			error = err instanceof FetchError ? err.message : 'Remove failed';
+			error = toErrorMessage(err, 'Remove failed');
 		}
 	}
 
@@ -58,7 +61,7 @@
 			newUser = '';
 			await load();
 		} catch (err) {
-			error = err instanceof FetchError ? err.message : 'Add failed';
+			error = toErrorMessage(err, 'Add failed');
 		}
 	}
 
@@ -68,7 +71,7 @@
 			await apiPost('/api/admin/roles/users/remove', { user_id: Number(uid) });
 			await load();
 		} catch (err) {
-			error = err instanceof FetchError ? err.message : 'Remove failed';
+			error = toErrorMessage(err, 'Remove failed');
 		}
 	}
 
@@ -77,14 +80,16 @@
 
 <PageHeader title="Admins" subtitle="Per-guild admin roles and global admin users" />
 
-{#if error}<div class="text-sm text-danger mb-3">{error}</div>{/if}
+{#if error}
+	<ErrorState message={error} onretry={load} />
+{/if}
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 	<Card title="Guild admin roles">
 		{#if doc}
 			<ul class="mb-4 space-y-1">
 				{#each doc.role_ids as r (r)}
-					<li class="flex items-center justify-between text-sm">
+					<RemovableItem onremove={() => removeRole(r)}>
 						<span>
 							{#if doc.role_names[r]}
 								<span class="font-medium">{doc.role_names[r]}</span>
@@ -93,8 +98,7 @@
 								<span class="font-mono">{r}</span>
 							{/if}
 						</span>
-						<button class="text-danger text-sm" onclick={() => removeRole(r)}>Remove</button>
-					</li>
+					</RemovableItem>
 				{:else}
 					<li class="text-muted text-sm">No roles configured.</li>
 				{/each}
@@ -121,7 +125,7 @@
 		{#if doc}
 			<ul class="mb-4 space-y-1">
 				{#each doc.global_user_ids as u (u)}
-					<li class="flex items-center justify-between text-sm">
+					<RemovableItem onremove={() => removeUser(u)}>
 						<span>
 							{#if doc.names[u]}
 								<span class="font-medium">{doc.names[u]}</span>
@@ -130,8 +134,7 @@
 								<span class="font-mono">{u}</span>
 							{/if}
 						</span>
-						<button class="text-danger text-sm" onclick={() => removeUser(u)}>Remove</button>
-					</li>
+					</RemovableItem>
 				{:else}
 					<li class="text-muted text-sm">No global admins.</li>
 				{/each}

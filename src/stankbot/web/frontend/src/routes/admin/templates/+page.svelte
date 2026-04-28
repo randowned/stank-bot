@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { apiFetch, apiPost, FetchError } from '$lib/api';
+	import { apiFetch, apiPost } from '$lib/api';
+import { toErrorMessage } from '$lib/api-utils';
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
@@ -53,7 +54,7 @@
 			}
 			selectKey(activeKey);
 		} catch (err) {
-			loadError = err instanceof FetchError ? err.message : 'Failed to load templates';
+			loadError = toErrorMessage(err, 'Failed to load templates');
 		}
 	}
 
@@ -88,7 +89,7 @@
 			);
 			preview = res.rendered;
 		} catch (err) {
-			previewError = err instanceof FetchError ? err.message : 'Preview failed';
+			previewError = toErrorMessage(err, 'Preview failed');
 		}
 	}
 
@@ -120,7 +121,7 @@
 			if (err instanceof SyntaxError) {
 				saveMsg = `Invalid JSON: ${err.message}`;
 			} else {
-				saveMsg = err instanceof FetchError ? err.message : 'Save failed';
+				saveMsg = toErrorMessage(err, 'Save failed');
 			}
 		} finally {
 			saving = false;

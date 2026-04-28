@@ -25,5 +25,3 @@ export type {
 	ChainId,
 	SessionId
 } from './types';
-
-export { asUserId, asGuildId, asChainId, asSessionId } from './types';

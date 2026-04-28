@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { apiFetch, apiPost, FetchError } from '$lib/api';
+	import { apiFetch, apiPost } from '$lib/api';
+import { toErrorMessage } from '$lib/api-utils';
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
@@ -57,7 +58,7 @@
 			}
 			maintenanceEnabled = Boolean(doc.values['maintenance_mode']);
 		} catch (err) {
-			loadError = err instanceof FetchError ? err.message : 'Failed to load settings';
+			loadError = toErrorMessage(err, 'Failed to load settings');
 		}
 	}
 
@@ -76,7 +77,7 @@
 			await apiPost('/api/admin/settings', { values });
 			saveMsg = 'Saved.';
 		} catch (err) {
-			saveMsg = err instanceof FetchError ? err.message : 'Save failed';
+			saveMsg = toErrorMessage(err, 'Save failed');
 		} finally {
 			saving = false;
 		}
@@ -87,7 +88,7 @@
 			await apiPost('/api/admin/settings', { maintenance_mode: val });
 			maintenanceMsg = val ? 'Maintenance mode ON' : 'Maintenance mode OFF';
 		} catch (err) {
-			maintenanceMsg = err instanceof FetchError ? err.message : 'Failed';
+			maintenanceMsg = toErrorMessage(err, 'Failed');
 			maintenanceEnabled = !val;
 		}
 	}

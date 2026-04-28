@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { apiPost, FetchError } from '$lib/api';
+	import { apiPost } from '$lib/api';
+import { toErrorMessage } from '$lib/api-utils';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -21,7 +22,7 @@
 			const res = await apiPost<{ new_session_id: number }>('/api/admin/new-session');
 			opsMsg = `Started session ${res.new_session_id}.`;
 		} catch (err) {
-			opsMsg = err instanceof FetchError ? err.message : 'Failed';
+			opsMsg = toErrorMessage(err, 'Failed');
 		} finally {
 			opsBusy = false;
 		}
@@ -35,7 +36,7 @@
 			opsMsg = 'Guild state reset.';
 			resetTyped = '';
 		} catch (err) {
-			opsMsg = err instanceof FetchError ? err.message : 'Reset failed';
+			opsMsg = toErrorMessage(err, 'Reset failed');
 		} finally {
 			opsBusy = false;
 		}
@@ -48,7 +49,7 @@
 			const res = await apiPost<Record<string, unknown>>('/api/admin/rebuild');
 			opsMsg = `Rebuild from Discord complete. ${JSON.stringify(res)}`;
 		} catch (err) {
-			opsMsg = err instanceof FetchError ? err.message : 'Rebuild failed';
+			opsMsg = toErrorMessage(err, 'Rebuild failed');
 		} finally {
 			opsBusy = false;
 		}
@@ -61,7 +62,7 @@
 			const res = await apiPost<{ rows: number }>('/api/admin/rebuild-from-db');
 			opsMsg = `Rebuilt ${res.rows} score rows from database.`;
 		} catch (err) {
-			opsMsg = err instanceof FetchError ? err.message : 'Rebuild failed';
+			opsMsg = toErrorMessage(err, 'Rebuild failed');
 		} finally {
 			opsBusy = false;
 		}

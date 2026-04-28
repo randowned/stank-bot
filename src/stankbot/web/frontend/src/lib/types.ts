@@ -13,10 +13,6 @@ export type GuildId = string & { readonly __brand: 'GuildId' };
 export type ChainId = number & { readonly __brand: 'ChainId' };
 export type SessionId = number & { readonly __brand: 'SessionId' };
 
-export const asUserId = (v: string | number): UserId => String(v) as UserId;
-export const asGuildId = (v: string | number): GuildId => String(v) as GuildId;
-export const asChainId = (v: number): ChainId => v as ChainId;
-export const asSessionId = (v: number): SessionId => v as SessionId;
 
 export interface User {
 	id: string;

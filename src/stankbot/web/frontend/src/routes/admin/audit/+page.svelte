@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { apiFetch, FetchError } from '$lib/api';
+	import { apiFetch } from '$lib/api';
+import { toErrorMessage } from '$lib/api-utils';
 	import { formatDateTime } from '$lib/datetime';
 	import { onMount } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -45,7 +46,7 @@
 			offset += res.entries.length;
 			if (res.entries.length < 50) exhausted = true;
 		} catch (err) {
-			error = err instanceof FetchError ? err.message : 'Failed';
+			error = toErrorMessage(err, 'Failed');
 		} finally {
 			loading = false;
 		}

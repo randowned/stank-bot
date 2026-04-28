@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { apiFetch, FetchError } from '$lib/api';
+	import { apiFetch } from '$lib/api';
+import { toErrorMessage } from '$lib/api-utils';
 	import { formatDateTime } from '$lib/datetime';
 	import { onMount, onDestroy } from 'svelte';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
@@ -69,28 +70,25 @@
 		);
 	}
 
-	function loadPage(reset = false) {
+	async function loadPage(reset = false) {
 		if (loading) return;
 		if (!reset && exhausted) return;
 		loading = true;
 		error = null;
 		if (reset) offset = 0;
 
-		const params = new SvelteURLSearchParams({ limit: String(LIMIT), offset: String(offset) });
-		if (filterText.trim()) params.set('q', filterText.trim());
-
-		apiFetch<{ entries: Entry[] }>(`/api/admin/events?${params}`)
-			.then((res) => {
-				entries = reset ? res.entries : [...entries, ...res.entries];
-				offset += res.entries.length;
-				exhausted = res.entries.length < LIMIT;
-			})
-			.catch((err) => {
-				error = err instanceof FetchError ? err.message : 'Failed to load events';
-			})
-			.finally(() => {
-				loading = false;
-			});
+		try {
+			const params = new SvelteURLSearchParams({ limit: String(LIMIT), offset: String(offset) });
+			if (filterText.trim()) params.set('q', filterText.trim());
+			const res = await apiFetch<{ entries: Entry[] }>(`/api/admin/events?${params}`);
+			entries = reset ? res.entries : [...entries, ...res.entries];
+			offset += res.entries.length;
+			exhausted = res.entries.length < LIMIT;
+		} catch (err) {
+			error = toErrorMessage(err, 'Failed to load events');
+		} finally {
+			loading = false;
+		}
 	}
 
 	function onIntersect(entries_: IntersectionObserverEntry[]) {

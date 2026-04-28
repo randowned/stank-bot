@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { apiFetch, apiPost, FetchError } from '$lib/api';
+	import { apiFetch, apiPost } from '$lib/api';
+import { toErrorMessage } from '$lib/api-utils';
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
@@ -7,6 +8,7 @@
 	import FormField from '$lib/components/FormField.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import RemovableItem from '$lib/components/RemovableItem.svelte';
 
 	interface Altar {
 		id: number;
@@ -39,7 +41,7 @@
 				emoji = altar.reaction_emoji_name ?? '';
 			}
 		} catch (err) {
-			altarMsg = err instanceof FetchError ? err.message : 'Failed to load';
+			altarMsg = toErrorMessage(err, 'Failed to load');
 		} finally {
 			altarLoaded = true;
 		}
@@ -57,7 +59,7 @@
 			await loadAltar();
 			altarMsg = 'Altar saved.';
 		} catch (err) {
-			altarMsg = err instanceof FetchError ? err.message : 'Save failed';
+			altarMsg = toErrorMessage(err, 'Save failed');
 		} finally {
 			altarSaving = false;
 		}
@@ -68,7 +70,7 @@
 			const res = await apiFetch<{ channel_ids: string[] }>('/api/admin/announcements');
 			channelIds = res.channel_ids;
 		} catch (err) {
-			annError = err instanceof FetchError ? err.message : 'Failed';
+			annError = toErrorMessage(err, 'Failed');
 		}
 	}
 
@@ -79,7 +81,7 @@
 			newChannel = '';
 			await loadAnnouncements();
 		} catch (err) {
-			annError = err instanceof FetchError ? err.message : 'Add failed';
+			annError = toErrorMessage(err, 'Add failed');
 		}
 	}
 
@@ -88,7 +90,7 @@
 			await apiPost('/api/admin/announcements/remove', { channel_id: Number(id) });
 			await loadAnnouncements();
 		} catch (err) {
-			annError = err instanceof FetchError ? err.message : 'Remove failed';
+			annError = toErrorMessage(err, 'Remove failed');
 		}
 	}
 
@@ -149,10 +151,9 @@
 		{#if annError}<p class="text-sm text-danger mb-2">{annError}</p>{/if}
 		<ul class="mb-4 space-y-1">
 			{#each channelIds as id (id)}
-				<li class="flex items-center justify-between text-sm">
+				<RemovableItem onremove={() => removeAnnouncement(id)}>
 					<span class="font-mono">{id}</span>
-					<button class="text-danger text-sm" onclick={() => removeAnnouncement(id)}>Remove</button>
-				</li>
+				</RemovableItem>
 			{:else}
 				<li class="text-muted text-sm">No announcement channels configured.</li>
 			{/each}
