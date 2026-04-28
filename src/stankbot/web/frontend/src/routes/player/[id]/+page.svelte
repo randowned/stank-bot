@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
-	import type { PlayerProfile, User } from '$lib/types';
-	import PageHeader from '$lib/components/PageHeader.svelte';
+	import type { PlayerProfile, User, PlayerChainEntry } from '$lib/types';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Sparkline from '$lib/components/Sparkline.svelte';
+	import StatTile from '$lib/components/StatTile.svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
 
 	interface HistoryPoint {
 		day: string;
@@ -27,6 +28,7 @@
 	const profile = $derived(data.profile as PlayerProfile | null);
 	const history = $derived((data.history as HistoryPoint[] | undefined) ?? []);
 	const achievements = $derived((data.achievements as AchievementEntry[] | undefined) ?? []);
+	const recentChains = $derived((data.recentChains as PlayerChainEntry[] | undefined) ?? []);
 	const isLoading = $derived(!profile);
 	const targetId = $derived($page.params.id || userData?.id);
 
@@ -48,24 +50,27 @@
 			</div>
 		</div>
 	{:else if profile}
-		<PageHeader title="📈 {profile.display_name}" subtitle="Player #{targetId}" />
+		<!-- Header with avatar + rank -->
+		<header class="flex items-center gap-3 mb-4">
+			<Avatar name={profile.display_name} userId={profile.user_id} discordAvatar={profile.discord_avatar} size="md" />
+			<div>
+				<div class="flex items-center gap-2">
+					<h1 class="text-2xl font-bold text-text">{profile.display_name}</h1>
+					{#if profile.rank}
+						<span class="text-xs font-semibold text-accent border border-accent/30 rounded-full px-2 py-0.5">#{profile.rank}</span>
+					{/if}
+				</div>
+				<p class="text-sm text-muted">Player #{targetId}</p>
+			</div>
+		</header>
 
 		<!-- Session Stats -->
 		<div class="panel" data-testid="session-stats">
 			<h2 class="text-lg font-semibold mb-3">Session</h2>
 			<div class="grid grid-cols-3 gap-3">
-				<div>
-					<div class="text-xl font-bold text-accent" data-testid="session-sp">{formatNumber(profile.session.earned_sp)}</div>
-					<div class="text-xs text-muted uppercase">SP</div>
-				</div>
-				<div>
-					<div class="text-xl font-bold text-danger" data-testid="session-pp">{formatNumber(profile.session.punishments)}</div>
-					<div class="text-xs text-muted uppercase">PP</div>
-				</div>
-				<div>
-					<div class="text-xl font-bold {profile.session.net >= 0 ? 'text-ok' : 'text-danger'}" data-testid="session-net">{formatNumber(profile.session.net)}</div>
-					<div class="text-xs text-muted uppercase">Net</div>
-				</div>
+				<StatTile value={formatNumber(profile.session.earned_sp)} label="SP" color="text-accent" valueTestId="session-sp" />
+				<StatTile value={formatNumber(profile.session.punishments)} label="PP" color="text-danger" valueTestId="session-pp" />
+				<StatTile value={formatNumber(profile.session.net)} label="Net" color={profile.session.net >= 0 ? 'text-ok' : 'text-danger'} valueTestId="session-net" />
 			</div>
 		</div>
 
@@ -73,36 +78,31 @@
 		<div class="panel" data-testid="alltime-stats">
 			<h2 class="text-lg font-semibold mb-3">All-time</h2>
 			<div class="grid grid-cols-2 gap-3 mb-3">
-				<div>
-					<div class="text-xl font-bold text-accent" data-testid="alltime-sp">{formatNumber(profile.alltime.earned_sp)}</div>
-					<div class="text-xs text-muted uppercase">SP</div>
-				</div>
-				<div>
-					<div class="text-xl font-bold text-danger" data-testid="alltime-pp">{formatNumber(profile.alltime.punishments)}</div>
-					<div class="text-xs text-muted uppercase">PP</div>
-				</div>
-				<div>
-					<div class="text-xl font-bold" data-testid="alltime-started">{profile.alltime.chains_started}</div>
-					<div class="text-xs text-muted uppercase">Started</div>
-				</div>
-				<div>
-					<div class="text-xl font-bold" data-testid="alltime-broken">{profile.alltime.chains_broken}</div>
-					<div class="text-xs text-muted uppercase">Broken</div>
-				</div>
+				<StatTile value={formatNumber(profile.alltime.earned_sp)} label="SP" color="text-accent" valueTestId="alltime-sp" />
+				<StatTile value={formatNumber(profile.alltime.punishments)} label="PP" color="text-danger" valueTestId="alltime-pp" />
+				<StatTile value={String(profile.alltime.chains_started)} label="Started" valueTestId="alltime-started" color="text-text" />
+				<StatTile value={String(profile.alltime.chains_broken)} label="Broken" valueTestId="alltime-broken" color="text-text" />
 			</div>
 
-			{#if profile.last_stank_at}
-				<div class="text-xs text-muted pt-3 border-t border-border">
-					Last stank: {formatDateTime(profile.last_stank_at)}
-				</div>
-			{/if}
+			<!-- Streak -->
+			<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted pt-3 border-t border-border">
+				{#if profile.stank_streak.current > 0}
+					<span>🔥 Current streak: {profile.stank_streak.current} days</span>
+				{/if}
+				{#if profile.stank_streak.longest > 0}
+					<span>⚡ Longest streak: {profile.stank_streak.longest} days</span>
+				{/if}
+				{#if profile.last_stank_at}
+					<span>Last stank: {formatDateTime(profile.last_stank_at)}</span>
+				{/if}
+			</div>
 		</div>
 
 		<!-- History sparklines -->
 		<div class="panel">
 			<h2 class="text-lg font-semibold mb-3">Last 30 days</h2>
 			{#if history.length}
-				<div class="grid grid-cols-3 gap-4">
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 					<div>
 						<div class="text-xs text-muted uppercase mb-1">SP / day</div>
 						<div class="text-accent">
@@ -126,6 +126,26 @@
 				<p class="text-muted text-sm">No activity recorded in the last 30 days.</p>
 			{/if}
 		</div>
+
+		<!-- Recent Chains -->
+		{#if recentChains.length > 0}
+			<details class="panel">
+				<summary class="text-lg font-semibold cursor-pointer select-none">Recent Chains ({recentChains.length})</summary>
+				<div class="mt-3 space-y-1">
+					{#each recentChains as c}
+						<a href="{base}/chain/{c.chain_id}" class="flex items-center justify-between px-2 py-2 rounded-md hover:bg-border/40 text-sm">
+							<div class="flex items-center gap-3 min-w-0">
+								<span class="font-mono text-xs text-muted shrink-0">#{c.chain_id}</span>
+								<span class="truncate">{formatDateTime(c.started_at)}</span>
+							</div>
+							<span class="shrink-0 text-xs text-muted tabular-nums">
+								{c.length} · {c.user_stanks} stanks
+							</span>
+						</a>
+					{/each}
+				</div>
+			</details>
+		{/if}
 
 		<!-- Achievement gallery -->
 		<div class="panel">

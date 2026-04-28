@@ -2,16 +2,35 @@
 	import { base } from '$app/paths';
 	import type { SessionSummary } from '$lib/types';
 	import { formatDateTime } from '$lib/datetime';
+	import { formatNumber } from '$lib/format';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	let { data } = $props();
 
 	const sessions = $derived(data.sessions as SessionSummary[]);
+
+	function formatDuration(started: string | null, ended: string | null | undefined): string {
+		if (!started || !ended) return '';
+		const diffMs = new Date(ended).getTime() - new Date(started).getTime();
+		if (diffMs < 0) return '';
+		const mins = Math.floor(diffMs / 60000);
+		if (mins < 1) return '< 1m';
+		if (mins < 60) return `${mins}m`;
+		const hrs = Math.floor(mins / 60);
+		const rem = mins % 60;
+		return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
+	}
+
+	function dateRange(started: string | null, ended: string | null | undefined): string {
+		const start = formatDateTime(started);
+		if (!ended) return start;
+		return `${start} → ${formatDateTime(ended)}`;
+	}
 </script>
 
 <div class="p-4 space-y-4">
-	<PageHeader title="📜 Session History" subtitle="Each entry is one reset window." />
+	<PageHeader title="Session History" subtitle="Each entry is one reset window." />
 
 	{#if !sessions.length}
 		<div class="panel">
@@ -29,9 +48,17 @@
 							<span class="text-xs font-semibold text-muted">ENDED</span>
 						{/if}
 					</div>
-					<div class="text-xs text-muted mb-2">{formatDateTime(s.started_at)}</div>
+					<div class="text-xs text-muted mb-1">{dateRange(s.started_at, s.ended_at)}</div>
+					{#if s.ended_at}
+						<div class="text-xs text-muted mb-1">{formatDuration(s.started_at, s.ended_at)}</div>
+					{/if}
 					<div class="text-xs text-muted">
-						Stankers: {s.unique_stankers ?? 0} · Stanks: {s.stanks ?? 0} · Chains: {s.chains ?? 0} · Reactions: {s.reactions ?? 0}
+						Stankers: {s.unique_stankers ?? 0}
+						· Stanks: {s.stanks ?? 0}
+						· Chains: {s.chains ?? 0}
+						· Reactions: {s.reactions ?? 0}
+						· SP: {formatNumber(s.total_sp ?? 0)}
+						· PP: {formatNumber(s.total_pp ?? 0)}
 					</div>
 				</a>
 			{/each}

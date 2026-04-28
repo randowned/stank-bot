@@ -17,7 +17,7 @@ test.describe('Player profile session vs all-time', () => {
 		await newSession();
 
 		const userId = makeId();
-		const stankResult = await injectStank(GUILD, userId, 'TestPlayer');
+		await injectStank(GUILD, userId, 'TestPlayer');
 		await injectBreak(GUILD, makeId(), 'BreakerUser');
 
 		await page.goto(`/player/${userId}`);
@@ -34,7 +34,7 @@ test.describe('Player profile session vs all-time', () => {
 		await newSession();
 
 		const userId = makeId();
-		const stankResult = await injectStank(GUILD, userId, 'SessionPlayer');
+		await injectStank(GUILD, userId, 'SessionPlayer');
 
 		await page.goto(`/player/${userId}`);
 		await expect(page.getByTestId('session-stats')).toBeVisible({ timeout: 10000 });
@@ -131,8 +131,26 @@ test.describe('Player profile page loads', () => {
 		await expect(page.getByTestId('alltime-stats')).toBeVisible({ timeout: 10000 });
 	});
 
-	test('player profile page handles non-existent player gracefully', async ({ page, injectStank }) => {
+	test('player profile page handles non-existent player gracefully', async ({ page }) => {
 		await page.goto('/player/999999997');
 		await expect(page.locator('.panel').first()).toBeVisible({ timeout: 10000 });
+	});
+});
+
+test.describe('Player profile new features', () => {
+	test.beforeEach(async ({ mockLogin }) => {
+		await mockLogin(defaultUser);
+	});
+
+	test('avatar and rank badge are visible for active player', async ({ page, injectStank }) => {
+		const userId = makeId();
+		await injectStank(GUILD, userId, 'RankedPlayer');
+
+		await page.goto(`/player/${userId}`);
+		await expect(page.getByText('RankedPlayer')).toBeVisible({ timeout: 10000 });
+
+		// Avatar should be rendered as an img
+		const avatar = page.locator('img[alt]');
+		await expect(avatar.first()).toBeVisible({ timeout: 5000 });
 	});
 });

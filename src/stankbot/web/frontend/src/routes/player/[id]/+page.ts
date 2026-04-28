@@ -1,5 +1,5 @@
 import type { PageLoad } from './$types';
-import type { PlayerProfile } from '$lib/types';
+import type { PlayerProfile, PlayerChainEntry } from '$lib/types';
 import { apiFetch } from '$lib/api';
 import { loadWithFallback } from '$lib/api-utils';
 
@@ -29,7 +29,7 @@ interface ExtendedPlayerProfile extends PlayerProfile {
 
 export const load: PageLoad = async ({ params, fetch }) => {
 	const userId = params.id;
-	const [profile, history] = await Promise.all([
+	const [profile, history, recentChains] = await Promise.all([
 		loadWithFallback<ExtendedPlayerProfile | null>(
 			() => apiFetch<ExtendedPlayerProfile>(`/api/player/${userId}`, { fetch }),
 			{ fallback: null }
@@ -43,7 +43,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
 				return res.series;
 			},
 			{ fallback: [] }
-		)
+		),
+		loadWithFallback<PlayerChainEntry[]>(
+			() => apiFetch<PlayerChainEntry[]>(`/api/player/${userId}/chains`, { fetch }),
+			{ fallback: [] }
+		),
 	]);
-	return { profile, history, achievements: profile?.achievements ?? [] };
+	return { profile, history, recentChains, achievements: profile?.achievements ?? [] };
 };

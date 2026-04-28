@@ -1,6 +1,7 @@
 import type { PageLoad } from './$types';
 import { apiFetch } from '$lib/api';
 import { loadWithFallback } from '$lib/api-utils';
+import type { SessionLeaderboardEntry } from '$lib/types';
 
 interface SessionChain {
 	chain_id: number;
@@ -22,6 +23,9 @@ interface SessionDetail {
 	top_breaker: [string, number] | null;
 	total_stanks?: number;
 	total_reactions?: number;
+	total_sp?: number;
+	total_pp?: number;
+	session_leaderboard?: SessionLeaderboardEntry[];
 	names?: Record<string, string>;
 	chains?: SessionChain[];
 }

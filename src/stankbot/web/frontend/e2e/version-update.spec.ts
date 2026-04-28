@@ -96,18 +96,20 @@ test.describe('Version update notification', () => {
 			`${serverVersion}.old`
 		);
 
-		// Reload
-		await page.reload();
+		// Navigate to root to force clean WS reconnect with mismatched version
+		await page.goto('/');
+		await page.waitForLoadState('networkidle');
 
-		// Wait for WS to connect
+		// Wait for WS to connect AND boardState to be set (STATE message processed)
 		await expect(page.locator('[data-testid="live-badge"]')).toHaveAttribute(
 			'title',
 			/Receiving live updates/,
 			{ timeout: 15000 }
 		);
+		await expect(page.locator('[data-testid="tile-reactions"]')).toBeVisible({ timeout: 10000 });
 
 		// Wait for toast to confirm mismatch was processed
-		await expect(page.locator('[data-testid="update-toast"]')).toBeVisible({ timeout: 10000 });
+		await expect(page.locator('[data-testid="update-toast"]')).toBeVisible({ timeout: 15000 });
 
 		// Verify localStorage was updated to the server version
 		const storedVersion = await page.evaluate(() => localStorage.getItem('stankbot:version'));

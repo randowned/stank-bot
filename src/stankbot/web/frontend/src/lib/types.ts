@@ -70,6 +70,9 @@ export interface PlayerRow {
 export interface PlayerProfile {
 	user_id: string;
 	display_name: string;
+	discord_avatar: string | null;
+	rank: number | null;
+	stank_streak: { current: number; longest: number };
 	session: {
 		earned_sp: number;
 		punishments: number;
@@ -81,8 +84,16 @@ export interface PlayerProfile {
 		chains_started: number;
 		chains_broken: number;
 	};
-	badges: Badge[];
+	achievements?: AchievementEntry[];
 	last_stank_at: string | null;
+}
+
+export interface AchievementEntry {
+	key: string;
+	name: string;
+	description: string;
+	icon: string;
+	unlocked: boolean;
 }
 
 export interface Badge {
@@ -93,9 +104,29 @@ export interface Badge {
 	unlocked_at: string;
 }
 
+export interface ChainMessageEntry {
+	position: number;
+	user_id: string;
+	display_name: string;
+	discord_avatar: string | null;
+	created_at: string;
+	sp_awarded: number;
+}
+
+export interface PlayerChainEntry {
+	chain_id: number;
+	started_at: string;
+	broken_at: string | null;
+	length: number;
+	unique_contributors: number;
+	user_stanks: number;
+}
+
 export interface ChainSummary {
 	chain_id: number;
 	session_id?: number | null;
+	altar_name?: string;
+	rolled_over?: boolean;
 	started_at: string;
 	broken_at: string | null;
 	length: number;
@@ -104,7 +135,17 @@ export interface ChainSummary {
 	broken_by_user_id: string | null;
 	contributors: [string, number][];
 	total_reactions?: number;
+	timeline?: ChainMessageEntry[];
 	leaderboard?: PlayerRow[];
+}
+
+export interface SessionLeaderboardEntry {
+	user_id: string;
+	display_name: string;
+	discord_avatar: string | null;
+	earned_sp: number;
+	punishments: number;
+	net: number;
 }
 
 export interface SessionSummary {
@@ -118,6 +159,9 @@ export interface SessionSummary {
 	stanks?: number;
 	chains?: number;
 	reactions?: number;
+	total_sp?: number;
+	total_pp?: number;
+	session_leaderboard?: SessionLeaderboardEntry[];
 	top_earner?: [string, number] | null;
 	top_breaker?: [string, number] | null;
 }

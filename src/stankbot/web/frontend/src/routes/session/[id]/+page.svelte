@@ -4,6 +4,7 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
 
 	let { data } = $props();
 
@@ -12,6 +13,20 @@
 
 	function playerName(userId: string): string {
 		return names[userId] ?? `#${userId}`;
+	}
+
+	function formatDuration(started: string | null, ended: string | null | undefined): string {
+		if (!started) return '';
+		const start = new Date(started).getTime();
+		const end = ended ? new Date(ended).getTime() : Date.now();
+		const diffMs = end - start;
+		if (diffMs < 0) return '';
+		const mins = Math.floor(diffMs / 60000);
+		if (mins < 1) return '< 1m';
+		if (mins < 60) return `${mins}m`;
+		const hrs = Math.floor(mins / 60);
+		const rem = mins % 60;
+		return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 	}
 </script>
 
@@ -49,31 +64,70 @@
 					<dd class="text-lg font-bold">{session.total_reactions}</dd>
 				</div>
 				{/if}
+				{#if session.total_sp !== undefined}
+				<div>
+					<dt class="text-muted uppercase text-xs">Total SP</dt>
+					<dd class="text-lg font-bold text-accent">{session.total_sp}</dd>
+				</div>
+				{/if}
+				{#if session.total_pp !== undefined}
+				<div>
+					<dt class="text-muted uppercase text-xs">Total PP</dt>
+					<dd class="text-lg font-bold text-danger">{session.total_pp}</dd>
+				</div>
+				{/if}
 			</dl>
+			<div class="mt-2 pt-2 border-t border-border text-xs text-muted">
+				Duration: {formatDuration(session.started_at, session.ended_at)}
+			</div>
 		</Card>
 
-		{#if session.top_earner}
-			<Card title="Top earner">
-				<a
-					href="{base}/player/{session.top_earner[0]}"
-					class="flex items-center justify-between hover:bg-border/40 -m-2 p-2 rounded-md"
-				>
-					<span class="font-medium text-sm">{playerName(session.top_earner[0])}</span>
-					<span class="font-bold text-accent">{session.top_earner[1]} SP</span>
-				</a>
+		<!-- Session Leaderboard -->
+		{#if session.session_leaderboard && session.session_leaderboard.length > 0}
+			<Card title="Session Leaderboard">
+				<div class="space-y-1">
+					{#each session.session_leaderboard.slice(0, 5) as entry, i}
+						<a
+							href="{base}/player/{entry.user_id}"
+							class="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-border/40 text-sm"
+						>
+							<span class="font-mono text-xs text-muted w-5 shrink-0">#{i + 1}</span>
+							<Avatar name={entry.display_name} userId={entry.user_id} discordAvatar={entry.discord_avatar} size="sm" />
+							<span class="flex-1 min-w-0 truncate">{entry.display_name}</span>
+							<span class="shrink-0 font-semibold tabular-nums text-accent">+{entry.net}</span>
+						</a>
+					{/each}
+				</div>
+				{#snippet footer()}
+					<div class="flex justify-between text-xs text-muted">
+						<span>Top earner: {session.top_earner ? `${playerName(session.top_earner[0])} (${session.top_earner[1]} SP)` : '—'}</span>
+						<span>Top breaker: {session.top_breaker ? `${playerName(session.top_breaker[0])} (${session.top_breaker[1]} PP)` : '—'}</span>
+					</div>
+				{/snippet}
 			</Card>
-		{/if}
-
-		{#if session.top_breaker}
-			<Card title="Top chainbreaker">
-				<a
-					href="{base}/player/{session.top_breaker[0]}"
-					class="flex items-center justify-between hover:bg-border/40 -m-2 p-2 rounded-md"
-				>
-					<span class="font-medium text-sm">{playerName(session.top_breaker[0])}</span>
-					<span class="font-bold text-danger">-{session.top_breaker[1]} SP</span>
-				</a>
-			</Card>
+		{:else}
+			{#if session.top_earner}
+				<Card title="Top earner">
+					<a
+						href="{base}/player/{session.top_earner[0]}"
+						class="flex items-center justify-between hover:bg-border/40 -m-2 p-2 rounded-md"
+					>
+						<span class="font-medium text-sm">{playerName(session.top_earner[0])}</span>
+						<span class="font-bold text-accent">{session.top_earner[1]} SP</span>
+					</a>
+				</Card>
+			{/if}
+			{#if session.top_breaker}
+				<Card title="Top chainbreaker">
+					<a
+						href="{base}/player/{session.top_breaker[0]}"
+						class="flex items-center justify-between hover:bg-border/40 -m-2 p-2 rounded-md"
+					>
+						<span class="font-medium text-sm">{playerName(session.top_breaker[0])}</span>
+						<span class="font-bold text-danger">-{session.top_breaker[1]} SP</span>
+					</a>
+				</Card>
+			{/if}
 		{/if}
 
 		{#if session.chains && session.chains.length > 0}
@@ -83,7 +137,7 @@
 					{@const rolledOver = !!session.ended_at && (!c.broken_at || new Date(c.broken_at) > new Date(session.ended_at))}
 					<a
 						href="{base}/chain/{c.chain_id}"
-						class="flex items-center justify-between gap-3 px-2 py-2 rounded-md hover:bg-border/40 text-sm"
+						class="flex items-center justify-between gap-3 px-2 py-3 rounded-md hover:bg-border/40 text-sm"
 					>
 						<span class="font-mono text-muted shrink-0">#{c.chain_id}</span>
 						<span class="flex-1 min-w-0 truncate">{formatDateTime(c.started_at)}</span>
