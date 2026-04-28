@@ -83,11 +83,11 @@ All changes must be verified before they are considered done. The verification p
 
 **Framework stack.** SvelteKit 2 with `@sveltejs/adapter-static` (SPA mode, no SSR). Svelte 5 runes (`$state`, `$derived`, `$effect`) in `.svelte` files. Traditional `writable` stores from `svelte/store` for cross-component state (board, auth, toasts, WS events).
 
-**API calls MUST use `apiFetch`**, not `fetch`. The custom `apiFetch` wrapper in `src/lib/api.ts` negotiates msgpack encoding for request body and response parsing. The same `Packr` instance is shared with the WebSocket client for consistent binary encoding. The `loadWithFallback` wrapper in `src/lib/api-utils.ts` handles page load errors gracefully — use it in `+page.ts` load functions instead of try/catch.
+**API calls MUST use `apiFetch`**, not `fetch`. The custom `apiFetch` wrapper in `src/lib/api.ts` negotiates msgpack encoding for request body and response parsing. The same `Packr` instance is shared with the WebSocket client for consistent binary encoding. The `loadWithFallback` wrapper in `src/lib/api-utils.ts` handles page load errors gracefully — use it in `+page.ts` load functions instead of try/catch. The `toErrorMessage` helper in the same file standardizes error message extraction from `FetchError` and other error types — use it instead of repeated `err instanceof FetchError ? err.message : 'Fallback'` patterns.
 
 **Auth state is cached in sessionStorage** under keys `stankbot:auth` and `stankbot:guilds`. After login/logout, these caches must be cleared (the `mockLogin` fixture does this automatically). The `+layout.ts` root layout fetches `/auth` and `/api/guilds` once per SPA navigation and caches the results.
 
-**Reusable components** live in `$lib/components/` — use existing ones (`Button`, `Input`, `Toggle`, `Dropdown`, `Modal`, `Tabs`, `Avatar`, etc.) before creating new ones. Every component should use `data-testid` attributes for stable E2E queries.
+**Reusable components** live in `$lib/components/` — use existing ones (`Button`, `Input`, `Toggle`, `Dropdown`, `Modal`, `Tabs`, `Avatar`, `StatTile`, `RemovableItem`, `ToastContainer`, `GuildSwitcher`, etc.) before creating new ones. Every component should use `data-testid` attributes for stable E2E queries. The `StatTile` component accepts a `valueTestId` prop when the inner value `<div>` needs its own test ID (e.g. `data-testid="chain-counter"`). The root `+page.svelte` delegates to `WelcomePage` (unauthenticated) or `Dashboard` (authenticated) — do not inline landing/dashboard logic in the route file.
 
 **WebSocket connection lifecycle** is managed in `src/lib/ws.ts`. It auto-reconnects with exponential backoff, deduplicates connections, and dispatches events to the `lastWsEvent` store (see `src/lib/stores/ws-events.ts`). The store pattern is: `emitWsEvent({ kind: '...', ... })` → layout subscribes and reacts. Do not create additional WS connections — use the existing one.
 
@@ -96,13 +96,17 @@ All changes must be verified before they are considered done. The verification p
 - `connectionStatus` — WS connection state
 - `lastWsEvent` — side-channel events (toasts, achievements, version mismatch)
 - `toasts` — notification queue (auto-dismiss after 3s)
-- `playerProfiles` — player profile cache (per-guild per-user)
+- `guildId` / `user` / `guilds` — auth state hydrated from `+layout.ts` load function
+- `adminSidebarOpen` — admin sidebar toggle
+- `activeChainBreak` — chain break overlay state
 
 **Common pitfalls from historical fixes:**
 - SPA navigation does NOT reload stores (`+layout.ts`). Auth/board data is cached until a manual reload or explicit refetch (v2.19.1).
 - WS connections must be deduplicated — guard with `ws?.readyState === WebSocket.OPEN` before creating (v2.17.14).
 - The Vite dev server proxies `/api`, `/ws`, `/auth`, `/ping` to the backend at `localhost:8000`. If the backend isn't running, all API calls fail silently or return `ECONNREFUSED`.
 - When adding a new store, export it from `src/lib/stores/index.ts` so `$lib/stores` resolves it.
+- The `playerProfiles`, `loading`, and `cache` stores were deleted in v2.29.2. Player data loads per-page via `+page.ts`. Use local `$state` for loading flags — the global loading counter store is gone.
+- `formatNumber()` lives in `$lib/format.ts` — import it instead of redefining the M/K suffix logic in multiple components.
 
 ### E2E test execution
 
@@ -219,8 +223,9 @@ Members post messages containing the `:Stank:` emoji/sticker in a designated **a
 - **Auth flow:** [src/stankbot/web/routes/auth.py](src/stankbot/web/routes/auth.py) + [src/stankbot/cogs/auth_cog.py](src/stankbot/cogs/auth_cog.py). Mock login (`/auth/mock-login`), session cookies, admin check, guild permissions. E2E tests use the `mockLogin(user?)` fixture which also clears the frontend session cache.
 - **Frontend API client:** [src/stankbot/web/frontend/src/lib/api.ts](src/stankbot/web/frontend/src/lib/api.ts) — `apiFetch` wrapper with msgpack negotiation, retry, error handling.
 - **Frontend stores:** [src/stankbot/web/frontend/src/lib/stores/](src/stankbot/web/frontend/src/lib/stores/) — cross-component state for board, auth, toasts, WS events.
-- **Frontend components:** [src/stankbot/web/frontend/src/lib/components/](src/stankbot/web/frontend/src/lib/components/) — reusable UI primitives (`Button`, `Modal`, `Tabs`, `Dropdown`, etc.).
+- **Frontend components:** [src/stankbot/web/frontend/src/lib/components/](src/stankbot/web/frontend/src/lib/components/) — reusable UI primitives (`Button`, `Modal`, `Tabs`, `Dropdown`, `StatTile`, `RemovableItem`, `ToastContainer`, `GuildSwitcher`, etc.).
 - **WebSocket client:** [src/stankbot/web/frontend/src/lib/ws.ts](src/stankbot/web/frontend/src/lib/ws.ts) — connection lifecycle, msgpack encoding, `MsgType` enum shared with backend.
+- **Shared utilities:** [src/stankbot/web/frontend/src/lib/format.ts](src/stankbot/web/frontend/src/lib/format.ts) — `formatNumber()` for M/K suffix display. [src/stankbot/web/frontend/src/lib/api-utils.ts](src/stankbot/web/frontend/src/lib/api-utils.ts) — `toErrorMessage()` for standardized error extraction, `loadWithFallback()` for page load error resilience.
 
 ## Reference files
 
