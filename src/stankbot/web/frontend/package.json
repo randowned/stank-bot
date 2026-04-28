@@ -40,7 +40,6 @@
     "vitest": "^2.0.0"
   },
   "dependencies": {
-    "msgpackr": "^1.11.0",
-    "overlayscrollbars": "^2.15.1"
+    "msgpackr": "^1.11.0"
   }
 }
