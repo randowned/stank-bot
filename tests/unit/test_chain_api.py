@@ -171,3 +171,60 @@ async def test_chain_api_wrong_guild_returns_404(session: Any) -> None:
         resp = await client.get(f"/api/chain/{chain.id}")
 
     assert resp.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_chain_api_returns_timeline_and_altar_name(session: Any) -> None:
+    guild = Guild(id=1, name="Test")
+    session.add(guild)
+    altar = Altar(guild_id=1, channel_id=200, sticker_id=300, display_name="primary")
+    session.add(altar)
+    await session.flush()
+
+    now = datetime.now(tz=UTC)
+
+    sid = (await events_repo.append(session, guild_id=1, type=EventType.SESSION_START)).id
+
+    chain = Chain(
+        guild_id=1,
+        altar_id=altar.id,
+        session_id=sid,
+        started_at=now,
+        starter_user_id=100,
+    )
+    session.add(chain)
+    await session.flush()
+
+    for pos, uid in [(1, 100), (2, 200), (3, 100)]:
+        session.add(ChainMessage(
+            chain_id=chain.id,
+            message_id=10_000_000 + pos,
+            user_id=uid,
+            position=pos,
+            created_at=now,
+        ))
+    await session.flush()
+
+    await events_repo.append(session, guild_id=1, type=EventType.SP_BASE, delta=10, user_id=100, session_id=sid, chain_id=chain.id)
+
+    app = _build_test_app(session)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/api/chain/{chain.id}")
+
+    assert resp.status_code == status.HTTP_200_OK
+    body = resp.json()
+
+    assert body["altar_name"] == "primary"
+
+    timeline = body["timeline"]
+    assert len(timeline) == 3
+    assert timeline[0]["position"] == 1
+    assert timeline[0]["user_id"] == "100"
+    assert timeline[0]["sp_awarded"] == 25  # flat(10) + starter(15)
+    assert timeline[1]["position"] == 2
+    assert timeline[1]["user_id"] == "200"
+    assert timeline[1]["sp_awarded"] == 11  # flat(10) + position_bonus(1)
+    assert timeline[2]["position"] == 3
+    assert timeline[2]["user_id"] == "100"
+    assert timeline[2]["sp_awarded"] == 12  # flat(10) + position_bonus(2)
