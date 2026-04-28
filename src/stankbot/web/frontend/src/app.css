@@ -10,19 +10,24 @@
 	html {
 		scroll-behavior: smooth;
 		-webkit-tap-highlight-color: transparent;
-		/* Firefox: thin scrollbar, no space reserved when hidden */
+		/* Firefox: thin scrollbar, stable gutter reserves minimal space */
 		scrollbar-width: thin;
-		scrollbar-color: transparent transparent;
+		scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
+		scrollbar-gutter: stable;
+	}
+
+	html.scrolling {
+		scrollbar-color: rgba(255, 255, 255, 0.30) transparent;
 	}
 
 	html:hover {
-		scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+		scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
 	}
 
-	/* Webkit/Chromium (Electron): overlay scrollbar — does not push content */
+	/* Webkit/Chromium: 4px overlay scrollbar — mobile-like, no layout space */
 	::-webkit-scrollbar {
-		width: 6px;
-		height: 6px;
+		width: 4px;
+		height: 4px;
 	}
 
 	::-webkit-scrollbar-track {
@@ -30,22 +35,31 @@
 	}
 
 	::-webkit-scrollbar-thumb {
-		background: transparent;
+		background: rgba(255, 255, 255, 0.10);
 		border-radius: 9999px;
 	}
 
+	html:not(.scrolling)::-webkit-scrollbar-thumb {
+		transition: background 0.8s ease 0.6s;
+	}
+
+	html.scrolling::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.30);
+		transition: background 0s;
+	}
+
 	*:hover::-webkit-scrollbar-thumb {
-		background: rgba(255, 255, 255, 0.18);
+		background: rgba(255, 255, 255, 0.35);
 	}
 
 	::-webkit-scrollbar-thumb:hover {
-		background: rgba(255, 255, 255, 0.3);
+		background: rgba(255, 255, 255, 0.50);
 	}
 
 	body {
-		@apply font-sans min-h-screen overflow-x-hidden;
-		/* overlay: scrollbar floats on top of content, takes no layout space */
-		overflow-y: overlay;
+		@apply font-sans min-h-screen;
+		overflow-x: hidden;
+		overflow-y: auto;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
 	}
@@ -89,6 +103,19 @@
 	}
 }
 
+/* OverlayScrollbars custom theme — matches CSS-native scrollbar appearance */
+.os-theme-stank {
+	--os-size: 4px;
+	--os-padding-perpendicular: 2px;
+	--os-padding-axis: 2px;
+	--os-track-border-radius: 0;
+	--os-handle-interactive-area-offset: 4px;
+	--os-handle-border-radius: 9999px;
+	--os-handle-bg: rgba(255, 255, 255, 0.10);
+	--os-handle-bg-hover: rgba(255, 255, 255, 0.35);
+	--os-handle-bg-active: rgba(255, 255, 255, 0.50);
+}
+
 @layer utilities {
 	.row-flash {
 		animation: row-flash-anim 0.9s ease-out;
@@ -127,12 +154,12 @@
 
 	.scrollbar-thin {
 		scrollbar-width: thin;
-		scrollbar-color: theme('colors.border') transparent;
+		scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar {
-		width: 6px;
-		height: 6px;
+		width: 4px;
+		height: 4px;
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-track {
@@ -140,7 +167,13 @@
 	}
 
 	.scrollbar-thin::-webkit-scrollbar-thumb {
-		@apply bg-border rounded-full;
+		background: rgba(255, 255, 255, 0.10);
+		border-radius: 9999px;
+	}
+
+	.scrollbar-thin:hover::-webkit-scrollbar-thumb,
+	.scrollbar-thin.scrolling::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.30);
 	}
 
 	.safe-area-bottom {

@@ -15,6 +15,7 @@
 	import type { WsEvent } from '$lib/stores';
 	import { page } from '$app/stores';
 	import { navigating } from '$app/stores';
+	import { enhancePageScrollbar } from '$lib/utils/scrollbar';
 	import { connect, disconnect } from '$lib/ws';
 	import type { User, GuildInfo } from '$lib/types';
 	import UserMenu from '$lib/components/UserMenu.svelte';
@@ -40,6 +41,11 @@
 		const event = $lastWsEvent;
 		if (!event) return;
 		handleWsEvent(event);
+	});
+
+	$effect(() => {
+		const cleanup = enhancePageScrollbar();
+		return cleanup;
 	});
 
 	// Only reconnect when the user ID actually changes (login/logout),
