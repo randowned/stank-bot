@@ -173,9 +173,10 @@ CLI alternative for rebuild: `python -m stankbot.rebuild --guild-id <id>`.
 
 The dashboard is a PWA — installable from Chrome / Edge via the address bar or settings menu. No automatic install prompt.
 
-- `/` — landing page for unauthenticated visitors (Discord login CTA); authenticated users see the full leaderboard + chain state board instead. Top tiles: **Reactions** (current chain, chain-scoped) · Current · Session · All-time. Leaderboard rows live-reorder on point changes with floating `+N` delta chips and show net SP (`+N SP` / `-N SP`) with stanks and reactions counts. A chain break paints an overlay with the breaker and SP loss until the next chain starts.
-- `/me` → `/player/{user_id}` — your stats, badges, history.
-- `/sessions` → `/history/session/{id}` — session browser + summary.
+- `/` — landing page for unauthenticated visitors (Discord login CTA); authenticated users see the full leaderboard + chain state board instead. Top tiles: **Reactions** (current chain, chain-scoped) · Current · Session · All-time. Leaderboard rows live-reorder on point changes with floating `+N` delta chips and show net SP (`+N SP` / `-N SP`) with stanks and reactions counts. A chain break paints an overlay with the breaker and SP loss until the next chain starts. Starter / Breaker quick-link cards below the tiles.
+- `/me` → `/player/{user_id}` — stats with avatar + rank badge, session and all-time SP/PP, stank-streak tracker (current + longest), 30-day sparklines, recent chain participation list, and achievement gallery.
+- `/sessions` — historical session list with start/end times, duration, stank/reaction/chain counts, and total SP/PP per session.
+- `/session/{id}` — session summary with computed duration, total SP/PP awarded, top-5 session leaderboard with avatars, and per-chain breakdown (open / broken / rollover).
 - Admin surface (six pages):
   - `/admin` — dashboard tiles + top stats.
   - `/admin/templates` — live JSON editor for embed templates (stored in `data/templates/`).
@@ -184,5 +185,6 @@ The dashboard is a PWA — installable from Chrome / Edge via the address bar or
   - `/admin/events` — game event log (stanks, breaks, reactions, achievements).
   - `/admin/settings` — two-column page: left lists Altar / Scoring / Behavior / Reset windows / Announcements / Maintenance cards; right sticky rail holds New Session · Reset · Rebuild.
 - Header: single row, `Live updates` badge (gray when logged out, green/muted/red when connected), user menu with Navigate (Dashboard / Sessions) + My Profile + collapsible Switch Guild showing the active guild's icon + name.
+- `/chain/{id}` — chain detail with status banner (alive / broken / rollover), length classification (Short / Medium / Long / Epic), per-position timeline (avatar + position badge + SP awarded at each stank), and per-user leaderboard with stank and reaction counts.
 - Auth guard: unauthenticated requests to any non-public route redirect to `/`. All data API endpoints require guild membership (`require_guild_member`).
 
