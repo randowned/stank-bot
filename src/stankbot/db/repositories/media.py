@@ -381,6 +381,7 @@ async def upsert_owner(
     name: str,
     external_url: str,
     thumbnail_url: str | None = None,
+    cover_url: str | None = None,
 ) -> MediaOwner:
     stmt = select(MediaOwner).where(
         MediaOwner.media_type == media_type,
@@ -394,6 +395,7 @@ async def upsert_owner(
             name=name,
             external_url=external_url,
             thumbnail_url=thumbnail_url,
+            cover_url=cover_url,
         )
         session.add(row)
     else:
@@ -401,6 +403,8 @@ async def upsert_owner(
         row.external_url = external_url
         if thumbnail_url is not None:
             row.thumbnail_url = thumbnail_url
+        if cover_url is not None:
+            row.cover_url = cover_url
         row.updated_at = datetime.now(UTC)
     await session.flush()
     return row
@@ -431,6 +435,7 @@ async def insert_owner_snapshot(
     metric_key: str,
     value: int,
     fetched_at: datetime | None = None,
+    alignment_mask: int | None = None,
 ) -> MediaOwnerSnapshot:
     snap = MediaOwnerSnapshot(
         media_owner_id=media_owner_id,
@@ -439,6 +444,8 @@ async def insert_owner_snapshot(
     )
     if fetched_at is not None:
         snap.fetched_at = fetched_at
+    if alignment_mask is not None:
+        snap.alignment_mask = alignment_mask
     session.add(snap)
     await session.flush()
     return snap
@@ -518,6 +525,32 @@ async def get_owner_snapshots_pivoted(
     ]
 
 
+async def get_owner_snapshots(
+    session: AsyncSession,
+    media_owner_id: int,
+    metric_key: str,
+    since: datetime | None = None,
+    alignment_bit: int | None = None,
+) -> list[MediaOwnerSnapshot]:
+    """Return owner snapshots for a single metric, with optional time window
+    and alignment filtering (mirrors get_metric_snapshots)."""
+    stmt = select(MediaOwnerSnapshot).where(
+        MediaOwnerSnapshot.media_owner_id == media_owner_id,
+        MediaOwnerSnapshot.metric_key == metric_key,
+    )
+    if since is not None:
+        stmt = stmt.where(MediaOwnerSnapshot.fetched_at >= since)
+    if alignment_bit is not None:
+        from sqlalchemy import or_
+        stmt = stmt.where(or_(
+            MediaOwnerSnapshot.alignment_mask.op('&')(alignment_bit) != 0,
+            MediaOwnerSnapshot.alignment_mask.is_(None),
+        ))
+    stmt = stmt.order_by(MediaOwnerSnapshot.fetched_at.asc())
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def get_owners_for_guild(
     session: AsyncSession,
     guild_id: int,
@@ -551,6 +584,7 @@ async def get_owners_for_guild(
                 "name": owner.name,
                 "external_url": owner.external_url,
                 "thumbnail_url": owner.thumbnail_url,
+                "cover_url": owner.cover_url,
                 "media_items": [],
             }
         owner_map[owner.id]["media_items"].append({  # type: ignore[index]

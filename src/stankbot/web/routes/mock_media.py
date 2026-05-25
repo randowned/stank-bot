@@ -159,7 +159,7 @@ async def mock_add_media(
             name=artist_name,
             external_url=f"https://{'youtube.com/channel' if media_type == 'youtube' else 'open.spotify.com/artist'}/{channel_id}",
         )
-        owner_metrics = {"subscriber_count": 1000000, "view_count": 50000000, "video_count": 200}
+        owner_metrics = {"subscriber_count": 1000000, "total_view_count": 50000000, "video_count": 200}
         if media_type == "spotify":
             owner_metrics = {"follower_count": 500000, "popularity": 75}
         for key, val in owner_metrics.items():

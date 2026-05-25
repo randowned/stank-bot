@@ -247,8 +247,10 @@ export interface MediaOwner {
 	name: string;
 	external_url: string;
 	thumbnail_url: string | null;
+	cover_url: string | null;
 	metrics: MediaOwnerMetric[];
 	fetched_at: string | null;
+	media_items_count?: number;
 }
 
 export interface MediaOwnerMetric {
@@ -257,4 +259,10 @@ export interface MediaOwnerMetric {
 	icon: string;
 	value: number;
 	format: string;
+}
+
+export interface ProfileDetail {
+	profile: MediaOwner;
+	items: MediaItem[];
+	items_count: number;
 }

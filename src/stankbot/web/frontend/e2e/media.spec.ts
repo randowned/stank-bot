@@ -209,13 +209,13 @@ test.describe('Media page', () => {
 		await expect(page.getByTestId('page-header')).toBeVisible({ timeout: 10000 });
 		// Owner card renders
 		await expect(page.getByTestId('owner-card')).toBeVisible({ timeout: 10000 });
-		// Owner name link is present and points to YouTube
+		// Owner name link points to the internal profile page
 		const nameLink = page.getByTestId('owner-name-link');
 		await expect(nameLink).toBeVisible();
-		await expect(nameLink).toHaveAttribute('href', /youtube\.com\/channel\//);
+		await expect(nameLink).toHaveAttribute('href', /\/media\/profile\//);
 		// Owner metric tiles render
 		await expect(page.getByTestId('owner-metric-subscriber_count')).toBeVisible();
-		await expect(page.getByTestId('owner-metric-view_count')).toBeVisible();
+		await expect(page.getByTestId('owner-metric-total_view_count')).toBeVisible();
 		await expect(page.getByTestId('owner-metric-video_count')).toBeVisible();
 	});
 
@@ -225,9 +225,9 @@ test.describe('Media page', () => {
 		await expect(page.getByTestId('page-header')).toBeVisible({ timeout: 10000 });
 		// Owner card renders
 		await expect(page.getByTestId('owner-card')).toBeVisible({ timeout: 10000 });
-		// Owner name link points to Spotify
+		// Owner name link points to the internal profile page
 		const nameLink = page.getByTestId('owner-name-link');
-		await expect(nameLink).toHaveAttribute('href', /open\.spotify\.com\/artist\//);
+		await expect(nameLink).toHaveAttribute('href', /\/media\/profile\//);
 		// Owner metric tiles render
 		await expect(page.getByTestId('owner-metric-follower_count')).toBeVisible();
 		await expect(page.getByTestId('owner-metric-popularity')).toBeVisible();

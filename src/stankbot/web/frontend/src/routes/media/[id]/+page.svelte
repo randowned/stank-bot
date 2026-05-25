@@ -652,9 +652,7 @@
 								<img src={owner.thumbnail_url} alt={owner.name} class="w-10 h-10 rounded-full object-cover" loading="lazy" />
 							{/if}
 							<a
-								href={owner.external_url}
-								target="_blank"
-								rel="noopener noreferrer"
+								href="{base}/media/profile/{owner.id}"
 								class="text-accent hover:underline font-semibold"
 								data-testid="owner-name-link"
 							>

@@ -68,9 +68,10 @@ class MockYouTubeProvider(MediaProvider):
             external_id=external_id,
             name="Mock Channel",
             external_url=f"https://youtube.com/channel/{external_id}",
+            cover_url="https://placehold.co/1200x400/3b82f6/ffffff?text=Mock+Channel",
             metrics={
                 "subscriber_count": 1000000,
-                "view_count": 50000000,
+                "total_view_count": 50000000,
                 "video_count": 200,
             },
         )
@@ -127,6 +128,7 @@ class MockSpotifyProvider(MediaProvider):
             external_id=external_id,
             name="Mock Artist",
             external_url=f"https://open.spotify.com/artist/{external_id}",
+            cover_url="https://placehold.co/1200x400/1db954/ffffff?text=Mock+Artist",
             metrics={
                 "follower_count": 500000,
                 "popularity": 75,

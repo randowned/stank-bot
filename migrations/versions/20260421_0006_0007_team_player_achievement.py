@@ -40,7 +40,9 @@ _ROW = {
 
 
 def upgrade() -> None:
-    op.bulk_insert(_achievements, [_ROW])
+    op.execute(
+        _achievements.insert().values(**_ROW).prefix_with("OR IGNORE")
+    )
 
 
 def downgrade() -> None:

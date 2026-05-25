@@ -714,10 +714,13 @@ class MediaService:
             name=owner_data.name,
             external_url=owner_data.external_url,
             thumbnail_url=owner_data.thumbnail_url,
+            cover_url=owner_data.cover_url,
         )
+        mask = _compute_alignment_mask(now)
         for metric_key, value in owner_data.metrics.items():
             await media_repo.insert_owner_snapshot(
                 self.session, owner.id, metric_key, value, now,
+                alignment_mask=mask,
             )
             if on_owner_snapshot is not None:
                 await on_owner_snapshot(owner_id=owner.id, media_type=media_type,
@@ -849,6 +852,35 @@ class MediaService:
             )
         return len(rows)
 
+    async def backfill_owner_alignment_masks(self) -> int:
+        """Recompute alignment_mask on every media_owner_snapshot row.
+
+        Mirrors backfill_alignment_masks but for the owner snapshots table.
+        Returns the number of rows updated.
+        """
+        from sqlalchemy import case, update
+
+        from stankbot.db.models import MediaOwnerSnapshot
+
+        stmt = select(MediaOwnerSnapshot.id, MediaOwnerSnapshot.fetched_at)
+        rows = (await self.session.execute(stmt)).all()
+        if not rows:
+            return 0
+
+        batch_size = 500
+        for i in range(0, len(rows), batch_size):
+            batch = rows[i : i + batch_size]
+            case_expr = case(
+                {row_id: _compute_alignment_mask(fetched_at) for row_id, fetched_at in batch},
+                value=MediaOwnerSnapshot.id,
+            )
+            await self.session.execute(
+                update(MediaOwnerSnapshot)
+                .where(MediaOwnerSnapshot.id.in_([r[0] for r in batch]))
+                .values(alignment_mask=case_expr)
+            )
+        return len(rows)
+
     # ------------------------------------------------------------------
     # Serialization
     # ------------------------------------------------------------------
@@ -936,6 +968,7 @@ class MediaService:
             "name": owner.name,
             "external_url": owner.external_url,
             "thumbnail_url": owner.thumbnail_url,
+            "cover_url": owner.cover_url,
             "metrics": serialized_metrics,
             "fetched_at": latest_ts,
         }
@@ -1021,3 +1054,73 @@ class MediaService:
         return await media_repo.get_owners_for_guild(
             self.session, guild_id, media_type,
         )
+
+    async def get_owner_detail(
+        self,
+        owner_id: int,
+        guild_id: int,
+    ) -> dict[str, Any] | None:
+        """Return full owner detail with media items for a guild."""
+        owner = await media_repo.get_owner_by_id(self.session, owner_id)
+        if owner is None:
+            return None
+
+        provider = self.registry.get(owner.media_type)
+        metric_defs = self._owner_metric_defs(provider)
+        metrics = await media_repo.get_owner_latest_metrics(self.session, owner.id)
+
+        all_items = await media_repo.list_all(self.session, guild_id, owner.media_type)
+        owner_items = [it for it in all_items if it.channel_id == owner.external_id]
+        serialized_items: list[dict[str, Any]] = []
+        for it in owner_items:
+            item_metrics = await media_repo.get_metric_cache(self.session, it.id)
+            serialized_items.append({
+                "id": it.id,
+                "title": it.title,
+                "name": it.name,
+                "external_id": it.external_id,
+                "thumbnail_url": it.thumbnail_url,
+                "published_at": self._iso(it.published_at),
+                "metrics": item_metrics,
+            })
+
+        owner_data = self._serialize_owner(owner, metrics, metric_defs)
+        if owner_data is None:
+            return None
+
+        return {
+            "profile": owner_data,
+            "items": serialized_items,
+            "items_count": len(serialized_items),
+        }
+
+    async def get_owner_history(
+        self,
+        owner_id: int,
+        metric_key: str,
+        window_days: int = 30,
+        window_hours: int | None = None,
+        aggregation: str | None = None,
+        mode: str = "total",
+        reference_date: datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return time-series history for an owner metric (mirrors get_metrics_history)."""
+        ref = reference_date or datetime.now(UTC)
+        since = None
+        if window_hours is not None and window_hours > 0:
+            since = ref - timedelta(hours=window_hours)
+        elif window_days > 0:
+            since = ref - timedelta(days=window_days)
+
+        alignment_bit: int | None = _ALIGN_BIT.get(aggregation) if aggregation else None
+
+        snapshots = await media_repo.get_owner_snapshots(
+            self.session, owner_id, metric_key, since,
+            alignment_bit=alignment_bit,
+        )
+        if aggregation:
+            return _aggregate_snapshots(snapshots, aggregation, mode)
+        return [
+            {"fetched_at": self._serialize_ts(s.fetched_at), "value": s.value}
+            for s in snapshots
+        ]

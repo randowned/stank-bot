@@ -59,6 +59,7 @@ class OwnerResult:
     name: str
     external_url: str
     thumbnail_url: str | None = None
+    cover_url: str | None = None
     metrics: dict[str, int] = field(default_factory=dict)
 
 

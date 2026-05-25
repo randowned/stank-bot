@@ -193,6 +193,7 @@ class SpotifyProvider(MediaProvider):
             name = data.get("name", "")
             images = data.get("images", [])
             thumbnail_url = images[0].get("url") if images else None
+            cover_url = images[0].get("url") if images else None
             followers = data.get("followers", {})
             try:
                 follower_count = int(followers.get("total", 0))
@@ -205,6 +206,7 @@ class SpotifyProvider(MediaProvider):
                 name=name,
                 external_url=f"https://open.spotify.com/artist/{external_id}",
                 thumbnail_url=thumbnail_url,
+                cover_url=cover_url,
                 metrics={
                     "follower_count": follower_count,
                     "popularity": popularity,

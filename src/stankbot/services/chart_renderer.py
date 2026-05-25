@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -116,44 +116,37 @@ def _nice_range(vmin: int | float, vmax: int | float) -> tuple[int | float, int 
     return nice_floor, nice_ceil, grid_lines
 
 
-def render_media_chart(
-    *,
-    snapshots: list[MetricSnapshot],
+def _normalize_timestamps(raw: list[Any]) -> list[datetime]:
+    """Normalize a list of possibly-mixed datetime / ISO-strings to UTC datetime."""
+    result: list[datetime] = []
+    for t in raw:
+        if isinstance(t, datetime):
+            result.append(t.astimezone(UTC))
+        else:
+            dt = datetime.fromisoformat(str(t).replace("Z", "+00:00"))
+            result.append(dt if dt.tzinfo else dt.replace(tzinfo=UTC))
+    return result
+
+
+def _empty_chart(message: str, title: str, width: int, height: int) -> bytes:
+    img = Image.new("RGB", (width, height), BG)
+    draw = ImageDraw.Draw(img)
+    draw.text((width / 2 - 80, height / 2), message, fill=LABEL_COLOR, font=_FONT_LABEL)
+    draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=_FONT_TITLE)
+    return _save_bytes(img)
+
+
+def _render_line_chart(
+    times_dt: list[datetime],
+    values: list[int | float],
     title: str,
-    metric_label: str,
-    mode: str = "total",
+    mode: str,  # unused — kept for future delta label on Y-axis
     width: int = WIDTH,
     height: int = HEIGHT,
 ) -> bytes:
-    """Render a single-line time-series chart as PNG bytes."""
+    """Core single-line chart drawing — generic, no ORM dependency."""
     img = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(img)
-
-    # ------------------------------------------------------------------
-    # Data mapping
-    # ------------------------------------------------------------------
-    raw_values = [s.value for s in snapshots]
-    if mode == "delta" and len(raw_values) >= 2:
-        values = [raw_values[i] - raw_values[i - 1] for i in range(1, len(raw_values))]
-        snapshots = snapshots[1:]
-    elif mode == "delta":
-        values = []
-        snapshots = []
-    else:
-        values = raw_values
-
-    if not snapshots:
-        draw.text((width / 2 - 80, height / 2), "No data available", fill=LABEL_COLOR, font=_FONT_LABEL)
-        return _save_bytes(img)
-
-    times = [
-        s.fetched_at.astimezone(UTC) if isinstance(s.fetched_at, datetime) else s.fetched_at
-        for s in snapshots
-    ]
-    times_dt = [
-        t if isinstance(t, datetime) else datetime.fromisoformat(str(t).replace("Z", "+00:00"))
-        for t in times
-    ]
 
     vmin = min(values)
     vmax = max(values)
@@ -164,11 +157,8 @@ def render_media_chart(
     tmax = max(times_dt)
     t_span = (tmax - tmin).total_seconds()
     if t_span == 0:
-        t_span = 60  # 1 minute minimum to avoid division by zero
+        t_span = 60
 
-    # ------------------------------------------------------------------
-    # Helper: map data coordinates → pixel coordinates
-    # ------------------------------------------------------------------
     def px_x(dt: datetime) -> float:
         frac = (dt - tmin).total_seconds() / t_span
         return CHART_LEFT + frac * CHART_W
@@ -176,9 +166,7 @@ def render_media_chart(
     def px_y(val: int | float) -> float:
         return CHART_BOTTOM - float(val - y_floor) / y_span * CHART_H
 
-    # ------------------------------------------------------------------
     # Horizontal grid lines + Y labels
-    # ------------------------------------------------------------------
     step = y_span / num_grid if num_grid > 0 else y_span
     for i in range(num_grid + 1):
         val = y_floor + i * step
@@ -188,10 +176,8 @@ def render_media_chart(
         tw = _FONT_LABEL_AVG_W * len(label)
         draw.text((CHART_LEFT - tw - 8, y - _FONT_LABEL_AVG_W * 0.6), label, fill=LABEL_COLOR, font=_FONT_LABEL)
 
-    # ------------------------------------------------------------------
     # Vertical day-boundary lines + X labels
-    # ------------------------------------------------------------------
-    show_date = t_span >= 86400  # multi-day: show date
+    show_date = t_span >= 86400
 
     if show_date:
         from datetime import timedelta as td
@@ -205,7 +191,6 @@ def render_media_chart(
                 draw.text((int(cx) - tw // 2, CHART_BOTTOM + 4), lbl, fill=LABEL_COLOR, font=_FONT_TICK)
             day += td(days=1)
 
-    # Smaller hour ticks when spanning two days or less
     if t_span <= 86400 * 2:
         from datetime import timedelta as td
         tick_dt = tmin.replace(minute=0, second=0, microsecond=0)
@@ -217,9 +202,7 @@ def render_media_chart(
                 draw.text((int(cx) - tw // 2, CHART_BOTTOM + 18), lbl, fill=LABEL_COLOR, font=_FONT_TICK)
             tick_dt += td(hours=2) if t_span > 43200 else td(hours=1)
 
-    # ------------------------------------------------------------------
-    # Data line — use the computed `values` list, not raw snapshot values
-    # ------------------------------------------------------------------
+    # Data line
     pts = [(px_x(dt), px_y(val)) for dt, val in zip(times_dt, values, strict=True)]
     if len(pts) >= 2:
         for i in range(len(pts) - 1):
@@ -230,12 +213,72 @@ def render_media_chart(
         r = 3
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=LINE)
 
-    # ------------------------------------------------------------------
-    # Title + Y-axis label
-    # ------------------------------------------------------------------
+    # Title
     draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=_FONT_TITLE)
 
     return _save_bytes(img)
+
+
+def render_media_chart(
+    *,
+    snapshots: list[MetricSnapshot],
+    title: str,
+    metric_label: str,
+    mode: str = "total",
+    width: int = WIDTH,
+    height: int = HEIGHT,
+) -> bytes:
+    """Render a single-line time-series chart as PNG bytes (item-level snapshots)."""
+    raw_values: list[int | float] = [s.value for s in snapshots]
+    if mode == "delta" and len(raw_values) >= 2:
+        values = [raw_values[i] - raw_values[i - 1] for i in range(1, len(raw_values))]
+        snapshots = snapshots[1:]
+    elif mode == "delta":
+        values = []
+        snapshots = []
+    else:
+        values = raw_values
+
+    if not snapshots:
+        return _empty_chart("No data available", title, width, height)
+
+    times_dt = _normalize_timestamps(
+        [s.fetched_at for s in snapshots]
+    )
+    return _render_line_chart(times_dt, values, title, mode, width, height)
+
+
+def render_owner_chart(
+    *,
+    snapshots: list[Any],
+    title: str,
+    metric_label: str,
+    mode: str = "total",
+    width: int = WIDTH,
+    height: int = HEIGHT,
+) -> bytes:
+    """Render a single-line time-series chart as PNG bytes (owner-level snapshots).
+
+    Accepts any snapshot-like objects with .value and .fetched_at attributes
+    (MediaOwnerSnapshot or _SnapshotStub).
+    """
+    raw_values: list[int | float] = [s.value for s in snapshots]
+    if mode == "delta" and len(raw_values) >= 2:
+        values = [raw_values[i] - raw_values[i - 1] for i in range(1, len(raw_values))]
+        snapshots = snapshots[1:]
+    elif mode == "delta":
+        values = []
+        snapshots = []
+    else:
+        values = raw_values
+
+    if not snapshots:
+        return _empty_chart("No data available", title, width, height)
+
+    times_dt = _normalize_timestamps(
+        [s.fetched_at for s in snapshots]
+    )
+    return _render_line_chart(times_dt, values, title, mode, width, height)
 
 
 _SERIES_COLORS = [
@@ -272,7 +315,7 @@ def render_compare_chart(
             pts.append((dt, float(p["y"])))
         parsed.append(pts)
 
-    valid = [(s, pts) for s, pts in zip(series, parsed) if pts]
+    valid = [(s, pts) for s, pts in zip(series, parsed, strict=False) if pts]
     img = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(img)
 

@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.db.repositories import media as media_repo
-from stankbot.services.chart_renderer import render_compare_chart, render_media_chart
+from stankbot.services.chart_renderer import render_compare_chart, render_media_chart, render_owner_chart
 from stankbot.services.media_service import MediaService
 from stankbot.services.settings_service import Keys, SettingsService
 from stankbot.web.tools import get_active_guild_id, get_db, require_guild_member
@@ -100,6 +100,213 @@ async def list_providers(
             "interval_minutes": interval_minutes,
         })
     return MsgPackResponse({"providers": providers}, request)
+
+
+# ---------------------------------------------------------------------------
+# Profile (channel/artist) endpoints — must be before /{media_id} to avoid
+# int-parsing "profiles" / "profile" as a path parameter
+# ---------------------------------------------------------------------------
+
+
+@router.get("/profiles")
+async def list_profiles(
+    request: Request,
+    guild_id: int = Depends(get_active_guild_id),
+    _user: dict[str, Any] = Depends(require_guild_member),
+    media_type: str | None = Query(None),
+    session: AsyncSession = Depends(get_db),
+) -> MsgPackResponse:
+    svc = await _media_service(request, session)
+    owners = await svc.list_owners_for_guild(guild_id, media_type)
+    enabled = await _get_enabled_providers(session, guild_id)
+    owners = [o for o in owners if o["media_type"] in enabled]
+    registry = request.app.state.media_registry
+    profiles: list[dict[str, Any]] = []
+    for o in owners:
+        provider = registry.get(o["media_type"]) if registry else None
+        metric_defs = svc._owner_metric_defs(provider) if provider else []
+
+        raw_metrics = o.get("metrics", {})
+        latest_ts = ""
+        serialized_metrics: list[dict[str, Any]] = []
+        defs_by_key: dict[str, dict[str, str]] = {d["key"]: d for d in metric_defs}
+        for key, m in raw_metrics.items():
+            if key not in defs_by_key:
+                continue
+            val = int(m.get("value", 0)) if isinstance(m, dict) else 0
+            mt = m.get("fetched_at", "") if isinstance(m, dict) else ""
+            if mt and mt > latest_ts:
+                latest_ts = str(mt)
+            d = defs_by_key.get(key, {})
+            serialized_metrics.append({
+                "key": key,
+                "label": d.get("label", key),
+                "icon": d.get("icon", ""),
+                "value": val,
+                "format": d.get("format", "number"),
+            })
+        for d in metric_defs:
+            if d["key"] not in raw_metrics:
+                serialized_metrics.append({
+                    "key": d["key"],
+                    "label": d.get("label", d["key"]),
+                    "icon": d.get("icon", ""),
+                    "value": 0,
+                    "format": d.get("format", "number"),
+                })
+
+        profiles.append({
+            "id": o["id"],
+            "media_type": o["media_type"],
+            "external_id": o["external_id"],
+            "name": o["name"],
+            "external_url": o["external_url"],
+            "thumbnail_url": o["thumbnail_url"],
+            "cover_url": o.get("cover_url"),
+            "metrics": serialized_metrics,
+            "fetched_at": latest_ts,
+            "media_items_count": len(o.get("media_items", [])),
+        })
+    return MsgPackResponse({"profiles": profiles}, request)
+
+
+@router.get("/profile/{owner_id}")
+async def get_profile_detail(
+    request: Request,
+    owner_id: int,
+    guild_id: int = Depends(get_active_guild_id),
+    _user: dict[str, Any] = Depends(require_guild_member),
+    session: AsyncSession = Depends(get_db),
+) -> MsgPackResponse:
+    svc = await _media_service(request, session)
+    detail = await svc.get_owner_detail(owner_id, guild_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    enabled = await _get_enabled_providers(session, guild_id)
+    if detail["profile"]["media_type"] not in enabled:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return MsgPackResponse(detail, request)
+
+
+@router.get("/profile/{owner_id}/history")
+async def get_profile_history(
+    request: Request,
+    owner_id: int,
+    metric: str = Query("subscriber_count"),
+    days: int = Query(30, ge=1, le=365),
+    hours: int | None = Query(None, ge=1, le=48),
+    aggregation: str | None = Query(None, pattern=r"^(5min|15min|30min|hourly|daily|weekly|monthly)$"),
+    mode: str = Query("total", pattern=r"^(total|delta)$"),
+    guild_id: int = Depends(get_active_guild_id),
+    _user: dict[str, Any] = Depends(require_guild_member),
+    session: AsyncSession = Depends(get_db),
+) -> MsgPackResponse:
+    owner = await media_repo.get_owner_by_id(session, owner_id)
+    if owner is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    enabled = await _get_enabled_providers(session, guild_id)
+    if owner.media_type not in enabled:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    svc = await _media_service(request, session)
+    history = await svc.get_owner_history(
+        owner_id, metric,
+        window_days=days, window_hours=hours,
+        aggregation=aggregation, mode=mode,
+    )
+    payload: dict[str, Any] = {"owner_id": owner_id, "metric": metric, "history": history}
+    if hours is not None:
+        payload["hours"] = hours
+    else:
+        payload["days"] = days
+    if aggregation:
+        payload["aggregation"] = aggregation
+    if mode != "total":
+        payload["mode"] = mode
+    return MsgPackResponse(payload, request)
+
+
+@router.get("/profile/{owner_id}/chart", include_in_schema=False)
+async def get_profile_chart(
+    request: Request,
+    owner_id: int,
+    metric: str = Query("subscriber_count"),
+    days: int | None = Query(None, ge=0, le=365),
+    hours: int | None = Query(None, ge=1, le=8760),
+    date: str | None = Query(None),
+    mode: str = Query("total"),
+    aggregation: str | None = Query(None, pattern=r"^(5min|15min|30min|hourly|daily|weekly|monthly)$"),
+    session: AsyncSession = Depends(get_db),
+) -> FileResponse:
+    owner = await media_repo.get_owner_by_id(session, owner_id)
+    if owner is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    registry = request.app.state.media_registry
+    provider = registry.get(owner.media_type)
+    metric_label = metric
+    if provider:
+        for m in provider.owner_metrics:
+            if m.key == metric:
+                metric_label = m.label
+                break
+
+    if date:
+        try:
+            normalized = date.replace(" ", "+").replace("Z", "+00:00")
+            reference_date = datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {date}") from exc
+    else:
+        reference_date = datetime.now(UTC)
+
+    render_mode = mode if mode in ("total", "delta") else "total"
+    svc = await _media_service(request, session)
+
+    window_hours: int | None = hours
+    window_days: int | None = days if days is not None and days > 0 else None
+    if window_hours is None and window_days is None:
+        window_days = 7
+
+    history = await svc.get_owner_history(
+        owner_id, metric,
+        window_days=window_days or 30, window_hours=window_hours,
+        aggregation=aggregation, mode=render_mode,
+        reference_date=reference_date,
+    )
+    render_snaps = [
+        _SnapshotStub(
+            value=int(d["value"]),
+            fetched_at=datetime.fromisoformat(d["fetched_at"]),
+        )
+        for d in history
+    ]
+    buf = render_owner_chart(
+        snapshots=render_snaps, title=owner.name,
+        metric_label=metric_label, mode=render_mode,
+    )
+
+    latest_snap = history[-1] if history else None
+    if latest_snap:
+        cache_ts = int(datetime.fromisoformat(latest_snap["fetched_at"]).timestamp())
+    else:
+        cache_ts = int(reference_date.timestamp())
+    range_key = f"h{hours}" if hours is not None else f"d{days}" if days is not None else "all"
+    agg_key = f"_{aggregation}" if aggregation else ""
+    cache_dir = CHART_CACHE_DIR / "profiles" / str(owner_id)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / f"{owner_id}_{metric}_{range_key}{agg_key}_{cache_ts}_{render_mode}.png"
+
+    if cache_path.exists():
+        return FileResponse(
+            cache_path, media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
+    cache_path.write_bytes(buf)
+    return FileResponse(
+        cache_path, media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @router.get("/{media_id}")
@@ -365,12 +572,10 @@ def cleanup_chart_cache(now: datetime | None = None) -> int:
         return 0
 
     deleted = 0
-    for f in cache_dir.iterdir():
-        if not f.is_file() or f.suffix != ".png":
+    for f in cache_dir.rglob("*.png"):
+        if not f.is_file():
             continue
         try:
-            # Filename format: {media_id}_{metric}_{range}_{snapshot_ts}_{mode}.png
-            # Find the longest digit-only segment that looks like an epoch timestamp.
             parts = f.stem.split("_")
             for part in reversed(parts):
                 if part.isdigit() and len(part) >= 10:

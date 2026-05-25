@@ -645,6 +645,7 @@ class MediaOwner(Base):
     external_id: Mapped[str] = mapped_column(String(128), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     thumbnail_url: Mapped[str | None] = mapped_column(String(500))
+    cover_url: Mapped[str | None] = mapped_column(String(500))
     external_url: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -665,6 +666,7 @@ class MediaOwnerSnapshot(Base):
     __tablename__ = "media_owner_snapshots"
     __table_args__ = (
         Index("ix_owner_snapshots_id_key_time", "media_owner_id", "metric_key", "fetched_at"),
+        Index("ix_owner_snapshots_id_key_align_time", "media_owner_id", "metric_key", "alignment_mask", "fetched_at"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -676,6 +678,7 @@ class MediaOwnerSnapshot(Base):
     fetched_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    alignment_mask: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class MediaOwnerMilestone(Base):

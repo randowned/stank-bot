@@ -229,7 +229,7 @@ class YouTubeProvider(MediaProvider):
         if not self._api_key or not external_id:
             return None
 
-        url = f"{_CHANNELS_API_BASE}?part=snippet,statistics&id={external_id}&key={self._api_key}"
+        url = f"{_CHANNELS_API_BASE}?part=snippet,statistics,brandingSettings&id={external_id}&key={self._api_key}"
         client = self._get_client()
 
         backoff = 1.0
@@ -255,6 +255,12 @@ class YouTubeProvider(MediaProvider):
                 channel = items[0]
                 snippet = channel.get("snippet", {})
                 stats: dict[str, Any] = channel.get("statistics", {})
+                branding = channel.get("brandingSettings", {})
+                banner_url: str | None = None
+                if isinstance(branding, dict):
+                    image = branding.get("image")
+                    if isinstance(image, dict):
+                        banner_url = image.get("bannerExternalUrl")
 
                 def _int_from(st: dict[str, Any], key: str, default: int = 0) -> int:
                     try:
@@ -267,9 +273,10 @@ class YouTubeProvider(MediaProvider):
                     name=snippet.get("title", ""),
                     external_url=f"https://youtube.com/channel/{external_id}",
                     thumbnail_url=self._best_thumbnail(snippet.get("thumbnails", {})),
+                    cover_url=banner_url,
                     metrics={
                         "subscriber_count": _int_from(stats, "subscriberCount"),
-                        "view_count": _int_from(stats, "viewCount"),
+                        "total_view_count": _int_from(stats, "viewCount"),
                         "video_count": _int_from(stats, "videoCount"),
                     },
                 )
