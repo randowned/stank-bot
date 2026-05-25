@@ -9,7 +9,7 @@
 	import SelectDropdown from '$lib/components/SelectDropdown.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
-	import RelativeTime from '$lib/components/RelativeTime.svelte';
+	import MediaItemCard from '$lib/components/MediaItemCard.svelte';
 
 	let { data } = $props();
 
@@ -151,46 +151,34 @@
 	const chartLabel = $derived(
 		profile?.metrics?.find((m) => m.key === selectedMetric)?.label ?? selectedMetric
 	);
-
-	function getMediaIcon(item: MediaItem): string {
-		return item.media_type === 'youtube' ? '▶️' : '🟢';
-	}
-
-	let freshnessInterval = $state<ReturnType<typeof setInterval> | null>(null);
-	$effect(() => {
-		if (freshnessInterval) clearInterval(freshnessInterval);
-		freshnessInterval = setInterval(() => {
-			// Trigger reactivity for freshness
-			const _ = freshness;
-		}, 15_000);
-		return () => {
-			if (freshnessInterval) clearInterval(freshnessInterval);
-		};
-	});
 </script>
 
 {#if !profile}
 	<ErrorState title="Profile not found" message="This channel or artist doesn't exist or has no tracked media in this guild." />
 {:else}
-	<div class="max-w-5xl mx-auto">
-		<a href="{base}/media/profiles" class="text-sm text-muted hover:text-accent mb-4 inline-block">
-			← Back to Profiles
-		</a>
+	<div class="max-w-5xl mx-auto space-y-6">
+		<!-- Back link + freshness -->
+		<div class="flex items-center gap-3">
+			<a href="{base}/media/profiles" class="text-sm text-muted hover:text-accent transition-colors">
+				← Back to Profiles
+			</a>
+			{#if freshness}
+				<span
+					class="text-xs {freshness.state === 'fresh'
+						? 'text-green-400'
+						: freshness.state === 'stale'
+							? 'text-amber-400'
+							: 'text-red-400'}"
+					data-testid="profile-freshness"
+				>
+					● {freshness.label}
+				</span>
+			{/if}
+		</div>
 
-		{#if freshness}
-			<span
-				class="text-xs ml-3 {freshness.state === 'fresh'
-					? 'text-green-400'
-					: freshness.state === 'stale'
-						? 'text-amber-400'
-						: 'text-red-400'}"
-				data-testid="profile-freshness"
-			>
-				● {freshness.label}
-			</span>
-		{/if}
-
-		<div class="rounded-xl overflow-hidden mb-6 mt-2 relative {profile.cover_url ? 'h-48 md:h-56' : 'h-32 md:h-40'} bg-gradient-to-br from-border to-bg"
+		<!-- Hero cover + avatar -->
+		<div
+			class="rounded-xl overflow-hidden relative {profile.cover_url ? 'h-48 md:h-56' : 'h-32 md:h-40'} bg-gradient-to-br from-border to-bg"
 			style:background-image={profile.cover_url ? `url(${profile.cover_url})` : 'none'}
 			style:background-size="cover"
 			style:background-position="center"
@@ -230,23 +218,27 @@
 			</div>
 		</div>
 
+		<!-- Metric tiles -->
 		<div
-			class="grid gap-3 mb-6"
-			style="grid-template-columns: repeat({Math.max(1, Math.min(4, (profile.metrics ?? []).length))}, minmax(0, 1fr));"
+			class="grid gap-3"
+			style="grid-template-columns: repeat({Math.max(1, Math.min(5, (profile.metrics ?? []).length))}, minmax(0, 1fr));"
 		>
 			{#each (profile.metrics ?? []) as om}
-				<StatTile
-					value={formatNumber(metricValue(om.key))}
-					label="{om.icon} {om.label}"
-					flash={!!flashKeys[om.key]}
-					testId="profile-metric-{om.key}"
-					fontSize="lg"
-				/>
+				<div class="panel p-3">
+					<StatTile
+						value={formatNumber(metricValue(om.key))}
+						label="{om.icon} {om.label}"
+						flash={!!flashKeys[om.key]}
+						testId="profile-metric-{om.key}"
+						fontSize="lg"
+					/>
+				</div>
 			{/each}
 		</div>
 
+		<!-- Chart section -->
 		{#if metricOptions.length > 0}
-			<div class="mb-4">
+			<div>
 				<h2 class="text-lg font-semibold text-text mb-3">
 					{chartLabel} over time
 				</h2>
@@ -283,50 +275,25 @@
 			</div>
 		{/if}
 
-		<div class="mb-6">
+		<!-- Tracked media items -->
+		<div>
 			<h2 class="text-lg font-semibold text-text mb-3">
 				Tracked Media ({itemsCount})
 			</h2>
 			{#if items.length === 0}
 				<EmptyState icon="🎬" title="No media yet" message="No tracked media from this channel/artist in this guild." />
 			{:else}
-				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 					{#each items as item (item.id)}
-						{@const provMeta = providers.find((p) => p.type === item.media_type)}
-						<a
-							href="{base}/media/{item.id}"
-							class="panel hover:border-accent/50 transition-colors block no-underline rounded-lg overflow-hidden"
-							data-testid="profile-media-item"
-						>
-							<div class="flex gap-3 p-3">
-								{#if item.thumbnail_url}
-									<img src={item.thumbnail_url} alt={item.title} class="w-24 h-auto rounded object-cover shrink-0" loading="lazy" />
-								{:else}
-									<div class="w-24 h-16 rounded bg-border shrink-0 flex items-center justify-center text-muted text-xs">
-										No img
-									</div>
-								{/if}
-								<div class="min-w-0 flex-1">
-									<div class="text-sm font-semibold text-text truncate">{item.title}</div>
-									<div class="text-xs text-muted mt-1">
-										{getMediaIcon(item)} {provMeta?.label ?? item.media_type}
-									</div>
-									{#if item.published_at}
-										<div class="text-xs text-muted mt-1">
-											<RelativeTime datetime={item.published_at} />
-										</div>
-									{/if}
-									<div class="flex gap-2 mt-2 text-xs text-muted">
-										{#if item.media_type === 'youtube'}
-											<span>👁️ {formatNumber(Number(item.metrics?.view_count?.value ?? 0))}</span>
-											<span>👍 {formatNumber(Number(item.metrics?.like_count?.value ?? 0))}</span>
-										{:else}
-											<span>🎧 {formatNumber(Number(item.metrics?.playcount?.value ?? 0))}</span>
-										{/if}
-									</div>
-								</div>
-							</div>
-						</a>
+						<MediaItemCard
+							id={item.id}
+							title={item.title}
+							thumbnailUrl={item.thumbnail_url}
+							mediaType={item.media_type ?? profile.media_type}
+							publishedAt={item.published_at}
+							metrics={item.metrics}
+							testId="profile-media-item"
+						/>
 					{/each}
 				</div>
 			{/if}

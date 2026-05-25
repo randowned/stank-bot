@@ -5,7 +5,6 @@ Framework-agnostic. Web routes and the scheduler both call this.
 
 from __future__ import annotations
 
-import contextlib
 import logging
 import re
 from collections.abc import Callable
@@ -43,6 +42,14 @@ _PRIMARY_METRIC: dict[str, str] = {
 _OWNER_MILESTONE_METRICS: dict[str, list[str]] = {
     "youtube": ["subscriber_count", "total_view_count"],
     "spotify": ["follower_count", "total_playcount"],
+}
+
+# Map item-level metric keys → owner aggregate keys for computed totals.
+_ITEM_TO_OWNER_AGG: dict[str, str] = {
+    "view_count": "total_view_count",
+    "like_count": "total_like_count",
+    "comment_count": "total_comment_count",
+    "playcount": "total_playcount",
 }
 
 
@@ -667,13 +674,24 @@ class MediaService:
 
             # Owner refresh — collect unique channel_ids from this provider's items
             owner_ids: set[tuple[str, str]] = set()
+            items_by_channel: dict[str, list[int]] = {}
             for item in items:
                 if item.channel_id:
                     owner_ids.add((provider.media_type, item.channel_id))
+                    items_by_channel.setdefault(item.channel_id, []).append(item.id)
+            all_item_metrics = await media_repo.get_metrics_for_items(
+                self.session, [it.id for it in items],
+            )
             for mt, cid in owner_ids:
-                with contextlib.suppress(Exception):
-                    await self._refresh_owner(mt, cid, now, result,
-                                               on_owner_snapshot=on_owner_snapshot)
+                try:
+                    await self._refresh_owner(
+                        mt, cid, now, result,
+                        on_owner_snapshot=on_owner_snapshot,
+                        item_metrics=all_item_metrics,
+                        owner_item_ids=items_by_channel.get(cid, []),
+                    )
+                except Exception:
+                    log.warning("owner refresh failed for %s/%s", mt, cid, exc_info=True)
 
         return result
 
@@ -684,8 +702,14 @@ class MediaService:
         now: datetime,
         result: RefreshResult | None = None,
         on_owner_snapshot: Callable[..., Any] | None = None,
+        item_metrics: dict[int, dict[str, dict[str, Any]]] | None = None,
+        owner_item_ids: list[int] | None = None,
     ) -> int | None:
         """Fetch and persist owner data for a single channel/artist.
+
+        When *item_metrics* and *owner_item_ids* are provided, metrics
+        not returned by the provider (e.g. total_like_count for YouTube)
+        are computed by aggregating from the owner's media items.
 
         Returns the owner id if successful, or None.
         """
@@ -696,13 +720,19 @@ class MediaService:
         if owner_data is None:
             return None
 
-        # Snapshot old values for milestone detection
+        # Snapshot old values for milestone detection.
+        # If the owner has no prior snapshots we treat it as a baseline
+        # read and skip milestone detection to avoid announcing every
+        # threshold from 1K up to the current value on first fetch.
         owner = await media_repo.get_owner(self.session, media_type, channel_id)
         old_metrics: dict[str, int] = {}
+        has_prior_snapshots = False
         if owner:
             old_owner_metrics = await media_repo.get_owner_latest_metrics(
                 self.session, owner.id,
             )
+            if old_owner_metrics:
+                has_prior_snapshots = True
             for key in _OWNER_MILESTONE_METRICS.get(media_type, []):
                 m = old_owner_metrics.get(key, {})
                 old_metrics[key] = int(m.get("value", 0)) if m else 0
@@ -717,7 +747,20 @@ class MediaService:
             cover_url=owner_data.cover_url,
         )
         mask = _compute_alignment_mask(now)
-        for metric_key, value in owner_data.metrics.items():
+        all_metrics = dict(owner_data.metrics)
+
+        if item_metrics is not None and owner_item_ids is not None:
+            agg: dict[str, int] = {}
+            for mid in owner_item_ids:
+                im = item_metrics.get(mid, {})
+                for item_key, mv in im.items():
+                    val = int(mv.get("value", 0)) if isinstance(mv, dict) else 0
+                    agg[item_key] = agg.get(item_key, 0) + val
+            for item_key, owner_key in _ITEM_TO_OWNER_AGG.items():
+                if owner_key not in all_metrics and item_key in agg:
+                    all_metrics[owner_key] = agg[item_key]
+
+        for metric_key, value in all_metrics.items():
             await media_repo.insert_owner_snapshot(
                 self.session, owner.id, metric_key, value, now,
                 alignment_mask=mask,
@@ -726,8 +769,8 @@ class MediaService:
                 await on_owner_snapshot(owner_id=owner.id, media_type=media_type,
                                          metric_key=metric_key, value=value)
 
-        # Owner milestone detection
-        if result is not None:
+        # Owner milestone detection — only when prior snapshots exist
+        if result is not None and has_prior_snapshots:
             for metric_key in _OWNER_MILESTONE_METRICS.get(media_type, []):
                 old_val = old_metrics.get(metric_key, 0)
                 new_val = owner_data.metrics.get(metric_key, 0)
@@ -821,8 +864,19 @@ class MediaService:
                         external_id=item.external_id,
                     ))
         if item.channel_id:
-            with contextlib.suppress(Exception):
-                await self._refresh_owner(item.media_type, item.channel_id, now, result)
+            all_guild_items = await media_repo.list_all(
+                self.session, item.guild_id, item.media_type,
+            )
+            sibling_ids = [it.id for it in all_guild_items if it.channel_id == item.channel_id]
+            item_metrics = await media_repo.get_metrics_for_items(self.session, sibling_ids)
+            try:
+                await self._refresh_owner(
+                    item.media_type, item.channel_id, now, result,
+                    item_metrics=item_metrics,
+                    owner_item_ids=sibling_ids,
+                )
+            except Exception:
+                log.warning("owner refresh failed for %s/%s", item.media_type, item.channel_id, exc_info=True)
         return result
 
     async def backfill_alignment_masks(self) -> int:
@@ -1071,9 +1125,23 @@ class MediaService:
 
         all_items = await media_repo.list_all(self.session, guild_id, owner.media_type)
         owner_items = [it for it in all_items if it.channel_id == owner.external_id]
+
+        all_item_metrics: dict[int, dict[str, Any]] = {}
+        if owner_items:
+            all_item_metrics = await media_repo.get_metrics_for_items(
+                self.session, [it.id for it in owner_items],
+            )
+            agg: dict[str, int] = {}
+            for _mid, im in all_item_metrics.items():
+                for mk, mv in im.items():
+                    val = int(mv.get("value", 0)) if isinstance(mv, dict) else 0
+                    agg[mk] = agg.get(mk, 0) + val
+            for item_key, owner_key in _ITEM_TO_OWNER_AGG.items():
+                if owner_key not in metrics and item_key in agg:
+                    metrics[owner_key] = {"value": agg[item_key], "fetched_at": ""}
+
         serialized_items: list[dict[str, Any]] = []
         for it in owner_items:
-            item_metrics = await media_repo.get_metric_cache(self.session, it.id)
             serialized_items.append({
                 "id": it.id,
                 "title": it.title,
@@ -1081,7 +1149,8 @@ class MediaService:
                 "external_id": it.external_id,
                 "thumbnail_url": it.thumbnail_url,
                 "published_at": self._iso(it.published_at),
-                "metrics": item_metrics,
+                "media_type": it.media_type,
+                "metrics": all_item_metrics.get(it.id, {}),
             })
 
         owner_data = self._serialize_owner(owner, metrics, metric_defs)

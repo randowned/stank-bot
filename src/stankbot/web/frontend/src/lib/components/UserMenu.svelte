@@ -89,6 +89,10 @@
 		<span>📊</span>
 		<span>Media</span>
 	</DropdownItem>
+	<DropdownItem href="{base}/media/profiles" active={isActive(base + '/media/profiles')}>
+		<span>🎤</span>
+		<span>Artists</span>
+	</DropdownItem>
 	<DropdownItem
 		href="{base}/player/{user.id}"
 		active={isActive(`${base}/player/${user.id}`)}

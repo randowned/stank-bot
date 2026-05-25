@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.db.repositories import media as media_repo
 from stankbot.services.chart_renderer import render_compare_chart, render_media_chart, render_owner_chart
-from stankbot.services.media_service import MediaService
+from stankbot.services.media_service import MediaService, _ITEM_TO_OWNER_AGG
 from stankbot.services.settings_service import Keys, SettingsService
 from stankbot.web.tools import get_active_guild_id, get_db, require_guild_member
 from stankbot.web.transport import MsgPackResponse
@@ -126,7 +126,19 @@ async def list_profiles(
         provider = registry.get(o["media_type"]) if registry else None
         metric_defs = svc._owner_metric_defs(provider) if provider else []
 
-        raw_metrics = o.get("metrics", {})
+        raw_metrics: dict[str, Any] = dict(o.get("metrics", {}))
+        media_items_list = o.get("media_items", [])
+        if media_items_list:
+            item_ids = [it["id"] for it in media_items_list]
+            all_im = await media_repo.get_metrics_for_items(session, item_ids)
+            agg: dict[str, int] = {}
+            for _mid, im in all_im.items():
+                for mk, mv in im.items():
+                    val = int(mv.get("value", 0)) if isinstance(mv, dict) else 0
+                    agg[mk] = agg.get(mk, 0) + val
+            for item_key, owner_key in _ITEM_TO_OWNER_AGG.items():
+                if owner_key not in raw_metrics and item_key in agg:
+                    raw_metrics[owner_key] = {"value": agg[item_key], "fetched_at": ""}
         latest_ts = ""
         serialized_metrics: list[dict[str, Any]] = []
         defs_by_key: dict[str, dict[str, str]] = {d["key"]: d for d in metric_defs}
