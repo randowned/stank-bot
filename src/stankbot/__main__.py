@@ -125,6 +125,9 @@ async def run() -> None:
             if exc is None:
                 continue
             if isinstance(exc, discord.LoginFailure):
+                msg = str(exc)
+                if "rate-limited" in msg:
+                    raise ConfigError(msg) from exc
                 raise ConfigError(
                     "Discord rejected the bot token (DISCORD_TOKEN). "
                     "Open the Developer Portal -> Bot -> Reset Token, then "
