@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from alembic import op
+from sqlalchemy import text
 
 
 revision: str = "h6i7j8k9l0m1"
@@ -18,14 +19,17 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+_WHERE = text("broken_at IS NULL")
+
+
 def upgrade() -> None:
     op.create_index(
         "uq_chains_guild_altar_active",
         "chains",
         ["guild_id", "altar_id"],
         unique=True,
-        postgresql_where="broken_at IS NULL",
-        sqlite_where="broken_at IS NULL",
+        postgresql_where=_WHERE,
+        sqlite_where=_WHERE,
     )
 
 
