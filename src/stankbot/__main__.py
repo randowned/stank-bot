@@ -38,6 +38,36 @@ async def _run_web(bot: StankBot, config: AppConfig) -> None:
     await server.serve()
 
 
+async def _start_bot_with_retry(bot: StankBot, token: str, max_retries: int = 10) -> None:
+    import discord as _discord
+
+    for attempt in range(max_retries + 1):
+        try:
+            await bot.start(token)
+            return
+        except _discord.HTTPException as exc:
+            if exc.status != 429:
+                raise
+            retry_str = None
+            with contextlib.suppress(Exception):
+                retry_str = exc.response.headers.get("Retry-After")
+            wait = (
+                int(retry_str)
+                if retry_str and str(retry_str).isdigit()
+                else min(5 * (2**attempt), 300)
+            )
+            log.warning(
+                "Discord 429 rate-limited; retrying in %ds (attempt %d/%d)",
+                wait,
+                attempt + 1,
+                max_retries,
+            )
+            await asyncio.sleep(wait)
+    raise _discord.LoginFailure(
+        f"Discord rate-limited after {max_retries} retries"
+    )
+
+
 async def run() -> None:
     import discord
 
@@ -58,7 +88,11 @@ async def run() -> None:
         tasks: list[asyncio.Task[object]] = []
         if not use_mock:
             tasks.append(
-                asyncio.create_task(bot.start(config.discord_token.get_secret_value()))
+                asyncio.create_task(
+                    _start_bot_with_retry(
+                        bot, config.discord_token.get_secret_value()
+                    )
+                )
             )
         if config.enable_web:
             log.info("Web dashboard on http://%s", config.web_bind)
