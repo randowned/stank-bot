@@ -25,7 +25,7 @@ from stankbot.utils.time_utils import humanize_duration
 _FIELD_VALUE_LIMIT = 1024
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class PlayerRow:
     user_id: int
     display_name: str
@@ -38,7 +38,7 @@ class PlayerRow:
         return self.earned_sp - self.punishments
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class BoardState:
     """Everything needed to render the board embed.
 

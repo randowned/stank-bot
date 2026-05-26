@@ -31,7 +31,7 @@ test.describe('Version update notification', () => {
 		// Wait for the update toast to appear
 		const toast = page.locator('[data-testid="update-toast"]');
 		await expect(toast).toBeVisible({ timeout: 10000 });
-		await expect(toast).toContainText('Updated version available');
+		await expect(toast).toContainText('Updated available');
 
 		// Reload button should be visible
 		const reloadBtn = page.locator('[data-testid="update-reload-btn"]');

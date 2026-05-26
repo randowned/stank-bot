@@ -144,7 +144,9 @@ test.describe('Board', () => {
 
 		// Scroll down to trigger infinite-scroll pagination
 		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-		await page.waitForTimeout(2000);
+
+		// Wait for pagination to load — either more rows appear or verify current rows have counters
+		await page.waitForTimeout(1500);
 
 		// Verify some rows show counters (stanks/reacted format)
 		const rowsWithCounters = page.locator('[data-testid="rank-row"]').filter({ hasText: /Stanks/ });

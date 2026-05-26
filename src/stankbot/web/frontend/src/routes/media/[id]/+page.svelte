@@ -352,6 +352,7 @@
 		void selectedHours;
 		void comparisonMode;
 		void selectedAggregation;
+		void compareIds;
 
 		if (!aggregationOptions.some((o) => o.value === selectedAggregation)) {
 			selectedAggregation = 'auto';
@@ -373,6 +374,7 @@
 	function clearComparison() {
 		compareIds = [];
 		compareData = null;
+		updateURL();
 	}
 
 	function buildChartDatasets() {

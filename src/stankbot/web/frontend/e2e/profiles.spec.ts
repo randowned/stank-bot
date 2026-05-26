@@ -134,7 +134,7 @@ test.describe('Profile detail page', () => {
 		await page.getByTestId('profile-card').first().click();
 
 		await expect(page.getByTestId('profile-media-item')).toBeVisible({ timeout: 10000 });
-		await page.getByTestId('profile-media-item').first().click();
+		await page.getByTestId('profile-media-item').first().getByRole('link').first().click();
 		await expect(page).toHaveURL(new RegExp(`/media/${id}`));
 	});
 

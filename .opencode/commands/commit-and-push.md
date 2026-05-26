@@ -21,17 +21,20 @@ If the change touches user-visible surface (commands, settings, scoring defaults
 
 If purely internal (refactor, tests, CI, internal rename), state so explicitly and skip the README edit.
 
-### 4. Update version
+### 4. Migration chain integrity
+If any files under `migrations/versions/` are staged or modified, run `alembic history` and verify the chain is linear with no forks or missing revisions. If the chain is broken, fix the `down_revision` before proceeding.
+
+### 5. Update version
 Edit `pyproject.toml` so `version = "X.Y.Z"` matches the bump you picked.
 
-### 5. Commit
+### 6. Commit
 - Message format: `vX.Y.Z - {short context}`
   - `v2.1.0 - feat: add altar multi-sticker support`
   - `v2.0.1 - fix: cooldown leaking across altars`
 - **Never** add a `Co-Authored-By` or any AI-authored trailer.
 - Stage only the files that belong to this change.
 
-### 6. Push
+### 7. Push
 - `git push` to the current branch.
 - **Do not** open a pull request. This project ships directly from the branch.
 - **Do not** switch, create, rebase, or merge branches unless the user explicitly asked.

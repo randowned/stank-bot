@@ -13,7 +13,8 @@ between two matching start/end markers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -27,6 +28,14 @@ from stankbot.services.chain_service import SessionIdProvider
 
 if TYPE_CHECKING:
     from stankbot.db.models import Event
+
+_session_locks: dict[int, asyncio.Lock] = {}
+
+
+def _lock_for(guild_id: int) -> asyncio.Lock:
+    if guild_id not in _session_locks:
+        _session_locks[guild_id] = asyncio.Lock()
+    return _session_locks[guild_id]
 
 
 @dataclass(slots=True)
@@ -59,20 +68,24 @@ class SessionService(SessionIdProvider):
     ) -> int:
         """If no session is currently open, emit ``session_start`` and
         return the new session id. Otherwise return the existing id.
+
+        Uses a per-guild lock to prevent two concurrent callers from
+        both creating a new session.
         """
-        current = await self.current(guild_id)
-        if current is not None:
-            return current
-        event = await events_repo.append(
-            self.session,
-            guild_id=guild_id,
-            type=EventType.SESSION_START,
-            reason="session started",
-            created_at=when,
-        )
-        # Fresh session — reset the per-session chain record.
-        await self._reset_session_records(guild_id)
-        return event.id
+        async with _lock_for(guild_id):
+            current = await self.current(guild_id)
+            if current is not None:
+                return current
+            event = await events_repo.append(
+                self.session,
+                guild_id=guild_id,
+                type=EventType.SESSION_START,
+                reason="session started",
+                created_at=when,
+            )
+            # Fresh session — reset the per-session chain record.
+            await self._reset_session_records(guild_id)
+            return event.id
 
     async def end_session(
         self,

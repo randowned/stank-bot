@@ -216,7 +216,7 @@ def _aggregate_snapshots(
     return result
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class MilestoneInfo:
     media_item_id: int
     media_type: str
@@ -230,7 +230,7 @@ class MilestoneInfo:
     external_id: str
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class OwnerMilestoneInfo:
     media_owner_id: int
     media_type: str
@@ -625,7 +625,12 @@ class MediaService:
                     if pm and isinstance(pm, dict):
                         old_values[mid] = int(pm.get("value", 0))
 
-            metrics_list = await provider.fetch_metrics(external_ids)
+            try:
+                metrics_list = await provider.fetch_metrics(external_ids)
+            except Exception:
+                log.exception("fetch_metrics failed for provider %s", provider.media_type)
+                result.failed += len(items)
+                continue
             now = datetime.now(UTC)
             for mr in metrics_list:
                 item = id_to_item.get(mr.external_id)

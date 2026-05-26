@@ -334,18 +334,43 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except Exception as e:
         log.warning("Failed to send initial state to WS client: %s", e)
 
+    _WS_MAX_MESSAGE_BYTES = 4096
+    _KNOWN_CLIENT_TYPES = {MSG_TYPE_PING, MSG_TYPE_VERSION_RESPONSE}
+
     try:
         while True:
             try:
                 data = await websocket.receive_bytes()
-                msg = msgpack.unpackb(data, raw=False)
+                if len(data) > _WS_MAX_MESSAGE_BYTES:
+                    await websocket.send_bytes(
+                        msgpack.packb({"t": MSG_TYPE_ERROR, "d": {"error": "message too large"}})
+                    )
+                    continue
+                try:
+                    msg = msgpack.unpackb(data, raw=False)
+                except Exception:
+                    await websocket.send_bytes(
+                        msgpack.packb({"t": MSG_TYPE_ERROR, "d": {"error": "invalid msgpack"}})
+                    )
+                    continue
+                if not isinstance(msg, dict):
+                    await websocket.send_bytes(
+                        msgpack.packb({"t": MSG_TYPE_ERROR, "d": {"error": "expected object"}})
+                    )
+                    continue
                 msg_type = msg.get("t")
+                if msg_type not in _KNOWN_CLIENT_TYPES:
+                    continue
                 if msg_type == MSG_TYPE_PING:
                     await websocket.send_bytes(msgpack.packb({"t": MSG_TYPE_PONG}))
                 elif msg_type == MSG_TYPE_VERSION_RESPONSE:
                     client_version = msg.get("d", {}).get("version", "")
                     server_version = getattr(app_state, "app_version", "0.0.0")
                     if client_version != server_version:
+                        log.warning(
+                            "WS version mismatch: client=%s server=%s user=%s guild=%d",
+                            client_version, server_version, user_id_str, guild_id,
+                        )
                         await websocket.send_bytes(
                             msgpack.packb(
                                 {"t": MSG_TYPE_VERSION_MISMATCH, "d": {"server_version": server_version, "client_version": client_version}},

@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class MetricDef:
     """Describes a metric this provider can measure."""
 
@@ -18,7 +18,7 @@ class MetricDef:
     icon: str = ""
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class ProviderDef:
     """Lightweight provider descriptor for API serialization (no secrets)."""
 
@@ -28,7 +28,7 @@ class ProviderDef:
     metrics: list[MetricDef]
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class ResolvedMedia:
     """Result of resolving a URL/ID into structured metadata."""
 
@@ -42,7 +42,7 @@ class ResolvedMedia:
     extra: dict[str, str | int | None] = field(default_factory=dict)
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class MetricResult:
     """Metric values for a single external_id after a fetch."""
 
@@ -51,7 +51,7 @@ class MetricResult:
     error: str | None = None
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class OwnerResult:
     """Owner-level data fetched from a provider (channel/artist stats)."""
 

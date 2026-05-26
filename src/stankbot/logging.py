@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import sys
 from collections import deque
 from datetime import UTC, datetime
+
+log_guild_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("log_guild_id", default=None)
+log_user_id: contextvars.ContextVar[int | None] = contextvars.ContextVar("log_user_id", default=None)
 
 # In-memory ring buffer feeding ``/stank-admin log``. Populated by the
 # handler installed in ``configure_logging`` below.
@@ -35,6 +39,12 @@ class _JsonFormatter(logging.Formatter):
             "name": record.name,
             "msg": record.getMessage(),
         }
+        gid = log_guild_id.get()
+        uid = log_user_id.get()
+        if gid is not None:
+            payload["guild_id"] = gid
+        if uid is not None:
+            payload["user_id"] = uid
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
         return json.dumps(payload, default=str)

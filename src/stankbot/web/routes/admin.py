@@ -91,6 +91,20 @@ _SIMPLE_INT_KEYS = (
     Keys.STANK_RANKING_ROWS,
     Keys.BOARD_NAME_MAX_LEN,
 )
+
+_SETTING_BOUNDS: dict[str, tuple[int, int]] = {
+    Keys.SP_FLAT: (0, 1000),
+    Keys.SP_POSITION_BONUS: (0, 500),
+    Keys.SP_STARTER_BONUS: (0, 1000),
+    Keys.SP_FINISH_BONUS: (0, 1000),
+    Keys.SP_REACTION: (0, 500),
+    Keys.SP_TEAM_PLAYER_BONUS: (0, 500),
+    Keys.PP_BREAK_BASE: (0, 10000),
+    Keys.PP_BREAK_PER_STANK: (0, 1000),
+    Keys.RESTANK_COOLDOWN_SECONDS: (0, 86400),
+    Keys.STANK_RANKING_ROWS: (1, 100),
+    Keys.BOARD_NAME_MAX_LEN: (3, 64),
+}
 _SIMPLE_BOOL_KEYS = (
     Keys.CHAIN_CONTINUES_ACROSS_SESSIONS,
     Keys.ENABLE_REACTION_BONUS,
@@ -135,9 +149,18 @@ async def save_settings(
     for key in _SIMPLE_INT_KEYS:
         if key in payload.values and payload.values[key] is not None:
             try:
-                await svc.set(guild_id, key, int(payload.values[key]))
+                val = int(payload.values[key])
             except (TypeError, ValueError) as err:
                 raise HTTPException(status_code=400, detail=f"bad int for {key}") from err
+            bounds = _SETTING_BOUNDS.get(key)
+            if bounds is not None:
+                lo, hi = bounds
+                if not (lo <= val <= hi):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"{key} must be between {lo} and {hi}",
+                    )
+            await svc.set(guild_id, key, val)
     for key in _SIMPLE_BOOL_KEYS:
         if key in payload.values and payload.values[key] is not None:
             await svc.set(guild_id, key, bool(payload.values[key]))

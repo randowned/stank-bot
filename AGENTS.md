@@ -184,6 +184,10 @@ These endpoints are **only mounted when `ENV=dev-mock`**. Never call them in dev
 
 Use `data-testid` selectors in Svelte components for stable Playwright queries. Prefer fixtures over manual `page.goto` + `page.fill` sequences.
 
+### Concurrency awareness
+
+`chain_service.process()` relies on a DB-level partial unique index (`uq_chains_guild_altar_active`) to prevent duplicate active chains under concurrent access. If `IntegrityError` is raised on chain creation, the code retries the read. `session_service.ensure_started()` uses a per-guild `asyncio.Lock` to prevent duplicate sessions. These are single-process-safe only — if the architecture ever splits into multiple workers, replace with advisory locks or `SELECT ... FOR UPDATE`.
+
 ### E2E coverage rule (absolute)
 
 If your change affects a user-facing dashboard flow — board rendering, chain display, player profiles, admin settings, session views, auth state, WebSocket updates, or toast notifications — and there is **no existing E2E test** covering that flow, **you must add one**. No exceptions. The test must exercise the modified route or interaction and assert on either DOM state or WebSocket frame content.
@@ -196,6 +200,9 @@ Detailed enforcement lives in auto-invoked skills:
 - **`stank-service-purity`** — `services/` is framework-agnostic (no `discord.py`); `cogs/` translates Discord ↔ services; `web/` imports services directly. Triggers when editing those layers.
 - **`stank-embed-templates`** — template variables are `{snake_case}` so services pass context dicts directly. Triggers when editing templates / renderers.
 - **`stank-ws-protocol`** — frontend `MsgType` enum and backend `MSG_TYPE_*` constants must stay in sync. Triggers when editing WS message type definitions.
+- **`stank-frontend-patterns`** — Svelte 5 runes, `apiFetch` for API calls, store conventions, component reuse, `data-testid` for E2E. Triggers when editing frontend `.svelte`/`.ts` files.
+- **`stank-db-migrations`** — Alembic conventions: `down_revision` must match head, dual-dialect WHERE clauses, reversibility. Triggers when touching `migrations/versions/` or `db/models.py`.
+- **`stank-scoring-math`** — SP non-negative, PP formula, position bonus, finish bonus, Team Player, frozen `ScoringConfig`. Triggers when editing `scoring_service.py` or `chain_service.py`.
 
 ## What this project is
 

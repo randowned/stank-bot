@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.db.models import Altar, Chain, EventType, RecordScope
@@ -51,7 +52,7 @@ class ChainOutcome(StrEnum):
     DUPLICATE = "duplicate"  # Discord re-dispatch
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class StankInput:
     """What the cog hands to ChainService for each altar-channel message."""
 
@@ -136,27 +137,38 @@ class ChainService:
         session_id = await self.session_id_provider.current(msg.guild_id)
 
         # Start a new chain or extend the live one.
+        # The partial unique index (guild_id, altar_id) WHERE broken_at IS NULL
+        # prevents duplicate active chains. On conflict, re-read the winner.
         if current is None:
-            current = await chains_repo.start_chain(
-                self.session,
-                guild_id=msg.guild_id,
-                altar_id=msg.altar.id,
-                starter_user_id=msg.author_id,
-                session_id=session_id,
-                started_at=msg.created_at,
-            )
-            await events_repo.append(
-                self.session,
-                guild_id=msg.guild_id,
-                type=EventType.CHAIN_START,
-                user_id=msg.author_id,
-                altar_id=msg.altar.id,
-                session_id=session_id,
-                chain_id=current.id,
-                message_id=msg.message_id,
-                custom_event_key=msg.altar.custom_event_key,
-                created_at=msg.created_at,
-            )
+            try:
+                current = await chains_repo.start_chain(
+                    self.session,
+                    guild_id=msg.guild_id,
+                    altar_id=msg.altar.id,
+                    starter_user_id=msg.author_id,
+                    session_id=session_id,
+                    started_at=msg.created_at,
+                )
+            except IntegrityError:
+                await self.session.rollback()
+                current = await chains_repo.current_chain(
+                    self.session, msg.guild_id, msg.altar.id
+                )
+                if current is None:
+                    return ChainResult(outcome=ChainOutcome.NOISE)
+            else:
+                await events_repo.append(
+                    self.session,
+                    guild_id=msg.guild_id,
+                    type=EventType.CHAIN_START,
+                    user_id=msg.author_id,
+                    altar_id=msg.altar.id,
+                    session_id=session_id,
+                    chain_id=current.id,
+                    message_id=msg.message_id,
+                    custom_event_key=msg.altar.custom_event_key,
+                    created_at=msg.created_at,
+                )
 
         # Compute position and record the message.
         length, _ = await chains_repo.chain_length_and_unique(

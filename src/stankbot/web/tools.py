@@ -1,4 +1,4 @@
-"""Shared FastAPI dependencies — DB sessions, Jinja templates, auth."""
+"""Shared FastAPI dependencies — DB sessions, auth guards."""
 
 from __future__ import annotations
 
@@ -9,8 +9,7 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, HTTPException, Request, status
-from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -100,16 +99,6 @@ def _is_mock_auth(request: Request) -> bool:
     return config.env == "dev-mock" and config.mock_auth
 
 
-def get_templates(request: Request) -> Jinja2Templates:
-    templates = getattr(request.app.state, "_templates", None)
-    if templates is None:
-        templates = Jinja2Templates(
-            directory=str(request.app.state.templates_dir),
-        )
-        request.app.state._templates = templates
-    return templates
-
-
 def get_config(request: Request) -> AppConfig:
     return request.app.state.config
 
@@ -142,11 +131,13 @@ class _LoginRedirect(HTTPException):
 
 
 class _NotInGuild(HTTPException):
-    """Carries a 403 TemplateResponse for users who are not guild members."""
+    """Carries a 403 JSON response for users who are not guild members."""
 
-    def __init__(self, response: Any) -> None:
+    def __init__(self, response: Any | None = None) -> None:
         super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail="not in guild")
-        self.response = response
+        self.response = response or JSONResponse(
+            {"detail": "not in guild"}, status_code=403
+        )
 
 
 async def _is_guild_member(
@@ -218,15 +209,7 @@ async def require_guild_member(
     uid = int(user["id"])
     is_member = await _is_guild_member(request, default_gid, uid, session=session)
     if not is_member:
-        templates = get_templates(request)
-        raise _NotInGuild(
-            templates.TemplateResponse(
-                request,
-                "unauthorized.html",
-                {"request": request, "user": user},
-                status_code=403,
-            )
-        )
+        raise _NotInGuild()
     return user
 
 
@@ -331,15 +314,7 @@ async def require_global_admin(
     if await svc.is_global_admin(uid):
         return user
 
-    templates = get_templates(request)
-    raise _NotInGuild(
-        templates.TemplateResponse(
-            request,
-            "unauthorized.html",
-            {"request": request, "user": user},
-            status_code=403,
-        )
-    )
+    raise _NotInGuild()
 
 
 async def require_guild_admin(
@@ -368,15 +343,7 @@ async def require_guild_admin(
     guild_id = get_active_guild_id(request)
 
     def _unauthorized() -> _NotInGuild:
-        templates = get_templates(request)
-        return _NotInGuild(
-            templates.TemplateResponse(
-                request,
-                "unauthorized.html",
-                {"request": request, "user": user},
-                status_code=403,
-            )
-        )
+        return _NotInGuild()
 
     if _is_owner(request):
         return user

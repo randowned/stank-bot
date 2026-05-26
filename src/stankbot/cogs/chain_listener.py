@@ -10,6 +10,7 @@ channel, non-ephemerally).
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 import discord
@@ -17,6 +18,7 @@ from discord.ext import commands
 
 from stankbot.cogs._identity import ensure_player
 from stankbot.db.models import RecordScope
+from stankbot.logging import log_guild_id, log_user_id
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import events as events_repo
 from stankbot.db.repositories import guild_members as guild_members_repo
@@ -44,6 +46,27 @@ if TYPE_CHECKING:
     from stankbot.db.models import Altar
 
 log = logging.getLogger(__name__)
+
+_DEDUP_MAX = 2048
+
+
+class _RecentMessageIds:
+    """Bounded set of recently-seen message IDs to prevent re-dispatch."""
+
+    def __init__(self, maxsize: int = _DEDUP_MAX) -> None:
+        self._store: OrderedDict[int, None] = OrderedDict()
+        self._maxsize = maxsize
+
+    def seen(self, message_id: int) -> bool:
+        if message_id in self._store:
+            return True
+        self._store[message_id] = None
+        if len(self._store) > self._maxsize:
+            self._store.popitem(last=False)
+        return False
+
+
+_recent_messages = _RecentMessageIds()
 
 
 def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
@@ -91,6 +114,10 @@ class ChainListener(commands.Cog):
             )
 
     async def _handle_message(self, message: discord.Message) -> None:
+        if _recent_messages.seen(message.id):
+            return
+        log_guild_id.set(message.guild.id)
+        log_user_id.set(message.author.id)
         async with self.bot.db() as session:
             altar = await altars_repo.for_guild(session, message.guild.id)
             if altar is None:

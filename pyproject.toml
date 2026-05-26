@@ -1,6 +1,6 @@
 [project]
 name = "stankbot"
-version = "2.61.0"
+version = "2.62.0"
 description = "Server-side Discord Application for the Stank chain game"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,7 +17,6 @@ dependencies = [
     "APScheduler>=3.10",
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
-    "jinja2>=3.1",
     "httpx>=0.27",
     "itsdangerous>=2.2",
     "python-multipart>=0.0.9",

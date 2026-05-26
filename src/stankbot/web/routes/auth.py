@@ -49,6 +49,8 @@ async def login(
     state = secrets.token_urlsafe(24)
     request.session["oauth_state"] = state
     next_url = request.query_params.get("next")
+    if next_url:
+        request.session["oauth_next"] = next_url
     params = {
         "client_id": str(config.discord_app_id),
         "redirect_uri": config.oauth_redirect_uri,
@@ -57,8 +59,6 @@ async def login(
         "state": state,
         "prompt": "none",
     }
-    if next_url:
-        params["state"] = f"{state}?next={next_url}"
     return RedirectResponse(f"{_AUTHORIZE_URL}?{urlencode(params)}")
 
 
@@ -106,7 +106,8 @@ async def callback(
         "avatar": me.get("avatar"),
     }
     request.session["guild_id"] = config.default_guild_id
-    return RedirectResponse("/", status_code=303)
+    redirect_to = request.session.pop("oauth_next", None) or "/"
+    return RedirectResponse(redirect_to, status_code=303)
 
 
 @router.get("/mock-login")

@@ -78,14 +78,22 @@ export const test = base.extend<{
 			await waitForBackend(page);
 			const response = await page.request.post('/auth/mock-login', { data: user });
 			expect(response.ok()).toBeTruthy();
-			// Clear frontend caches so fresh data is fetched after login
-			await page.evaluate(() => {
-				try {
-					sessionStorage.removeItem('stankbot:auth');
-					sessionStorage.removeItem('stankbot:guilds');
-				} catch {}
-			});
+			// Navigate first so evaluate runs in the correct origin
 			await page.goto('/');
+			// Suppress version-mismatch toast by syncing localStorage version
+			const vResp = await page.request.get('/api/version');
+			const { version } = await vResp.json();
+			await page.evaluate(
+				([v]) => {
+					try {
+						sessionStorage.removeItem('stankbot:auth');
+						sessionStorage.removeItem('stankbot:guilds');
+						localStorage.setItem('stankbot:version', v);
+					} catch {}
+				},
+				[version]
+			);
+			await page.reload();
 		});
 	},
 

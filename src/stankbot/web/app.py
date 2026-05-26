@@ -15,13 +15,16 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import time
+from collections import defaultdict
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 from starlette.exceptions import HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
@@ -33,6 +36,48 @@ from stankbot.web.tools import _LoginRedirect, _NotInGuild
 
 log = logging.getLogger(__name__)
 WEB_DIR = Path(os.environ.get("WEB_DIR", str(Path(__file__).parent / "frontend")))
+
+
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
+
+
+class _RateLimitMiddleware(BaseHTTPMiddleware):
+    """Simple in-process sliding-window rate limiter keyed by session user_id."""
+
+    def __init__(self, app, *, api_rpm: int = 120, admin_rpm: int = 30) -> None:
+        super().__init__(app)
+        self._api_rpm = api_rpm
+        self._admin_rpm = admin_rpm
+        self._windows: dict[str, list[float]] = defaultdict(list)
+
+    def _check(self, key: str, limit: int) -> bool:
+        now = time.monotonic()
+        window = self._windows[key]
+        window[:] = [t for t in window if now - t < 60.0]
+        if len(window) >= limit:
+            return False
+        window.append(now)
+        return True
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
+        user = request.session.get("user")
+        uid = str(user["id"]) if user else request.client.host if request.client else "anon"
+        is_admin = path.startswith("/api/admin/")
+        limit = self._admin_rpm if is_admin else self._api_rpm
+        prefix = "admin" if is_admin else "api"
+        if not self._check(f"{prefix}:{uid}", limit):
+            return JSONResponse({"detail": "rate limit exceeded"}, status_code=429)
+        return await call_next(request)
 
 
 class _SPAStaticFiles(StaticFiles):
@@ -61,6 +106,9 @@ def build_app(
         else secrets.token_urlsafe(32)
     )
     app.add_middleware(SessionMiddleware, secret_key=secret, same_site="lax")
+    if config.env != "dev-mock":
+        app.add_middleware(_RateLimitMiddleware, api_rpm=120, admin_rpm=30)
+    app.add_middleware(_SecurityHeadersMiddleware)
 
     try:
         app.state.app_version = pkg_version("stankbot")

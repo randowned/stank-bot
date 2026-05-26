@@ -76,7 +76,7 @@ def altar_channel_mention(channel_id: int | None) -> str:
     return f"<#{channel_id}>" if channel_id else ""
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class RecordBreakVars:
     length: int
     unique: int
@@ -144,7 +144,7 @@ async def build_record_embed(
     return render_embed(tmpl, ctx)
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class ChainBreakVars:
     breaker_name: str
     broken_length: int

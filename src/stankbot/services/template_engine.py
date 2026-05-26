@@ -29,7 +29,7 @@ class TemplateError(ValueError):
     """Raised for malformed templates (bad variable names, unknown keys)."""
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class RenderContext:
     """Values available for substitution. Keys must all be snake_case.
 
