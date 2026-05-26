@@ -590,7 +590,7 @@
 {#if !item}
 	<ErrorState title="Not found" message="This media item could not be found." />
 {:else}
-	<div class="p-4 space-y-4">
+	<div class="max-w-6xl mx-auto p-4 space-y-4">
 		<div class="flex items-center justify-between">
 			<a href="{base}/media" class="text-sm text-muted hover:text-accent transition-colors">← Back to Media</a>
 			<div class="flex items-center gap-2">

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { formatNumber } from '$lib/format';
+	import { providerBrandBorder } from '$lib/media-utils';
+	import { providersByType } from '$lib/stores';
 	import type { Snippet } from 'svelte';
 	import RelativeTime from './RelativeTime.svelte';
 
@@ -32,15 +34,19 @@
 
 	const resolvedHref = $derived(href ?? `${base}/media/${id}`);
 	const icon = $derived(mediaType === 'youtube' ? '▶️' : '🟢');
-	const borderColor = $derived(
-		mediaType === 'youtube'
-			? 'border-l-[3px] border-l-[#ff0000]/70'
-			: mediaType === 'spotify'
-				? 'border-l-[3px] border-l-[#1db954]/70'
-				: ''
-	);
+	const borderColor = $derived(providerBrandBorder(mediaType));
+
+	const providerDefs = $derived($providersByType);
+	const providerDef = $derived(providerDefs[mediaType]);
 
 	function primaryMetrics(): Array<{ icon: string; label: string; value: number }> {
+		if (providerDef) {
+			return providerDef.metrics.map((m) => ({
+				icon: m.icon || '📊',
+				label: m.label,
+				value: Number(metrics?.[m.key]?.value ?? 0)
+			}));
+		}
 		if (mediaType === 'youtube') {
 			return [
 				{ icon: '👁️', label: 'Views', value: Number(metrics?.view_count?.value ?? 0) },

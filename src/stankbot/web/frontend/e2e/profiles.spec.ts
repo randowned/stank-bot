@@ -112,6 +112,7 @@ test.describe('Profile detail page', () => {
 		// Chart controls render
 		await expect(page.getByTestId('profile-chart-metric')).toBeVisible({ timeout: 10000 });
 		await expect(page.getByTestId('profile-chart-range')).toBeVisible();
+		await expect(page.getByTestId('profile-chart-resolution')).toBeVisible();
 		await expect(page.getByTestId('profile-chart-mode')).toBeVisible();
 	});
 
@@ -160,6 +161,134 @@ test.describe('Profile detail page', () => {
 		await expect(page.getByTestId('profile-metric-popularity')).toBeVisible();
 		await expect(page.getByText('Mock Artist')).toBeVisible();
 		await expect(page.getByTestId('profile-external-link')).toHaveAttribute('href', /open\.spotify\.com\/artist\//);
+	});
+
+	test('search filters profiles by name', async ({ page, injectMedia }) => {
+		await injectMedia({ guildId: GUILD, slug: 'profile-search-1', historyDays: 7 });
+		await injectMedia({ guildId: GUILD, slug: 'profile-search-2', mediaType: 'spotify', historyDays: 7 });
+		await page.goto('/media/profiles');
+		await expect(page.getByTestId('profile-card')).toHaveCount(2, { timeout: 10000 });
+
+		const searchInput = page.getByTestId('profiles-search');
+		await expect(searchInput).toBeVisible();
+
+		await searchInput.fill('Mock Channel');
+		await expect(page.getByTestId('profile-card')).toHaveCount(1);
+		await expect(page.getByTestId('profile-card').first()).toContainText('Mock Channel');
+
+		await searchInput.fill('Mock Artist');
+		await expect(page.getByTestId('profile-card')).toHaveCount(1);
+		await expect(page.getByTestId('profile-card').first()).toContainText('Mock Artist');
+
+		await searchInput.fill('nonexistent');
+		await expect(page.getByTestId('profile-card')).toHaveCount(0);
+	});
+
+	test('compare toggle shows second metric selector on profile detail', async ({ page, injectMedia }) => {
+		await injectMedia({ guildId: GUILD, slug: 'profile-compare', historyDays: 7 });
+		await page.goto('/media/profiles');
+		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
+		await page.getByTestId('profile-card').first().click();
+
+		// Compare button and metric dropdown render
+		await expect(page.getByTestId('profile-chart-compare-toggle')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId('profile-chart-compare-metric')).toBeAttached();
+	});
+
+	test('chart renders with multiple data points', async ({ page, injectMedia }) => {
+		await injectMedia({ guildId: GUILD, slug: 'profile-chart-data', historyDays: 7 });
+		await page.goto('/media/profiles');
+		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
+		await page.getByTestId('profile-card').first().click();
+
+		await expect(page.getByTestId('profile-chart-metric')).toBeVisible({ timeout: 10000 });
+
+		// Chart container should render a canvas (not the "no history" empty state)
+		await expect(page.getByTestId('profile-chart')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByTestId('profile-chart').locator('canvas')).toBeAttached();
+		// Should not show the "only 1 data point" warning with 7 days of hourly data
+		await expect(page.getByText('Only 1 data point yet')).not.toBeAttached();
+		// Should not show "no history data" empty state
+		await expect(page.getByText('No history data yet')).not.toBeAttached();
+	});
+
+	test('changing range updates chart', async ({ page, injectMedia }) => {
+		await injectMedia({ guildId: GUILD, slug: 'profile-chart-range', historyDays: 30 });
+		await page.goto('/media/profiles');
+		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
+		await page.getByTestId('profile-card').first().click();
+
+		await expect(page.getByTestId('profile-chart')).toBeVisible({ timeout: 10000 });
+
+		// Switch range to 7 days
+		await page.getByTestId('profile-chart-range').getByRole('button').click();
+		await page.getByRole('option', { name: '7 days' }).click();
+
+		// Chart should re-render after range change
+		await expect(page.getByTestId('profile-chart').locator('canvas')).toBeAttached({ timeout: 10000 });
+		// Should still not show empty state
+		await expect(page.getByText('No history data yet — waiting for the next scheduled poll.')).not.toBeAttached();
+	});
+
+	test('switching chart mode to delta renders correctly', async ({ page, injectMedia }) => {
+		await injectMedia({ guildId: GUILD, slug: 'profile-chart-delta', historyDays: 7 });
+		await page.goto('/media/profiles');
+		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
+		await page.getByTestId('profile-card').first().click();
+
+		await expect(page.getByTestId('profile-chart')).toBeVisible({ timeout: 10000 });
+
+		// Switch to delta mode
+		await page.getByTestId('profile-chart-mode').getByRole('button').click();
+		await page.getByRole('option', { name: 'Change' }).click();
+
+		// Chart should still render
+		await expect(page.getByTestId('profile-chart').locator('canvas')).toBeAttached({ timeout: 10000 });
+		// Should not show empty state
+		await expect(page.getByText('No history data yet — waiting for the next scheduled poll.')).not.toBeAttached();
+	});
+
+	test('compare mode renders chart with two metrics', async ({ page, injectMedia }) => {
+		await injectMedia({ guildId: GUILD, slug: 'profile-chart-compare-full', historyDays: 7 });
+		await page.goto('/media/profiles');
+		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
+		await page.getByTestId('profile-card').first().click();
+
+		await expect(page.getByTestId('profile-chart')).toBeVisible({ timeout: 10000 });
+
+		// Enable compare mode
+		await page.getByTestId('profile-chart-compare-toggle').click();
+		await expect(page.getByTestId('profile-chart-compare-metric')).toBeVisible();
+
+		// Chart should still render with two datasets
+		await expect(page.getByTestId('profile-chart').locator('canvas')).toBeAttached({ timeout: 10000 });
+		await expect(page.getByText('Comparing metrics')).toBeVisible();
+	});
+
+	test('resolution dropdown options change with range', async ({ page, injectMedia }) => {
+		await injectMedia({ guildId: GUILD, slug: 'profile-chart-res', historyDays: 7 });
+		await page.goto('/media/profiles');
+		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
+		await page.getByTestId('profile-card').first().click();
+
+		await expect(page.getByTestId('profile-chart-metric')).toBeVisible({ timeout: 10000 });
+
+		// Open resolution dropdown (default 24h range)
+		await page.getByTestId('profile-chart-resolution').getByRole('button').click();
+		// With 24h range, hourly and daily should be available
+		await expect(page.getByRole('option', { name: 'Hourly' })).toBeAttached();
+		await expect(page.getByRole('option', { name: 'Daily' })).not.toBeAttached();
+
+		// Switch range to 7 days
+		await page.keyboard.press('Escape');
+		await page.getByTestId('profile-chart-range').getByRole('button').click();
+		await page.getByRole('option', { name: '7 days' }).click();
+
+		// Open resolution dropdown again
+		await page.getByTestId('profile-chart-resolution').getByRole('button').click();
+		// With 7 days range, daily resolution should now be available
+		await expect(page.getByRole('option', { name: 'Daily' })).toBeAttached();
+		await expect(page.getByRole('option', { name: 'Hourly' })).toBeAttached();
 	});
 });
 

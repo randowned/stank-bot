@@ -70,7 +70,7 @@ export const test = base.extend<{
 	injectReaction: (guildId: number, messageId: number, userId: number) => Promise<void>;
 	startRandomEvents: (interval?: number) => Promise<void>;
 	stopRandomEvents: () => Promise<void>;
-	injectMedia: (opts?: { guildId?: number; mediaType?: string; slug?: string; historyDays?: number }) => Promise<{ id: number; slug: string }>;
+	injectMedia: (opts?: { guildId?: number; mediaType?: string; slug?: string; historyDays?: number }) => Promise<{ id: number; name: string }>;
 	clearMedia: (guildId?: number) => Promise<void>;
 }>({
 	mockLogin: async ({ page }, use) => {
@@ -173,17 +173,17 @@ export const test = base.extend<{
 		await use(async (opts = {}) => {
 			const guildId = opts.guildId ?? 123456789;
 			const mediaType = opts.mediaType ?? 'youtube';
-			const slug = opts.slug ?? `e2e-test-${Date.now() % 100000}`;
+			const name = opts.slug ?? `e2e-test-${Date.now() % 100000}`;
 			const historyDays = opts.historyDays ?? 30;
 			const response = await page.request.post('/api/mock/media', {
-				data: { guild_id: guildId, media_type: mediaType, slug, history_days: historyDays }
+				data: { guild_id: guildId, media_type: mediaType, name, history_days: historyDays }
 			});
 			if (!response.ok()) {
 				const body = await response.text().catch(() => 'unknown');
 				console.error('injectMedia failed:', response.status(), body);
 			}
 			expect(response.ok()).toBeTruthy();
-			return response.json() as Promise<{ id: number; slug: string }>;
+			return response.json() as Promise<{ id: number; name: string }>;
 		});
 	},
 

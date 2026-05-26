@@ -13,6 +13,7 @@
 
 	let { data } = $props();
 
+	const profileId = $derived(data.profileId as number);
 	const detail = $derived(data.detail as ProfileDetail | null);
 	const providers = $derived((data.providers as ProviderDef[]) ?? []);
 	const profile = $derived(detail?.profile as MediaOwner | undefined);
@@ -88,17 +89,86 @@
 		{ value: 'total', label: 'Cumulative', icon: 'Σ' }
 	];
 
+	const providerIntervalMs = $derived((provider?.interval_minutes ?? 60) * 60_000);
+
+	const _AGG_BUCKET_MS: Record<string, number> = {
+		minutely: 60_000,
+		'5min': 300_000,
+		'15min': 900_000,
+		'30min': 1_800_000,
+		hourly: 3_600_000,
+		daily: 86_400_000,
+		weekly: 604_800_000,
+		monthly: 2_592_000_000,
+	};
+
+	const aggregationOptions = $derived.by(() => {
+		const rangeHours = selectedHours;
+		const minMs = providerIntervalMs;
+		const all: Array<{ value: string; label: string; icon: string }> = [
+			{ value: 'auto', label: 'Auto', icon: '🤖' },
+			{ value: 'minutely', label: 'Min', icon: '🕐' },
+			{ value: '5min', label: '5 Min', icon: '🕐' },
+			{ value: '15min', label: '15 Min', icon: '🕐' },
+			{ value: '30min', label: '30 Min', icon: '🕐' },
+			{ value: 'hourly', label: 'Hourly', icon: '⏱️' },
+			{ value: 'daily', label: 'Daily', icon: '📅' },
+			{ value: 'weekly', label: 'Weekly', icon: '📆' },
+			{ value: 'monthly', label: 'Monthly', icon: '🗓️' },
+		];
+		const bucketMs: Record<string, number> = _AGG_BUCKET_MS;
+		return all.filter(
+			(o) =>
+				o.value === 'auto' ||
+				((bucketMs[o.value] ?? 0) * 2 < rangeHours * 3_600_000 &&
+					(bucketMs[o.value] ?? 0) >= minMs)
+		);
+	});
+
+	const serverAggregations = new Set(['5min', '15min', '30min', 'hourly', 'daily', 'weekly', 'monthly']);
+
+	const resolvedAggregation = $derived.by(() => {
+		if (selectedAggregation !== 'auto') return selectedAggregation;
+		const bms = selectedHours * 3_600_000;
+		const idealBucketMs = bms / 24;
+		const buckets = [60_000, 300_000, 900_000, 1_800_000, 3_600_000, 86_400_000, 604_800_000, 2_592_000_000];
+		const eligible = buckets.filter((b) => b >= providerIntervalMs && b * 2 < bms);
+		const found = eligible.find((b) => b >= idealBucketMs) ?? eligible[eligible.length - 1] ?? null;
+		if (found === null) return null;
+		return Object.entries(_AGG_BUCKET_MS).find(
+			([k, ms]) => ms === found && serverAggregations.has(k)
+		)?.[0] ?? null;
+	});
+
+	const useServerAggregation = $derived(serverAggregations.has(resolvedAggregation ?? ''));
+
 	let selectedMetric = $state('subscriber_count');
 	let selectedHours = $state<number>(24);
 	let selectedView = $state('total');
+	let selectedAggregation = $state('auto');
+	let compareMode = $state(false);
+	let compareMetric = $state('');
 
 	$effect(() => {
 		if (metricOptions.length > 0 && !metricOptions.find((o) => o.value === selectedMetric)) {
 			selectedMetric = metricOptions[0].value;
 		}
+		if (metricOptions.length > 1 && !compareMetric) {
+			compareMetric = metricOptions.find((o) => o.value !== selectedMetric)?.value ?? metricOptions[0].value;
+		}
+	});
+
+	$effect(() => {
+		if (metricOptions.length > 0 && !metricOptions.find((o) => o.value === selectedMetric)) {
+			selectedMetric = metricOptions[0].value;
+		}
+		if (metricOptions.length > 1 && !compareMetric) {
+			compareMetric = metricOptions.find((o) => o.value !== selectedMetric)?.value ?? metricOptions[0].value;
+		}
 	});
 
 	let history = $state<MetricSnapshot[]>([]);
+	let compareHistory = $state<MetricSnapshot[]>([]);
 	let chartLoading = $state(false);
 
 	async function loadChartData() {
@@ -114,61 +184,108 @@
 				queryStr += `&hours=${h}`;
 			}
 			if (selectedView === 'delta') queryStr += '&mode=delta';
+			if (useServerAggregation && resolvedAggregation) {
+				queryStr += `&aggregation=${resolvedAggregation}`;
+			}
 			const res = await apiFetch<{ history: MetricSnapshot[] }>(
 				`/api/media/profile/${profile.id}/history?${queryStr}`
 			);
 			history = res.history ?? [];
 		} catch {
 			history = [];
-		} finally {
-			chartLoading = false;
 		}
+
+		if (compareMode && compareMetric && compareMetric !== selectedMetric) {
+			try {
+				const h = selectedHours;
+				let q = `metric=${encodeURIComponent(compareMetric)}`;
+				if (h > 48) {
+					q += `&days=${Math.round(h / 24)}`;
+				} else {
+					q += `&hours=${h}`;
+				}
+				if (selectedView === 'delta') q += '&mode=delta';
+				if (useServerAggregation && resolvedAggregation) {
+					q += `&aggregation=${resolvedAggregation}`;
+				}
+				const res = await apiFetch<{ history: MetricSnapshot[] }>(
+					`/api/media/profile/${profile.id}/history?${q}`
+				);
+				compareHistory = res.history ?? [];
+			} catch {
+				compareHistory = [];
+			}
+		} else {
+			compareHistory = [];
+		}
+
+		chartLoading = false;
 	}
 
 	$effect(() => {
 		void selectedMetric;
 		void selectedHours;
 		void selectedView;
+		void selectedAggregation;
+		void compareMode;
+		void compareMetric;
+
+		if (!aggregationOptions.some((o) => o.value === selectedAggregation)) {
+			selectedAggregation = 'auto';
+			return;
+		}
 		if (profile) {
 			void loadChartData();
 		}
 	});
 
 	let chartDatasets = $derived.by(() => {
-		if (history.length === 0) return [];
-		const points = history.map((p) => ({
-			x: new Date(p.fetched_at).getTime(),
-			y: p.value
-		}));
-		return [
-			{
+		const datasets: Array<{ label: string; data: { x: number; y: number }[] }> = [];
+		if (history.length > 0) {
+			datasets.push({
 				label: profile?.metrics?.find((m) => m.key === selectedMetric)?.label ?? selectedMetric,
-				data: points
-			}
-		];
+				data: history.map((p) => ({
+					x: new Date(p.fetched_at).getTime(),
+					y: p.value
+				}))
+			});
+		}
+		if (compareMode && compareHistory.length > 0 && compareMetric && compareMetric !== selectedMetric) {
+			datasets.push({
+				label: profile?.metrics?.find((m) => m.key === compareMetric)?.label ?? compareMetric,
+				data: compareHistory.map((p) => ({
+					x: new Date(p.fetched_at).getTime(),
+					y: p.value
+				}))
+			});
+		}
+		return datasets;
 	});
 
 	const chartLabel = $derived(
 		profile?.metrics?.find((m) => m.key === selectedMetric)?.label ?? selectedMetric
 	);
+
+	const sparseHint = $derived(history.length > 0 && history.length < 2);
 </script>
 
+{#key profileId}
 {#if !profile}
 	<ErrorState title="Profile not found" message="This channel or artist doesn't exist or has no tracked media in this guild." />
 {:else}
-	<div class="max-w-5xl mx-auto space-y-6">
+	<div class="max-w-6xl mx-auto p-4 space-y-4">
 		<!-- Back link + freshness -->
-		<div class="flex items-center gap-3">
+		<div class="flex items-center justify-between">
 			<a href="{base}/media/profiles" class="text-sm text-muted hover:text-accent transition-colors">
 				← Back to Profiles
 			</a>
 			{#if freshness}
 				<span
-					class="text-xs {freshness.state === 'fresh'
-						? 'text-green-400'
+					class="text-xs px-2 py-0.5 rounded-full border {freshness.state === 'fresh'
+						? 'border-green-700 text-green-400'
 						: freshness.state === 'stale'
-							? 'text-amber-400'
-							: 'text-red-400'}"
+							? 'border-amber-700 text-amber-400'
+							: 'border-red-700 text-red-400'}"
 					data-testid="profile-freshness"
 				>
 					● {freshness.label}
@@ -184,6 +301,11 @@
 			style:background-position="center"
 		>
 			<div class="absolute inset-0" style="background: linear-gradient(transparent 30%, var(--bg) 95%)"></div>
+			{#if !profile.cover_url && provider}
+				<div class="absolute inset-0 flex items-center justify-center text-5xl opacity-20">
+					{provider.icon}
+				</div>
+			{/if}
 			<div class="absolute bottom-4 left-4 flex items-center gap-4">
 				{#if profile.thumbnail_url}
 					<img src={profile.thumbnail_url} alt={profile.name} class="w-14 h-14 rounded-full object-cover border-2 border-border" loading="lazy" />
@@ -240,7 +362,7 @@
 		{#if metricOptions.length > 0}
 			<div>
 				<h2 class="text-lg font-semibold text-text mb-3">
-					{chartLabel} over time
+					{compareMode ? 'Comparing metrics' : `${chartLabel} over time`}
 				</h2>
 				<div class="flex flex-wrap gap-2 mb-3">
 					<SelectDropdown
@@ -249,28 +371,55 @@
 						testId="profile-chart-metric"
 					/>
 					<SelectDropdown
+						options={metricOptions}
+						bind:value={compareMetric}
+						testId="profile-chart-compare-metric"
+						class={compareMode ? '' : 'hidden'}
+					/>
+					<SelectDropdown
 						options={rangeOptions}
 						bind:value={selectedHours}
 						testId="profile-chart-range"
+					/>
+					<SelectDropdown
+						options={aggregationOptions}
+						bind:value={selectedAggregation}
+						testId="profile-chart-resolution"
 					/>
 					<SelectDropdown
 						options={viewOptions}
 						bind:value={selectedView}
 						testId="profile-chart-mode"
 					/>
+					<button
+						type="button"
+						class="inline-flex items-center justify-center gap-2 rounded-md font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 text-sm {compareMode
+							? 'bg-accent text-[#1a1425] hover:opacity-90'
+							: 'bg-border text-text hover:bg-border/80'}"
+						class:hidden={metricOptions.length <= 1}
+						onclick={() => { compareMode = !compareMode; }}
+						data-testid="profile-chart-compare-toggle"
+					>
+						{compareMode ? 'Single' : 'Compare'}
+					</button>
 				</div>
 				{#if chartLoading}
 					<div class="h-64 panel opacity-50 flex items-center justify-center text-muted text-sm">
 						Loading chart...
 					</div>
-				{:else if history.length === 0}
+				{:else if chartDatasets.length === 0}
 					<div class="h-64 panel flex items-center justify-center text-muted text-sm">
 						No history data yet — waiting for the next scheduled poll.
 					</div>
 				{:else}
-					<div class="panel">
+					<div class="panel" data-testid="profile-chart">
 						<Chart datasets={chartDatasets} />
 					</div>
+					{#if sparseHint}
+						<div class="text-xs text-muted mt-2">
+							Only 1 data point yet — refresh again or wait for the next scheduled poll.
+						</div>
+					{/if}
 				{/if}
 			</div>
 		{/if}
@@ -300,3 +449,4 @@
 		</div>
 	</div>
 {/if}
+{/key}

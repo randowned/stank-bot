@@ -151,7 +151,7 @@ async def mock_add_media(
 
         item.metrics_last_fetched_at = now
 
-        # Create / update owner with a snapshot
+        # Create / update owner with historical snapshots
         owner = await media_repo.upsert_owner(
             session,
             media_type=media_type,
@@ -162,10 +162,22 @@ async def mock_add_media(
         owner_metrics = {"subscriber_count": 1000000, "total_view_count": 50000000, "video_count": 200}
         if media_type == "spotify":
             owner_metrics = {"follower_count": 500000, "popularity": 75}
+
+        # Generate hourly owner snapshots going back history_days days
+        for hour_offset in range(hours_back, -1, -1):
+            ts = now - timedelta(hours=hour_offset)
+            for key, val in owner_metrics.items():
+                # Start at ~half the current value, grow with slight randomness
+                fraction = (1 - (hour_offset / hours_back)) if hours_back > 0 else 1.0
+                base = int(val * (0.3 + 0.7 * fraction))
+                noise = random.randint(-max(1, base // 20), max(1, base // 20))
+                await media_repo.insert_owner_snapshot(
+                    session, owner.id, key, base + noise, ts,
+                )
+
+        # Ensure the latest owner snapshot matches the current value
         for key, val in owner_metrics.items():
-            await media_repo.insert_owner_snapshot(
-                session, owner.id, key, val, now,
-            )
+            await media_repo.insert_owner_snapshot(session, owner.id, key, val, now)
 
     return MsgPackResponse(
         {"success": True, "id": item.id, "name": name}, request, status_code=201

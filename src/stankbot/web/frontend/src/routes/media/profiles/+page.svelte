@@ -2,10 +2,11 @@
 	import { base } from '$app/paths';
 	import { formatNumber, formatFreshness } from '$lib/format';
 	import type { MediaOwner, ProviderDef } from '$lib/types';
-	import { providersByType, loadProviders, ownerMetricUpdates } from '$lib/stores';
+	import { providersByType, loadProviders, ownerMetricUpdates, user } from '$lib/stores';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import Tabs from '$lib/components/Tabs.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	let { data } = $props();
 
@@ -23,6 +24,9 @@
 	void loadProviders();
 
 	let activeType = $state<string>('');
+	let searchQuery = $state('');
+
+	const isAdmin = $derived(($user as { is_admin?: boolean } | null)?.is_admin ?? false);
 
 	let liveMetrics = $state<Record<number, Record<string, number>>>({});
 	$effect(() => {
@@ -41,11 +45,16 @@
 		...providers.map((p) => ({ value: p.type, label: p.label }))
 	]);
 
-	const filteredProfiles = $derived(
-		activeType
+	const filteredProfiles = $derived.by(() => {
+		let list = activeType
 			? profiles.filter((p) => p.media_type === activeType)
-			: profiles
-	);
+			: profiles;
+		const q = searchQuery.trim().toLowerCase();
+		if (q) {
+			list = list.filter((p) => p.name.toLowerCase().includes(q));
+		}
+		return list;
+	});
 
 	function metricValue(profile: MediaOwner, key: string): number {
 		return (
@@ -60,7 +69,7 @@
 	}
 </script>
 
-<div class="max-w-6xl mx-auto">
+<div class="max-w-6xl mx-auto p-4 space-y-4">
 	<PageHeader title="Profiles" subtitle="All tracked channels & artists" />
 
 	{#if profiles.length === 0}
@@ -68,10 +77,27 @@
 			icon="🎬"
 			title="No profiles yet"
 			message="Add media from YouTube or Spotify to start tracking channels and artists."
-		/>
+		>
+			{#snippet actions()}
+				{#if isAdmin}
+					<a href="{base}/admin/media/add" class="no-underline">
+						<Button variant="primary">Add Media</Button>
+					</a>
+				{/if}
+			{/snippet}
+		</EmptyState>
 	{:else}
-		<div class="mb-4">
-			<Tabs tabs={typeTabs} bind:value={activeType} />
+		<div class="mb-4 flex flex-wrap items-center gap-3">
+			<div class="flex-1 min-w-0">
+				<Tabs tabs={typeTabs} bind:value={activeType} />
+			</div>
+			<input
+				type="text"
+				bind:value={searchQuery}
+				placeholder="Search profiles…"
+				class="px-3 py-1.5 text-sm rounded border border-border bg-panel text-text placeholder:text-muted focus:outline-none focus:border-accent w-48"
+				data-testid="profiles-search"
+			/>
 		</div>
 
 		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -83,7 +109,7 @@
 					data-testid="profile-card"
 				>
 					<div
-						class="h-32 bg-cover bg-center relative"
+						class="h-{profile.cover_url ? '32' : '20'} bg-cover bg-center relative"
 						style:background-image={profile.cover_url
 							? `url(${profile.cover_url})`
 							: 'none'}
@@ -94,8 +120,12 @@
 						{#if profile.cover_url}
 							<div
 								class="absolute inset-0"
-								style="background: linear-gradient(transparent 30%, var(--bg) 100%)"
+								style="background: linear-gradient(transparent 30%, var(--bg) 95%)"
 							></div>
+						{:else if prov}
+							<div class="absolute inset-0 flex items-center justify-center text-3xl opacity-30">
+								{prov.icon}
+							</div>
 						{/if}
 						<div class="absolute bottom-3 left-3 flex items-center gap-3">
 							{#if profile.thumbnail_url}
@@ -137,7 +167,7 @@
 								</div>
 							{/each}
 						</div>
-						<div class="flex items-center justify-between text-xs text-muted">
+						<div class="flex items-center justify-between text-xs text-muted mt-1">
 							<span>
 								{profile.media_items_count ?? 0} tracked
 								{profile.media_type === 'spotify' ? 'tracks' : 'videos'}
@@ -145,13 +175,15 @@
 							{#if profile.fetched_at}
 								{@const freshness = formatFreshness(profile.fetched_at)}
 								<span
-									class="inline-block w-2 h-2 rounded-full {freshness.state === 'fresh'
-										? 'bg-green-500'
+									class="text-xs px-2 py-0.5 rounded-full border {freshness.state === 'fresh'
+										? 'border-green-700 text-green-400'
 										: freshness.state === 'stale'
-											? 'bg-amber-500'
-											: 'bg-red-500'}"
+											? 'border-amber-700 text-amber-400'
+											: 'border-red-700 text-red-400'}"
 									title={freshness.label}
-								></span>
+								>
+									● {freshness.label}
+								</span>
 							{/if}
 						</div>
 					</div>

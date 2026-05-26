@@ -91,7 +91,7 @@
 	</DropdownItem>
 	<DropdownItem href="{base}/media/profiles" active={isActive(base + '/media/profiles')}>
 		<span>🎤</span>
-		<span>Artists</span>
+		<span>Profiles</span>
 	</DropdownItem>
 	<DropdownItem
 		href="{base}/player/{user.id}"

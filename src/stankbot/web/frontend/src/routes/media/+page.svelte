@@ -2,6 +2,7 @@
     import { base } from "$app/paths";
     import { goto } from "$app/navigation";
     import { formatNumber, formatFreshness } from "$lib/format";
+    import { providerBrandBorder } from "$lib/media-utils";
     import type { MediaItem, MetricDef, ProviderDef } from "$lib/types";
     import {
         providersByType,
@@ -125,12 +126,6 @@
         return sorted;
     });
 
-    function borderClass(type: string): string {
-        if (type === "youtube") return "border-l-[3px] border-l-[#ff0000]/70";
-        if (type === "spotify") return "border-l-[3px] border-l-[#1db954]/70";
-        return "";
-    }
-
     function formatMetric(m: MetricDef, value: number): string {
         if (m.format === "percentage") return `${Math.round(value)}%`;
         if (m.format === "duration") {
@@ -250,7 +245,7 @@
     const showCompareBtn = $derived(filteredItems.length > 1);
 </script>
 
-<div class="p-4 space-y-4">
+<div class="max-w-6xl mx-auto p-4 space-y-4">
     <PageHeader title="Media" subtitle="Media analytics" />
 
     <Tabs tabs={typeTabs} bind:value={activeType} />
@@ -315,7 +310,7 @@
                     selectedMediaType !== null &&
                     item.media_type !== selectedMediaType}
                 <div
-                    class="panel overflow-hidden p-0 block hover:border-accent transition-colors relative {borderClass(
+                    class="panel overflow-hidden p-0 block hover:border-accent transition-colors relative {providerBrandBorder(
                         item.media_type,
                     )} {compareMode
                         ? selectedIds.includes(item.id)
@@ -412,15 +407,16 @@
                                     >
                                 {/each}
                             </div>
-                            <div
-                                class="mt-1 text-xs {freshness.state === 'stale'
-                                    ? 'text-amber-500'
-                                    : freshness.state === 'dead'
-                                      ? 'text-red-500'
-                                      : 'text-muted'}"
-                                data-testid="media-freshness"
-                            >
-                                {freshness.label}
+                            <div class="mt-2 text-xs" data-testid="media-freshness">
+                                <span
+                                    class="px-2 py-0.5 rounded-full border {freshness.state === 'fresh'
+                                        ? 'border-green-700 text-green-400'
+                                        : freshness.state === 'stale'
+                                            ? 'border-amber-700 text-amber-400'
+                                            : 'border-red-700 text-red-400'}"
+                                >
+                                    ● {freshness.label}
+                                </span>
                             </div>
                         </div>
                     </a>

@@ -2,6 +2,7 @@
 	import { apiFetch, apiPost, apiDelete } from '$lib/api';
 	import { toErrorMessage } from '$lib/api-utils';
 	import { formatNumber, formatFreshness } from '$lib/format';
+	import { providerBrandBadge } from '$lib/media-utils';
 	import type { MediaItem, ProviderDef } from '$lib/types';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -203,12 +204,6 @@
 		return `${base}/admin/media/${id}/edit`;
 	}
 
-	function typeBadgeClass(type: string): string {
-		if (type === 'youtube') return 'bg-[#ff0000]/15 text-[#ff0000]';
-		if (type === 'spotify') return 'bg-[#1db954]/15 text-[#1db954]';
-		return 'bg-border text-muted';
-	}
-
 	function toggleProvider(type: string) {
 		if (enabledProviders.includes(type)) {
 			enabledProviders = enabledProviders.filter((t) => t !== type);
@@ -270,7 +265,7 @@
 						<div class="font-medium text-sm truncate">{item.title}</div>
 						<div class="text-xs text-muted">{item.channel_name ?? '—'}</div>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-							<span class="text-xs px-1.5 py-0.5 rounded capitalize {typeBadgeClass(item.media_type)}">{item.media_type}</span>
+							<span class="text-xs px-1.5 py-0.5 rounded capitalize {providerBrandBadge(item.media_type)}">{item.media_type}</span>
 							{#if item.name}<span class="text-xs text-muted font-mono">📛 {item.name}</span>{/if}
 							<span class="text-xs text-muted">{primary.label}: {formatNumber(item.metrics?.[primary.key]?.value ?? 0)}</span>
 							<span class="text-xs {freshness.state === 'stale' ? 'text-amber-500' : freshness.state === 'dead' ? 'text-red-500' : 'text-muted'}">
