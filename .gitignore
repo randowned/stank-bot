@@ -38,6 +38,22 @@ web/test-results
 # Root-level accidental package-lock (web/package-lock.json is intentional)
 /package-lock.json
 
+# Playwright CLI artifacts (snapshots, screenshots, console logs)
+.playwright-cli/
+
+# Agent browser runtime artifacts
+*.pid
+review/
+
+# OpenCode tooling (tracked via .opencode/skills/, not npm)
+.opencode/node_modules/
+
+# Auto-generated skills (installed by playwright-cli install --skills)
+.opencode/skills/playwright-cli/
+
+# E2E test artifacts
+e2e-results.json
+
 # IDE
 .idea/
 .vscode/

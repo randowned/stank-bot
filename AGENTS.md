@@ -44,9 +44,17 @@ When delegating, brief the agent self-contained: state the goal, name the files/
 - Stay inside the repo; don't touch external systems without being asked.
 - Prefer editing existing code to adding new files. The project is intentionally multi-file, but resist inventing new modules when an existing one is the right home.
 - Do not invent abstractions (base classes, plugin interfaces, DI frameworks) until a second concrete implementation forces the shape.
-- **Use git-bash** (`"C:\Program Files\Git\bin\bash.exe" -c "..."`) instead of PowerShell for all command execution. PowerShell has quirks with `&&`, environment variable inheritance, and process management that git-bash avoids.
-- **Track PIDs, never kill by process name.** When you start a background process (backend, frontend dev server), save its PID: `echo $! > /tmp/backend.pid`. Kill only by PID: `kill $(cat /tmp/backend.pid)`. Killing by `python.exe` or `node.exe` may terminate unrelated developer tools (VS Code, other projects' servers, etc.).
-- **Restarting processes.** When backend or frontend changes don't take effect, stale processes may be running from previous bash sessions. Kill them by tracked PID. The Vite dev server caches compiled components in memory; if E2E tests behave inconsistently after editing `.svelte` files, kill the Node process so the dev server recompiles fresh on next startup.
+- **Shell execution runs in PowerShell on Windows.** The Bash tool uses PowerShell, not git-bash or bash. Avoid bash syntax (`&&`, `2>&1`, `seq`, `$!`) — it will fail.
+- **Use `.mjs` scripts (Node.js) for multi-process management.** Starting backend + frontend together from a raw shell is fragile. Use or create `.mjs` scripts like `scripts/run-e2e.mjs` (spawns backend, health-polls, kills on exit). See `scripts/agent-browser.mjs` for browser-launch workflow.
+- **PowerShell quick reference:**
+  - `curl` is aliased to `Invoke-WebRequest` (different flags). Use `curl.exe` for the real curl binary.
+  - `$pid` is a reserved automatic variable — use `$bpid`, `$fpid` etc. for stored PIDs.
+  - `Start-Process` needs `-FilePath cmd -ArgumentList '/c', ...` for `.cmd` scripts like `npm`.
+  - `curl.exe -d` with inline JSON may be mangled — use a temp file: `Set-Content temp.json '...'; curl.exe ... -d @temp.json`.
+  - Vite binds to `localhost`, not `127.0.0.1` — use `http://localhost:5173` for all curl/WS/browser URLs.
+  - For background processes: `Start-Process -FilePath python -ArgumentList '-m','stankbot' -PassThru -NoNewWindow -RedirectStandardOutput log.txt -RedirectStandardError err.txt`.
+- **Track PIDs, never kill by process name.** Save to a file: `$proc.Id | Out-File -FilePath '.stankbot_backend.pid'`. Kill by PID: `Stop-Process -Id (Get-Content '.stankbot_backend.pid') -Force`. Killing by `python.exe` or `node.exe` may terminate unrelated developer tools (VS Code, other projects' servers, etc.).
+- **Restarting processes.** When backend or frontend changes don't take effect, stale processes may be running from previous sessions. Kill them by tracked PID. The Vite dev server caches compiled components in memory; if E2E tests behave inconsistently after editing `.svelte` files, kill the Node process so the dev server recompiles fresh on next startup.
 
 ### Database migrations
 
@@ -203,6 +211,7 @@ Detailed enforcement lives in auto-invoked skills:
 - **`stank-frontend-patterns`** — Svelte 5 runes, `apiFetch` for API calls, store conventions, component reuse, `data-testid` for E2E. Triggers when editing frontend `.svelte`/`.ts` files.
 - **`stank-db-migrations`** — Alembic conventions: `down_revision` must match head, dual-dialect WHERE clauses, reversibility. Triggers when touching `migrations/versions/` or `db/models.py`.
 - **`stank-scoring-math`** — SP non-negative, PP formula, position bonus, finish bonus, Team Player, frozen `ScoringConfig`. Triggers when editing `scoring_service.py` or `chain_service.py`.
+- **`stank-e2e-workflow`** — Browser automation, UX review, frontend debugging, E2E test writing, mock endpoint catalog. Keep selectors and mock endpoints current. Triggers when asked to review UX, debug the dashboard, write E2E tests, take screenshots, or inspect pages. Also trigger when `stank-frontend-patterns` fires and introduces new components/pages/test-ids.
 
 ## What this project is
 
