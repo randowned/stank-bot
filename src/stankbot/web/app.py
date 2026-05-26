@@ -105,9 +105,11 @@ def build_app(
         if config.web_secret_key is not None
         else secrets.token_urlsafe(32)
     )
-    app.add_middleware(SessionMiddleware, secret_key=secret, same_site="lax")
+    # Starlette middleware is LIFO: last added = outermost.
+    # Execution order: SecurityHeaders → Session → RateLimit → app
     if config.env != "dev-mock":
         app.add_middleware(_RateLimitMiddleware, api_rpm=120, admin_rpm=30)
+    app.add_middleware(SessionMiddleware, secret_key=secret, same_site="lax")
     app.add_middleware(_SecurityHeadersMiddleware)
 
     try:
