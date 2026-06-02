@@ -98,13 +98,6 @@ ALIGN_DAILY   = 1 << 4   # 16
 ALIGN_WEEKLY  = 1 << 5   # 32
 ALIGN_MONTHLY = 1 << 6   # 64
 
-_ALIGN_BIT: dict[str, int] = {
-    "5min": ALIGN_5MIN, "15min": ALIGN_15MIN, "30min": ALIGN_30MIN,
-    "hourly": ALIGN_HOURLY, "daily": ALIGN_DAILY,
-    "weekly": ALIGN_WEEKLY, "monthly": ALIGN_MONTHLY,
-}
-
-
 def _compute_alignment_mask(dt: datetime) -> int:
     """Return bitmask of calendar boundaries this timestamp aligns to.
 
@@ -169,10 +162,9 @@ def _aggregate_snapshots(
 ) -> list[dict[str, Any]]:
     """Aggregate snapshots into time buckets.
 
-    Snaps are already filtered by alignment_bit (done at the query level),
-    so delta mode just diffs consecutive aligned snapshots — no bucketing
-    or summing required.  Total mode floors each snapshot to its bucket
-    start and takes the last value per bucket.
+    Both modes floor each snapshot to its calendar bucket start and keep the
+    last value per bucket (same as the old alignment-filter path, but without
+    requiring pre-filtered data).  Delta mode then diffs consecutive buckets.
     """
     if bucket not in _VALID_AGGREGATIONS:
         raise ValueError(f"Invalid aggregation bucket: {bucket}")
@@ -188,30 +180,32 @@ def _aggregate_snapshots(
             dt = dt.replace(tzinfo=UTC)
         normalized.append((dt, s.value))
 
+    # Bucket: floor each snapshot, keep last value per bucket.
+    buckets: dict[datetime, int] = {}
+    bucket_order: list[datetime] = []
+    for dt, val in normalized:
+        key = _floor_to_bucket(dt, bucket)
+        if key not in buckets:
+            bucket_order.append(key)
+        buckets[key] = val  # last value in bucket wins (cumulative)
+
     if mode == "total":
-        buckets: dict[datetime, int] = {}
-        bucket_order: list[datetime] = []
-        for dt, val in normalized:
-            key = _floor_to_bucket(dt, bucket)
-            if key not in buckets:
-                bucket_order.append(key)
-            buckets[key] = val  # last value in bucket wins (cumulative)
         return [
             {"fetched_at": key.isoformat(), "value": buckets[key]}
             for key in bucket_order
         ]
 
-    # delta mode: snapshots are already alignment-filtered — just diff
-    if len(normalized) < 2:
+    # delta mode: diff consecutive bucketed values
+    if len(bucket_order) < 2:
         return []
 
     result: list[dict[str, Any]] = []
-    for i in range(1, len(normalized)):
-        cur_dt, cur_val = normalized[i]
-        _prev_dt, prev_val = normalized[i - 1]
+    for i in range(1, len(bucket_order)):
+        cur_key = bucket_order[i]
+        prev_key = bucket_order[i - 1]
         result.append({
-            "fetched_at": cur_dt.isoformat(),
-            "value": cur_val - prev_val,
+            "fetched_at": cur_key.isoformat(),
+            "value": buckets[cur_key] - buckets[prev_key],
         })
     return result
 
@@ -444,11 +438,9 @@ class MediaService:
         elif window_days > 0:
             since = ref - timedelta(days=window_days)
 
-        alignment_bit: int | None = _ALIGN_BIT.get(aggregation) if aggregation else None
-
+        # No alignment pre-filter — _aggregate_snapshots handles bucketing.
         snapshots = await media_repo.get_metric_snapshots(
             self.session, media_item_id, metric_key, since,
-            alignment_bit=alignment_bit,
         )
         if aggregation:
             return _aggregate_snapshots(snapshots, aggregation, mode)
@@ -478,11 +470,9 @@ class MediaService:
         elif window_days > 0:
             since = ref - timedelta(days=window_days)
 
-        alignment_bit: int | None = _ALIGN_BIT.get(aggregation) if aggregation else None
-
+        # No alignment pre-filter — _aggregate_snapshots handles bucketing.
         snapshots_by_id = await media_repo.get_comparison_snapshots(
             self.session, media_item_ids, metric_key, since,
-            alignment_bit=alignment_bit,
         )
 
         agg_mode = "delta" if delta else "total"
@@ -625,13 +615,13 @@ class MediaService:
                     if pm and isinstance(pm, dict):
                         old_values[mid] = int(pm.get("value", 0))
 
+            now = datetime.now(UTC)
             try:
                 metrics_list = await provider.fetch_metrics(external_ids)
             except Exception:
                 log.exception("fetch_metrics failed for provider %s", provider.media_type)
                 result.failed += len(items)
                 continue
-            now = datetime.now(UTC)
             for mr in metrics_list:
                 item = id_to_item.get(mr.external_id)
                 if item is None:
@@ -1186,11 +1176,10 @@ class MediaService:
         elif window_days > 0:
             since = ref - timedelta(days=window_days)
 
-        alignment_bit: int | None = _ALIGN_BIT.get(aggregation) if aggregation else None
-
+        # No alignment pre-filter — _aggregate_snapshots handles bucketing
+        # via _floor_to_bucket, so raw snapshots are always usable.
         snapshots = await media_repo.get_owner_snapshots(
             self.session, owner_id, metric_key, since,
-            alignment_bit=alignment_bit,
         )
         if aggregation:
             return _aggregate_snapshots(snapshots, aggregation, mode)

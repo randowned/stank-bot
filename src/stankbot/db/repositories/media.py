@@ -232,7 +232,6 @@ async def get_metric_snapshots(
     media_item_id: int,
     metric_key: str,
     since: datetime | None = None,
-    alignment_bit: int | None = None,
 ) -> list[MetricSnapshot]:
     stmt = select(MetricSnapshot).where(
         MetricSnapshot.media_item_id == media_item_id,
@@ -240,12 +239,6 @@ async def get_metric_snapshots(
     )
     if since is not None:
         stmt = stmt.where(MetricSnapshot.fetched_at >= since)
-    if alignment_bit is not None:
-        from sqlalchemy import or_
-        stmt = stmt.where(or_(
-            MetricSnapshot.alignment_mask.op('&')(alignment_bit) != 0,
-            MetricSnapshot.alignment_mask.is_(None),
-        ))
     stmt = stmt.order_by(MetricSnapshot.fetched_at.asc())
     result = await session.execute(stmt)
     return list(result.scalars().all())
@@ -256,7 +249,6 @@ async def get_comparison_snapshots(
     media_item_ids: list[int],
     metric_key: str,
     since: datetime | None = None,
-    alignment_bit: int | None = None,
 ) -> dict[int, list[MetricSnapshot]]:
     """Return {media_item_id: [snapshots]} for comparison charts."""
     if not media_item_ids:
@@ -267,12 +259,6 @@ async def get_comparison_snapshots(
     )
     if since is not None:
         stmt = stmt.where(MetricSnapshot.fetched_at >= since)
-    if alignment_bit is not None:
-        from sqlalchemy import or_
-        stmt = stmt.where(or_(
-            MetricSnapshot.alignment_mask.op('&')(alignment_bit) != 0,
-            MetricSnapshot.alignment_mask.is_(None),
-        ))
     stmt = stmt.order_by(MetricSnapshot.fetched_at.asc())
     rows = (await session.execute(stmt)).scalars().all()
     result: dict[int, list[MetricSnapshot]] = {}
@@ -530,22 +516,15 @@ async def get_owner_snapshots(
     media_owner_id: int,
     metric_key: str,
     since: datetime | None = None,
-    alignment_bit: int | None = None,
 ) -> list[MediaOwnerSnapshot]:
     """Return owner snapshots for a single metric, with optional time window
-    and alignment filtering (mirrors get_metric_snapshots)."""
+    filtering (mirrors get_metric_snapshots)."""
     stmt = select(MediaOwnerSnapshot).where(
         MediaOwnerSnapshot.media_owner_id == media_owner_id,
         MediaOwnerSnapshot.metric_key == metric_key,
     )
     if since is not None:
         stmt = stmt.where(MediaOwnerSnapshot.fetched_at >= since)
-    if alignment_bit is not None:
-        from sqlalchemy import or_
-        stmt = stmt.where(or_(
-            MediaOwnerSnapshot.alignment_mask.op('&')(alignment_bit) != 0,
-            MediaOwnerSnapshot.alignment_mask.is_(None),
-        ))
     stmt = stmt.order_by(MediaOwnerSnapshot.fetched_at.asc())
     result = await session.execute(stmt)
     return list(result.scalars().all())

@@ -268,6 +268,69 @@
 	);
 
 	const sparseHint = $derived(history.length > 0 && history.length < 2);
+
+	const chartMinUnit = $derived.by<'minute' | 'hour' | 'day' | 'week' | 'month' | undefined>(() => {
+		const bucketMs = _AGG_BUCKET_MS[resolvedAggregation ?? ''] ?? providerIntervalMs;
+		if (bucketMs < 3_600_000) return 'minute';
+		if (bucketMs < 86_400_000) return 'hour';
+		if (bucketMs < 604_800_000) return 'day';
+		if (bucketMs < 2_592_000_000) return 'week';
+		return 'month';
+	});
+
+	function timeDisplayFormats(): Record<string, string> {
+		return {
+			millisecond: 'HH:mm:ss.SSS',
+			second: 'HH:mm:ss',
+			minute: 'HH:mm',
+			hour: selectedHours <= 48 ? 'HH:mm' : 'MMM d HH:mm',
+			day: 'MMM d',
+			week: 'MMM d',
+			month: 'MMM yyyy',
+			quarter: 'MMM yyyy',
+			year: 'yyyy'
+		};
+	}
+
+	function buildChartOptions(): Record<string, unknown> {
+		const timeScaleOpts: Record<string, unknown> = {
+			tooltipFormat: 'MMM d, yyyy HH:mm',
+			displayFormats: timeDisplayFormats()
+		};
+		if (chartMinUnit) {
+			timeScaleOpts.minUnit = chartMinUnit;
+		}
+		return {
+			datasets: { line: { spanGaps: true } },
+			scales: {
+				x: {
+					type: 'time',
+					time: timeScaleOpts,
+					ticks: { maxTicksLimit: 8, color: '#9aa4b2', font: { size: 10 }, source: 'auto' },
+					grid: { display: false }
+				},
+				y: {
+					title: { display: false },
+					beginAtZero: false,
+					ticks: { color: '#9aa4b2', font: { size: 10 } },
+					grid: { color: '#262a33', drawBorder: false }
+				}
+			},
+			plugins: {
+				legend: {
+					display: compareMode
+				},
+				tooltip: {
+					backgroundColor: '#181b22',
+					titleColor: '#e5e7eb',
+					bodyColor: '#9aa4b2',
+					borderColor: '#262a33',
+					borderWidth: 1,
+					padding: 10,
+				},
+			}
+		};
+	}
 </script>
 
 {#key profileId}
@@ -415,7 +478,7 @@
 					</div>
 				{:else}
 					<div class="panel" data-testid="profile-chart">
-						<Chart datasets={chartDatasets} />
+						<Chart datasets={chartDatasets} options={buildChartOptions()} />
 					</div>
 					{#if sparseHint}
 						<div class="text-xs text-muted mt-2">

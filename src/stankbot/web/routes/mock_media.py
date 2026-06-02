@@ -21,6 +21,7 @@ from stankbot.db.models import (
     MetricSnapshot,
 )
 from stankbot.db.repositories import media as media_repo
+from stankbot.services.media_service import _compute_alignment_mask
 from stankbot.web.transport import MsgPackResponse, msgpack_body
 
 router = APIRouter(prefix="/api/mock", tags=["mock-media"])
@@ -136,18 +137,22 @@ async def mock_add_media(
         hours_back = history_days * 24
         for hour_offset in range(hours_back, -1, -1):
             ts = now - timedelta(hours=hour_offset)
+            mask = _compute_alignment_mask(ts)
             for key, val in metric_values.items():
                 # Start at ~half the current value, grow with slight randomness
                 fraction = (1 - (hour_offset / hours_back)) if hours_back > 0 else 1.0
                 base = int(val * (0.3 + 0.7 * fraction))
                 noise = random.randint(-max(1, base // 20), max(1, base // 20))
                 await media_repo.insert_metric_snapshot(
-                    session, item.id, key, base + noise, ts
+                    session, item.id, key, base + noise, ts,
+                    alignment_mask=mask,
                 )
 
         # Ensure the latest snapshot matches the cache
+        now_mask = _compute_alignment_mask(now)
         for key, val in metric_values.items():
-            await media_repo.insert_metric_snapshot(session, item.id, key, val, now)
+            await media_repo.insert_metric_snapshot(session, item.id, key, val, now,
+                                                    alignment_mask=now_mask)
 
         item.metrics_last_fetched_at = now
 
@@ -166,6 +171,7 @@ async def mock_add_media(
         # Generate hourly owner snapshots going back history_days days
         for hour_offset in range(hours_back, -1, -1):
             ts = now - timedelta(hours=hour_offset)
+            mask = _compute_alignment_mask(ts)
             for key, val in owner_metrics.items():
                 # Start at ~half the current value, grow with slight randomness
                 fraction = (1 - (hour_offset / hours_back)) if hours_back > 0 else 1.0
@@ -173,11 +179,14 @@ async def mock_add_media(
                 noise = random.randint(-max(1, base // 20), max(1, base // 20))
                 await media_repo.insert_owner_snapshot(
                     session, owner.id, key, base + noise, ts,
+                    alignment_mask=mask,
                 )
 
         # Ensure the latest owner snapshot matches the current value
+        now_mask = _compute_alignment_mask(now)
         for key, val in owner_metrics.items():
-            await media_repo.insert_owner_snapshot(session, owner.id, key, val, now)
+            await media_repo.insert_owner_snapshot(session, owner.id, key, val, now,
+                                                   alignment_mask=now_mask)
 
     return MsgPackResponse(
         {"success": True, "id": item.id, "name": name}, request, status_code=201

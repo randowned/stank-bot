@@ -223,6 +223,57 @@ class TestAggregateSnapshots:
         assert result[0]["value"] == 200
         assert result[1]["value"] == 400
 
+    # === unaligned (non-:00) timestamps — the core bug scenario ===
+    def test_total_hourly_unaligned(self) -> None:
+        """Snapshots at :37 past each hour should still produce one point per hour."""
+        from datetime import timedelta
+
+        start = datetime(2026, 5, 1, 14, 37, tzinfo=UTC)
+        snaps = [
+            _FakeSnapshot(value=100, fetched_at=start),
+            _FakeSnapshot(value=200, fetched_at=start + timedelta(hours=1)),
+            _FakeSnapshot(value=300, fetched_at=start + timedelta(hours=2)),
+        ]
+        result = _aggregate_snapshots(snaps, "hourly", "total")
+        assert len(result) == 3
+        assert result[0]["value"] == 100
+        assert result[1]["value"] == 200
+        assert result[2]["value"] == 300
+        # Bucket keys should be floored to :00
+        assert result[0]["fetched_at"] == "2026-05-01T14:00:00+00:00"
+        assert result[1]["fetched_at"] == "2026-05-01T15:00:00+00:00"
+
+    def test_delta_hourly_unaligned(self) -> None:
+        """Delta mode with non-:00 snapshots should bucket then diff."""
+        from datetime import timedelta
+
+        start = datetime(2026, 5, 1, 14, 37, tzinfo=UTC)
+        snaps = [
+            _FakeSnapshot(value=100, fetched_at=start),
+            _FakeSnapshot(value=160, fetched_at=start + timedelta(hours=1)),
+            _FakeSnapshot(value=250, fetched_at=start + timedelta(hours=2)),
+        ]
+        result = _aggregate_snapshots(snaps, "hourly", "delta")
+        assert len(result) == 2
+        assert result[0]["value"] == 60
+        assert result[1]["value"] == 90
+
+    def test_total_hourly_mixed_within_bucket(self) -> None:
+        """Multiple snapshots in the same hour bucket — last value wins."""
+        from datetime import timedelta
+
+        start = datetime(2026, 5, 1, 14, 10, tzinfo=UTC)
+        snaps = [
+            _FakeSnapshot(value=100, fetched_at=start),
+            _FakeSnapshot(value=120, fetched_at=start + timedelta(minutes=20)),
+            _FakeSnapshot(value=200, fetched_at=start + timedelta(hours=1)),
+            _FakeSnapshot(value=220, fetched_at=start + timedelta(hours=1, minutes=15)),
+        ]
+        result = _aggregate_snapshots(snaps, "hourly", "total")
+        assert len(result) == 2
+        assert result[0]["value"] == 120  # last in 14:xx bucket
+        assert result[1]["value"] == 220  # last in 15:xx bucket
+
 
 # ── add_resolved_media tests ─────────────────────────────────────────────────
 

@@ -91,8 +91,11 @@ class AppConfig(BaseSettings):
     @classmethod
     def _require_token(cls, value: object, info) -> object:  # type: ignore[no-untyped-def]
         # Allow empty token in dev mode with mock Discord.
-        data = info.data
-        if data.get("env") == "dev-mock" and data.get("mock_discord"):
+        # Check os.environ directly because mock_discord hasn't been
+        # parsed yet when this validator runs (Pydantic v2 field order).
+        env = info.data.get("env") or os.environ.get("ENV", "dev")
+        mock = info.data.get("mock_discord") or os.environ.get("MOCK_DISCORD", "").lower() in ("1", "true", "yes")
+        if env == "dev-mock" and mock:
             if value in (None, ""):
                 return "mock-token"
             return value
