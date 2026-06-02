@@ -1,12 +1,14 @@
 <script lang="ts" module>
 	import ChartJS from 'chart.js/auto';
 	import 'chartjs-adapter-date-fns';
-	ChartJS.defaults.font.family = "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+	import { chart as chartTokens } from '$lib/tokens';
+	ChartJS.defaults.font.family = chartTokens.fontFamily;
 </script>
 
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import type { ChartType } from 'chart.js';
+	import { colors } from '$lib/tokens';
 
 	interface ChartDataset {
 		label: string;
@@ -39,10 +41,7 @@
 	let canvasEl: HTMLCanvasElement;
 	let chart: ChartJS | undefined;
 
-	const COLORS = [
-		'#3b82f6', '#ef4444', '#22c55e', '#a855f7',
-		'#f97316', '#14b8a6', '#ec4899', '#eab308'
-	];
+	const COLORS = chartTokens.series;
 
 	function buildDatasets(input?: ChartDataset[]) {
 		if (!input || input.length === 0) return [];
@@ -50,7 +49,7 @@
 			label: ds.label,
 			data: ds.data,
 			borderColor: ds.borderColor ?? COLORS[i % COLORS.length],
-			backgroundColor: ds.backgroundColor ?? COLORS[i % COLORS.length] + '20',
+			backgroundColor: ds.backgroundColor ?? COLORS[i % COLORS.length] + chartTokens.backgroundAlpha,
 			fill: ds.fill ?? false,
 			tension: ds.tension ?? 0.2,
 			pointRadius: ds.pointRadius ?? (ds.data.length > 60 ? 0 : 3),
@@ -74,7 +73,7 @@
 				legend: {
 					position: 'bottom',
 					labels: {
-						color: '#9aa4b2',
+						color: colors.muted,
 						font: { size: 11 },
 						padding: 16,
 						boxWidth: 10,
@@ -82,22 +81,22 @@
 					},
 				},
 				tooltip: {
-					backgroundColor: '#181b22',
-					titleColor: '#e5e7eb',
-					bodyColor: '#9aa4b2',
-					borderColor: '#262a33',
+					backgroundColor: colors.tooltipBg,
+					titleColor: colors.text,
+					bodyColor: colors.muted,
+					borderColor: colors.border,
 					borderWidth: 1,
 					padding: 10,
 				},
 			},
 			scales: {
 				x: {
-					ticks: { color: '#9aa4b2', font: { size: 10 } },
+					ticks: { color: colors.muted, font: { size: 10 } },
 					grid: { display: false },
 				},
 				y: {
-					ticks: { color: '#9aa4b2', font: { size: 10 } },
-					grid: { color: '#262a33', drawBorder: false },
+					ticks: { color: colors.muted, font: { size: 10 } },
+					grid: { color: colors.chartGrid, drawBorder: false },
 				},
 			},
 		};

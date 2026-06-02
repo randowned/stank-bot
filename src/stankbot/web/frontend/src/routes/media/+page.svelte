@@ -13,8 +13,9 @@
     import EmptyState from "$lib/components/EmptyState.svelte";
     import Tabs from "$lib/components/Tabs.svelte";
     import Button from "$lib/components/Button.svelte";
-    import SelectDropdown from "$lib/components/SelectDropdown.svelte";
+    import Select from "$lib/components/Select.svelte";
     import RelativeTime from "$lib/components/RelativeTime.svelte";
+    import Container from "$lib/components/Container.svelte";
 
     let { data } = $props();
 
@@ -245,7 +246,7 @@
     const showCompareBtn = $derived(filteredItems.length > 1);
 </script>
 
-<div class="max-w-6xl mx-auto p-4 space-y-4">
+<Container size="xl" class="p-4 space-y-4">
     <PageHeader title="Media" subtitle="Media analytics" />
 
     <Tabs tabs={typeTabs} bind:value={activeType} />
@@ -258,7 +259,7 @@
             class="px-3 py-1.5 text-sm rounded border border-border bg-panel text-text placeholder:text-muted focus:outline-none focus:border-accent w-full sm:w-64"
             data-testid="media-search"
         />
-        <SelectDropdown
+        <Select
             options={sortOptions}
             bind:value={sortKey}
             testId="media-sort"
@@ -424,4 +425,4 @@
             {/each}
         </div>
     {/if}
-</div>
+</Container>

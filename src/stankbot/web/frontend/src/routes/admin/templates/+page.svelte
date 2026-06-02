@@ -175,7 +175,7 @@ import { toErrorMessage } from '$lib/api-utils';
 		<Select
 			bind:value={activeKey}
 			options={templateOptions}
-			onchange={(e) => selectKey((e.target as HTMLSelectElement).value)}
+			onchange={(v) => selectKey(v)}
 			id="template-select"
 			testId="template-select"
 		/>

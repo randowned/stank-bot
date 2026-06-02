@@ -112,7 +112,7 @@
 
 	const pathname = $derived($page.url.pathname);
 	const isAdminRoute = $derived(pathname.startsWith(`${base}/admin`) || pathname.startsWith('/admin'));
-	const mainClass = $derived(isAdminRoute ? 'flex-1' : 'flex-1 w-full max-w-3xl mx-auto');
+	const mainClass = $derived('flex-1 w-full');
 
 	const skeletonPattern = $derived.by(() => {
 		if (!$navigating) return 'dashboard';
@@ -152,7 +152,7 @@
 						<span class="text-lg">☰</span>
 					</button>
 				{/if}
-				<a href="{base}/" class="flex items-center gap-2 shrink-0">
+				<a href="{base}/" class="flex items-center gap-2 shrink-0 min-h-11 px-2 -ml-2 rounded-md hover:bg-border/50 transition-colors">
 					<img src="/stank.webp" alt="Stank" class="w-6 h-6" />
 					<span class="font-semibold text-text">StankBot</span>
 				</a>
@@ -173,9 +173,9 @@
 						onerror={(msg) => addToast(msg, 'error')}
 					/>
 				{:else}
-					<a
-						href="/auth/login"
-						class="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-border/50 transition-colors"
+				<a
+					href="/auth/login"
+						class="flex items-center gap-2 px-2 min-h-11 min-w-11 rounded-md hover:bg-border/50 transition-colors"
 						aria-label="Login"
 					>
 						<div

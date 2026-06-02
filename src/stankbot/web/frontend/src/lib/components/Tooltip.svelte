@@ -38,9 +38,8 @@
 
 <span
 	data-testid="tooltip-root"
-	role="button"
 	tabindex="0"
-	class="group relative inline-flex"
+	class="group relative inline-flex outline-none"
 >
 	{@render children()}
 	{@render (side === 'above' ? aboveTooltip : defaultTooltip)()}

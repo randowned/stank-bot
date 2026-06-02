@@ -65,7 +65,7 @@
 		title={label}
 		aria-label={label}
 		aria-describedby="live-badge-popover"
-		class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors
+		class="inline-flex items-center gap-1.5 px-2 min-h-11 rounded-md text-xs transition-colors
 			{disabled ? 'text-muted/50 cursor-default' : 'text-muted hover:text-text hover:bg-border/40'}"
 		data-testid="live-badge"
 		aria-live="polite"

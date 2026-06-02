@@ -7,6 +7,7 @@
 	import Sparkline from '$lib/components/Sparkline.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import Container from '$lib/components/Container.svelte';
 
 	interface HistoryPoint {
 		day: string;
@@ -46,7 +47,7 @@
 	}
 </script>
 
-<div class="p-4 space-y-4">
+<Container size="md" class="p-4 space-y-4">
 	{#if isLoading}
 		<div class="panel">
 			<Skeleton width="8rem" height="1.5rem" />
@@ -186,4 +187,4 @@
 	{/if}
 
 	<a href={base} class="btn btn-secondary w-full text-center">← Back to Board</a>
-</div>
+</Container>

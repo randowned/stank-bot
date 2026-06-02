@@ -9,7 +9,7 @@
 	import Tabs from '$lib/components/Tabs.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import SelectDropdown from '$lib/components/SelectDropdown.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import { base } from '$app/paths';
@@ -319,7 +319,7 @@
 					</div>
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-xs text-muted">Update interval</span>
-						<SelectDropdown options={intervalOptions} bind:value={youtubeInterval} disabled={savingSettings} testId="media-interval-youtube" />
+						<Select options={intervalOptions} bind:value={youtubeInterval} disabled={savingSettings} testId="media-interval-youtube" />
 					</div>
 				</div>
 
@@ -334,7 +334,7 @@
 					</div>
 					<div class="flex items-center justify-between gap-3">
 						<span class="text-xs text-muted">Update interval</span>
-						<SelectDropdown options={intervalOptions} bind:value={spotifyInterval} disabled={savingSettings} testId="media-interval-spotify" />
+						<Select options={intervalOptions} bind:value={spotifyInterval} disabled={savingSettings} testId="media-interval-spotify" />
 					</div>
 				</div>
 			</div>

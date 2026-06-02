@@ -1,34 +1,111 @@
 <script lang="ts" generics="T extends string | number">
+	import Dropdown from '$lib/components/Dropdown.svelte';
+	import DropdownItem from '$lib/components/DropdownItem.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
+
 	interface Option {
 		value: T;
 		label: string;
+		icon?: string;
 	}
 
 	interface Props {
 		value?: T;
 		options: Option[];
 		disabled?: boolean;
-		name?: string;
-		id?: string;
+		position?: 'left' | 'right';
 		class?: string;
-		onchange?: (e: Event) => void;
 		testId?: string;
+		name?: string;
+		showLabel?: boolean;
+		native?: boolean;
+		id?: string;
+		onchange?: (value: T) => void;
 	}
 
 	let {
 		value = $bindable(),
 		options,
 		disabled = false,
-		name,
-		id,
+		position = 'left',
 		class: klass = '',
-		onchange,
-		testId
+		testId,
+		name,
+		showLabel = true,
+		native = false,
+		id,
+		onchange
 	}: Props = $props();
+
+	let selected = $derived(options.find((o) => o.value === value));
+	let selectedIcon = $derived(selected?.icon ?? '');
+	let selectedLabel = $derived(selected?.label ?? '');
+
+	function handleNativeChange(e: Event) {
+		const target = e.target as HTMLSelectElement;
+		const newValue = options.find((o) => String(o.value) === target.value)?.value;
+		if (newValue !== undefined) {
+			value = newValue;
+			onchange?.(newValue);
+		}
+	}
+
+	function handleCustomSelect(newValue: T) {
+		value = newValue;
+		onchange?.(newValue);
+	}
 </script>
 
-<select bind:value {disabled} {name} {id} class="input {klass}" {onchange} data-testid={testId}>
-	{#each options as opt (opt.value)}
-		<option value={opt.value}>{opt.label}</option>
-	{/each}
-</select>
+{#if native}
+	<select
+		{value}
+		{disabled}
+		{name}
+		{id}
+		class="input {klass}"
+		onchange={handleNativeChange}
+		data-testid={testId}
+	>
+		{#each options as opt (opt.value)}
+			<option value={opt.value}>{opt.label}</option>
+		{/each}
+	</select>
+{:else}
+	<Tooltip side="above">
+		<Dropdown align={position}>
+			{#snippet trigger({ toggle, open })}
+				<button
+					type="button"
+					class="inline-flex items-center gap-1 px-2 h-8 min-w-[2rem] rounded-md border border-border bg-panel hover:bg-border/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed {klass}"
+					{disabled}
+					onclick={toggle}
+					data-testid={testId}
+					aria-expanded={open}
+					aria-label={selectedLabel}
+				>
+					<span class="text-base leading-none">{selectedIcon}</span>
+					{#if showLabel && selectedLabel}
+						<span class="hidden sm:inline text-xs ml-1 whitespace-nowrap">{selectedLabel}</span>
+					{/if}
+					<span class="text-muted text-[8px] leading-none ml-0.5">{open ? '▲' : '▼'}</span>
+				</button>
+			{/snippet}
+			{#each options as opt (opt.value)}
+				<DropdownItem
+					active={opt.value === value}
+					keepOpen={false}
+					onclick={() => handleCustomSelect(opt.value)}
+				>
+					{#if opt.icon}
+						<span class="text-base">{opt.icon}</span>
+					{/if}
+					{opt.label}
+				</DropdownItem>
+			{/each}
+		</Dropdown>
+		{#snippet tooltip()}
+			<span class="hidden sm:inline">{name ?? selectedLabel}</span>
+			<span class="inline sm:hidden">{name ? `${name}: ${selectedLabel}` : selectedLabel}</span>
+		{/snippet}
+	</Tooltip>
+{/if}

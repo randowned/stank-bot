@@ -14,6 +14,7 @@
 		class?: string;
 		oninput?: (e: Event) => void;
 		onchange?: (e: Event) => void;
+		error?: string;
 	}
 
 	let {
@@ -30,8 +31,11 @@
 		autocomplete,
 		class: klass = '',
 		oninput,
-		onchange
+		onchange,
+		error
 	}: Props = $props();
+
+	const errorCls = $derived(error ? 'border-danger focus:border-danger' : '');
 </script>
 
 {#if type === 'number'}
@@ -47,9 +51,10 @@
 		{max}
 		{step}
 		{autocomplete}
-		class="input {klass}"
+		class="input {errorCls} {klass}"
 		{oninput}
 		{onchange}
+		aria-invalid={error ? 'true' : 'false'}
 	/>
 {:else}
 	<input
@@ -61,8 +66,9 @@
 		{name}
 		{id}
 		{autocomplete}
-		class="input {klass}"
+		class="input {errorCls} {klass}"
 		{oninput}
 		{onchange}
+		aria-invalid={error ? 'true' : 'false'}
 	/>
 {/if}

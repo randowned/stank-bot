@@ -12,6 +12,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ChainBreakOverlay from '$lib/components/ChainBreakOverlay.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
+	import Container from '$lib/components/Container.svelte';
 
 	interface Props {
 		data: {
@@ -144,7 +145,7 @@
 	}
 </script>
 
-<div class="p-4 flex flex-col gap-4">
+<Container size="md" class="p-4 flex flex-col gap-4">
 	<!-- Chain Status Card -->
 	<div class="panel relative">
 		<ChainBreakOverlay />
@@ -235,7 +236,7 @@
 			<div class="flex items-center gap-2">
 				<h2 class="text-lg font-semibold">Leaderboard</h2>
 				{#if board?.session_id}
-					<a href="{base}/session/{board.session_id}" class="text-xs text-muted hover:text-accent transition-colors">
+					<a href="{base}/session/{board.session_id}" class="inline-flex items-center text-xs text-muted hover:text-accent transition-colors min-h-11 px-2 -mx-2 rounded-md hover:bg-border/40">
 						Session #{board.session_id}
 					</a>
 				{/if}
@@ -295,4 +296,4 @@
 			{/if}
 		{/if}
 	{/if}
-</div>
+</Container>

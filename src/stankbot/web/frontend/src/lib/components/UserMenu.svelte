@@ -53,7 +53,7 @@
 		<button
 			type="button"
 			onclick={toggle}
-			class="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-border/50 transition-colors"
+			class="flex items-center gap-2 px-2 min-h-11 rounded-md hover:bg-border/50 transition-colors"
 			aria-haspopup="menu"
 			aria-expanded={isOpen}
 			data-testid="user-menu-trigger"

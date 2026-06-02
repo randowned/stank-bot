@@ -47,7 +47,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="w-full {sizeCls[size]} bg-panel border border-border rounded-lg shadow-xl flex flex-col max-h-[calc(100vh-2rem)]"
+			class="w-full {sizeCls[size]} bg-panel border border-border rounded-lg shadow-modal flex flex-col max-h-[calc(100vh-2rem)]"
 			role="none"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}

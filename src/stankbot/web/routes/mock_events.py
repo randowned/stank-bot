@@ -214,3 +214,53 @@ async def mock_set_version(
     version = body.get("version", "0.0.0")
     request.app.state.app_version = version
     return MsgPackResponse({"version": version}, request)
+
+
+@router.post("/leaderboard-seed")
+async def mock_leaderboard_seed(
+    request: Request,
+    config=Depends(get_config),
+) -> MsgPackResponse:
+    """Bulk inject stanks to create a dense leaderboard for visual testing."""
+    _dev_only(request)
+    body = await request.json()
+    guild_id = body.get("guild_id", config.mock_default_guild_id or config.default_guild_id)
+    count = int(body.get("count", 25))
+    base_user_id = int(body.get("base_user_id", 10_000))
+    prefix = body.get("prefix", "SeedUser")
+
+    bridge = _get_bridge(request)
+    await bridge.ensure_guild(guild_id)
+    results = []
+    for i in range(count):
+        uid = base_user_id + i
+        name = f"{prefix}{i}"
+        result = await bridge.inject_stank(guild_id, uid, name)
+        results.append(result)
+    return MsgPackResponse({"injected": len(results), "guild_id": guild_id}, request)
+
+
+@router.post("/version-broadcast")
+async def mock_version_broadcast(
+    request: Request,
+) -> MsgPackResponse:
+    """Immediately broadcast a version mismatch event to all connected clients."""
+    _dev_only(request)
+    body = await request.json()
+    server_version = body.get("server_version", "99.99.99")
+    client_version = body.get("client_version", "0.0.0")
+    guild_id = body.get("guild_id", 0)
+
+    from stankbot.web.ws import MSG_TYPE_VERSION_MISMATCH, manager
+
+    await manager.broadcast_json(
+        guild_id,
+        {
+            "t": MSG_TYPE_VERSION_MISMATCH,
+            "d": {
+                "server_version": server_version,
+                "client_version": client_version,
+            },
+        },
+    )
+    return MsgPackResponse({"broadcast": True}, request)

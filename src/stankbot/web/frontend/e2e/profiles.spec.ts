@@ -221,8 +221,8 @@ test.describe('Profile detail page', () => {
 		await expect(page.getByTestId('profile-chart')).toBeVisible({ timeout: 10000 });
 
 		// Switch range to 7 days
-		await page.getByTestId('profile-chart-range').getByRole('button').click();
-		await page.getByRole('option', { name: '7 days' }).click();
+		await page.getByTestId('profile-chart-range').click();
+		await page.getByRole('menuitem', { name: '7 days' }).click();
 
 		// Chart should re-render after range change
 		await expect(page.getByTestId('profile-chart').locator('canvas')).toBeAttached({ timeout: 10000 });
@@ -239,8 +239,8 @@ test.describe('Profile detail page', () => {
 		await expect(page.getByTestId('profile-chart')).toBeVisible({ timeout: 10000 });
 
 		// Switch to delta mode
-		await page.getByTestId('profile-chart-mode').getByRole('button').click();
-		await page.getByRole('option', { name: 'Change' }).click();
+		await page.getByTestId('profile-chart-mode').click();
+		await page.getByRole('menuitem', { name: 'Change' }).click();
 
 		// Chart should still render
 		await expect(page.getByTestId('profile-chart').locator('canvas')).toBeAttached({ timeout: 10000 });
@@ -274,21 +274,27 @@ test.describe('Profile detail page', () => {
 		await expect(page.getByTestId('profile-chart-metric')).toBeVisible({ timeout: 10000 });
 
 		// Open resolution dropdown (default 24h range)
-		await page.getByTestId('profile-chart-resolution').getByRole('button').click();
-		// With 24h range, hourly and daily should be available
-		await expect(page.getByRole('option', { name: 'Hourly' })).toBeAttached();
-		await expect(page.getByRole('option', { name: 'Daily' })).not.toBeAttached();
+		// Note: profile-chart-resolution uses native <select> because custom dropdown
+		// has an unexplained interaction issue with $derived options in Playwright.
+		await page.getByTestId('profile-chart-resolution').selectOption('hourly');
+		// With 24h range, daily should not be available (verify by checking available options)
+		const resSelect1 = page.getByTestId('profile-chart-resolution');
+		await expect(resSelect1.locator('option', { hasText: 'Hourly' })).toBeAttached();
+		await expect(resSelect1.locator('option', { hasText: 'Daily' })).not.toBeAttached();
 
 		// Switch range to 7 days
 		await page.keyboard.press('Escape');
-		await page.getByTestId('profile-chart-range').getByRole('button').click();
-		await page.getByRole('option', { name: '7 days' }).click();
+		await page.waitForTimeout(500);
+		await page.getByTestId('profile-chart-range').click();
+		await page.waitForTimeout(300);
+		await page.getByRole('menuitem', { name: '7 days' }).click();
 
 		// Open resolution dropdown again
-		await page.getByTestId('profile-chart-resolution').getByRole('button').click();
+		await page.getByTestId('profile-chart-resolution').selectOption('daily');
 		// With 7 days range, daily resolution should now be available
-		await expect(page.getByRole('option', { name: 'Daily' })).toBeAttached();
-		await expect(page.getByRole('option', { name: 'Hourly' })).toBeAttached();
+		const resSelect2 = page.getByTestId('profile-chart-resolution');
+		await expect(resSelect2.locator('option', { hasText: 'Daily' })).toBeAttached();
+		await expect(resSelect2.locator('option', { hasText: 'Hourly' })).toBeAttached();
 	});
 });
 

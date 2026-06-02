@@ -182,3 +182,97 @@ async def mock_add_media(
     return MsgPackResponse(
         {"success": True, "id": item.id, "name": name}, request, status_code=201
     )
+
+
+class MockMediaMilestonePayload(BaseModel):
+    guild_id: int = 123456789
+    media_item_id: int
+    media_type: str = "youtube"
+    metric_key: str = "view_count"
+    milestone_value: int = 10000
+    new_value: int = 10001
+    title: str = "Mock Milestone"
+    channel_name: str | None = None
+    thumbnail_url: str | None = None
+    name: str | None = None
+    external_id: str | None = None
+
+
+@router.post("/media-milestone")
+async def mock_media_milestone(
+    request: Request,
+    payload: MockMediaMilestonePayload = msgpack_body(MockMediaMilestonePayload),  # type: ignore[assignment]
+) -> MsgPackResponse:
+    _dev_only(request)
+    from stankbot.web.ws import MSG_TYPE_MEDIA_MILESTONE, manager
+
+    await manager.broadcast_json(
+        payload.guild_id,
+        {
+            "t": MSG_TYPE_MEDIA_MILESTONE,
+            "d": {
+                "media_item_id": payload.media_item_id,
+                "media_type": payload.media_type,
+                "metric_key": payload.metric_key,
+                "milestone_value": payload.milestone_value,
+                "new_value": payload.new_value,
+                "title": payload.title,
+                "channel_name": payload.channel_name,
+                "thumbnail_url": payload.thumbnail_url,
+                "name": payload.name,
+                "external_id": payload.external_id,
+            },
+        },
+    )
+    return MsgPackResponse({"broadcast": True}, request)
+
+
+class MockOwnerMetricPayload(BaseModel):
+    guild_id: int = 123456789
+    owner_id: int
+    media_type: str = "youtube"
+    metric_key: str = "subscriber_count"
+    value: int = 1_000_000
+
+
+@router.post("/owner-metric-update")
+async def mock_owner_metric_update(
+    request: Request,
+    payload: MockOwnerMetricPayload = msgpack_body(MockOwnerMetricPayload),  # type: ignore[assignment]
+) -> MsgPackResponse:
+    _dev_only(request)
+    from stankbot.web.ws import MSG_TYPE_OWNER_SNAPSHOT, manager
+
+    await manager.broadcast_json(
+        payload.guild_id,
+        {
+            "t": MSG_TYPE_OWNER_SNAPSHOT,
+            "d": {
+                "owner_id": payload.owner_id,
+                "media_type": payload.media_type,
+                "metric_key": payload.metric_key,
+                "value": payload.value,
+            },
+        },
+    )
+    return MsgPackResponse({"broadcast": True}, request)
+
+
+class MockMediaMetricsPayload(BaseModel):
+    guild_id: int = 123456789
+    media_item_id: int
+    metrics: dict[str, int | float]
+
+
+@router.post("/media-metrics")
+async def mock_media_metrics(
+    request: Request,
+    payload: MockMediaMetricsPayload = msgpack_body(MockMediaMetricsPayload),  # type: ignore[assignment]
+) -> MsgPackResponse:
+    _dev_only(request)
+    from datetime import UTC, datetime
+
+    async with session_scope(request.app.state.session_factory) as session:
+        for key, val in payload.metrics.items():
+            await media_repo.upsert_metric_cache(session, payload.media_item_id, key, int(val), datetime.now(UTC))
+    return MsgPackResponse({"updated": True}, request)

@@ -42,7 +42,7 @@
 		aria-label="Online users"
 		aria-haspopup="true"
 		aria-expanded={open}
-		class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors text-muted hover:text-text hover:bg-border/40"
+		class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors text-muted hover:text-text hover:bg-border/40 min-h-11"
 		data-testid="online-badge"
 	>
 		<span class="w-2 h-2 rounded-full {color} {pulse}" data-testid="online-badge-dot"></span>

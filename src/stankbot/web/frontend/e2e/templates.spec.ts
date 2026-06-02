@@ -22,8 +22,8 @@ test.describe('Admin template editor', () => {
 		await expect(page.getByTestId('template-preview')).toBeVisible({ timeout: 5000 });
 
 		// Select "Chain break" template.
-		const select = page.getByTestId('template-select');
-		await select.selectOption('chain_break_embed');
+		await page.getByTestId('template-select').click();
+		await page.getByRole('menuitem', { name: 'Chain break' }).click();
 
 		// Preview should update — chain break default contains "broke".
 		await expect(page.getByTestId('template-preview')).toContainText('broke', {
@@ -51,7 +51,8 @@ test.describe('Admin template editor', () => {
 		await expect(page.getByTestId('template-preview')).toBeVisible({ timeout: 5000 });
 
 		// Select chain break template and switch to Edit.
-		await page.getByTestId('template-select').selectOption('chain_break_embed');
+		await page.getByTestId('template-select').click();
+		await page.getByRole('menuitem', { name: 'Chain break' }).click();
 		await page.getByTestId('tab-edit').click();
 
 		// Modify the title in the JSON.
@@ -72,7 +73,8 @@ test.describe('Admin template editor', () => {
 
 		// Reload and verify the saved title persists.
 		await page.reload();
-		await page.getByTestId('template-select').selectOption('chain_break_embed');
+		await page.getByTestId('template-select').click();
+		await page.getByRole('menuitem', { name: 'Chain break' }).click();
 		await page.getByTestId('tab-edit').click();
 		const reloaded = JSON.parse(await page.getByTestId('template-json').inputValue());
 		expect(reloaded.title).toBe('E2E Template Test Title');
@@ -99,7 +101,8 @@ test.describe('Admin template editor', () => {
 		// Load the page — should show the custom template in preview.
 		await page.goto('/admin/templates');
 		await expect(page.getByTestId('template-preview')).toBeVisible({ timeout: 5000 });
-		await page.getByTestId('template-select').selectOption('chain_break_embed');
+		await page.getByTestId('template-select').click();
+		await page.getByRole('menuitem', { name: 'Chain break' }).click();
 		await expect(page.getByTestId('template-preview')).toContainText('ZZZZZ Custom Title', {
 			timeout: 5000
 		});
@@ -114,7 +117,8 @@ test.describe('Admin template editor', () => {
 		await expect(page.getByTestId('template-preview')).toBeVisible({ timeout: 5000 });
 
 		// Select chain break, go to Edit.
-		await page.getByTestId('template-select').selectOption('chain_break_embed');
+		await page.getByTestId('template-select').click();
+		await page.getByRole('menuitem', { name: 'Chain break' }).click();
 		await page.getByTestId('tab-edit').click();
 
 		// Change title and switch to Preview.
@@ -139,7 +143,8 @@ test.describe('Admin template editor', () => {
 		// Save a custom chain break title via the admin UI.
 		await page.goto('/admin/templates');
 		await expect(page.getByTestId('template-preview')).toBeVisible({ timeout: 5000 });
-		await page.getByTestId('template-select').selectOption('chain_break_embed');
+		await page.getByTestId('template-select').click();
+		await page.getByRole('menuitem', { name: 'Chain break' }).click();
 		await page.getByTestId('tab-edit').click();
 
 		const textarea = page.getByTestId('template-json');
@@ -157,7 +162,8 @@ test.describe('Admin template editor', () => {
 
 		// Reload and verify the saved template shows in preview.
 		await page.reload();
-		await page.getByTestId('template-select').selectOption('chain_break_embed');
+		await page.getByTestId('template-select').click();
+		await page.getByRole('menuitem', { name: 'Chain break' }).click();
 		await expect(page.getByTestId('template-preview')).toContainText('Custom Break Title E2E', {
 			timeout: 5000
 		});

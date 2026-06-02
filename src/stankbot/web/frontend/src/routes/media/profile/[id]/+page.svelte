@@ -6,10 +6,11 @@
 	import { apiFetch } from '$lib/api';
 	import StatTile from '$lib/components/StatTile.svelte';
 	import Chart from '$lib/components/Chart.svelte';
-	import SelectDropdown from '$lib/components/SelectDropdown.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import MediaItemCard from '$lib/components/MediaItemCard.svelte';
+	import Container from '$lib/components/Container.svelte';
 
 	let { data } = $props();
 
@@ -273,7 +274,7 @@
 {#if !profile}
 	<ErrorState title="Profile not found" message="This channel or artist doesn't exist or has no tracked media in this guild." />
 {:else}
-	<div class="max-w-6xl mx-auto p-4 space-y-4">
+	<Container size="xl" class="p-4 space-y-4">
 		<!-- Back link + freshness -->
 		<div class="flex items-center justify-between">
 			<a href="{base}/media/profiles" class="text-sm text-muted hover:text-accent transition-colors">
@@ -365,28 +366,29 @@
 					{compareMode ? 'Comparing metrics' : `${chartLabel} over time`}
 				</h2>
 				<div class="flex flex-wrap gap-2 mb-3">
-					<SelectDropdown
+					<Select
 						options={metricOptions}
 						bind:value={selectedMetric}
 						testId="profile-chart-metric"
 					/>
-					<SelectDropdown
+					<Select
 						options={metricOptions}
 						bind:value={compareMetric}
 						testId="profile-chart-compare-metric"
 						class={compareMode ? '' : 'hidden'}
 					/>
-					<SelectDropdown
+					<Select
 						options={rangeOptions}
 						bind:value={selectedHours}
 						testId="profile-chart-range"
 					/>
-					<SelectDropdown
+					<Select
 						options={aggregationOptions}
 						bind:value={selectedAggregation}
 						testId="profile-chart-resolution"
+						native={true}
 					/>
-					<SelectDropdown
+					<Select
 						options={viewOptions}
 						bind:value={selectedView}
 						testId="profile-chart-mode"
@@ -447,6 +449,6 @@
 				</div>
 			{/if}
 		</div>
-	</div>
+	</Container>
 {/if}
 {/key}

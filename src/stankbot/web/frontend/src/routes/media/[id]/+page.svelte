@@ -3,16 +3,18 @@
 	import { page } from '$app/stores';
 	import { untrack } from 'svelte';
 	import { apiFetch } from '$lib/api';
-	import { formatFreshness } from '$lib/format';
+	import { formatFreshness, formatNumber } from '$lib/format';
+	import { colors } from '$lib/tokens';
 	import type { MediaItem, MediaOwner, MetricSnapshot, CompareData, MetricDef, ProviderDef } from '$lib/types';
 	import { providersByType, loadProviders, mediaMetricUpdates, ownerMetricUpdates } from '$lib/stores';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import ErrorState from '$lib/components/ErrorState.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
-	import SelectDropdown from '$lib/components/SelectDropdown.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import Button from '$lib/components/Button.svelte';
 	import Chart from '$lib/components/Chart.svelte';
 	import RelativeTime from '$lib/components/RelativeTime.svelte';
+	import Container from '$lib/components/Container.svelte';
 
 	let { data } = $props();
 
@@ -457,9 +459,7 @@
 	function yTickCallback(value: number): string {
 		const fmt = metricFormat();
 		if (fmt === 'percentage') return `${Math.round(value)}%`;
-		if (value >= 1_000_000) return (value / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-		if (value >= 1_000) return (value / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
-		return value.toString();
+		return formatNumber(value);
 	}
 
 	function buildChartOptions(): Record<string, unknown> {
@@ -477,14 +477,14 @@
 				x: {
 					type: 'time',
 					time: timeScaleOpts,
-					ticks: { maxTicksLimit: 8, color: '#9aa4b2', font: { size: 10 }, source: 'auto' },
+					ticks: { maxTicksLimit: 8, color: colors.muted, font: { size: 10 }, source: 'auto' },
 					grid: { display: false }
 				},
 				y: {
 					title: { display: false },
 					...(isPercentage ? { min: 0, max: 100 } : { beginAtZero: false }),
-					ticks: { callback: yTickCallback, color: '#9aa4b2', font: { size: 10 } },
-					grid: { color: '#262a33', drawBorder: false }
+					ticks: { callback: yTickCallback, color: colors.muted, font: { size: 10 } },
+					grid: { color: colors.chartGrid, drawBorder: false }
 				}
 			},
 			plugins: { legend: { display: compareData !== null && hasCompare } }
@@ -590,7 +590,7 @@
 {#if !item}
 	<ErrorState title="Not found" message="This media item could not be found." />
 {:else}
-	<div class="max-w-6xl mx-auto p-4 space-y-4">
+	<Container size="xl" class="p-4 space-y-4">
 		<div class="flex items-center justify-between">
 			<a href="{base}/media" class="text-sm text-muted hover:text-accent transition-colors">← Back to Media</a>
 			<div class="flex items-center gap-2">
@@ -712,11 +712,11 @@
 					{/each}
 				</div>
 
-				<div class="flex items-center gap-2 mb-3 flex-nowrap">
-					<SelectDropdown options={metricOptions} bind:value={selectedMetric} testId="media-detail-metric" name="Metric" />
-					<SelectDropdown options={rangeOptions} bind:value={selectedHours} testId="media-detail-range" name="Range" />
-					<SelectDropdown options={aggregationOptions} bind:value={selectedAggregation} testId="media-detail-resolution" name="Resolution" />
-					<SelectDropdown options={viewOptions} bind:value={comparisonMode} testId="media-detail-view" name="Mode" />
+				<div class="flex items-center gap-2 mb-3 flex-wrap">
+					<Select options={metricOptions} bind:value={selectedMetric} testId="media-detail-metric" name="Metric" />
+					<Select options={rangeOptions} bind:value={selectedHours} testId="media-detail-range" name="Range" />
+					<Select options={aggregationOptions} bind:value={selectedAggregation} testId="media-detail-resolution" name="Resolution" />
+					<Select options={viewOptions} bind:value={comparisonMode} testId="media-detail-view" name="Mode" />
 					{#if hasCompare}
 						<Button variant="ghost" onclick={clearComparison} size="sm" testId="media-clear-compare" title="Clear comparison">✕</Button>
 					{/if}
@@ -745,5 +745,5 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</Container>
 {/if}

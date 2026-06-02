@@ -72,6 +72,11 @@ export const test = base.extend<{
 	stopRandomEvents: () => Promise<void>;
 	injectMedia: (opts?: { guildId?: number; mediaType?: string; slug?: string; historyDays?: number }) => Promise<{ id: number; name: string }>;
 	clearMedia: (guildId?: number) => Promise<void>;
+	injectMediaMilestone: (opts?: { guildId?: number; mediaItemId?: number; mediaType?: string; metricKey?: string; milestoneValue?: number; newValue?: number; title?: string }) => Promise<void>;
+	injectOwnerMetricUpdate: (opts?: { guildId?: number; ownerId?: number; mediaType?: string; metricKey?: string; value?: number }) => Promise<void>;
+	injectMediaMetrics: (mediaItemId: number, metrics: Record<string, number>, guildId?: number) => Promise<void>;
+	injectLeaderboardSeed: (opts?: { guildId?: number; count?: number; baseUserId?: number; prefix?: string }) => Promise<{ injected: number; guild_id: number }>;
+	injectVersionBroadcast: (opts?: { guildId?: number; serverVersion?: string; clientVersion?: string }) => Promise<void>;
 }>({
 	mockLogin: async ({ page }, use) => {
 		await use(async (user = defaultUser) => {
@@ -190,6 +195,75 @@ export const test = base.extend<{
 	clearMedia: async ({ page }, use) => {
 		await use(async (guildId = 123456789) => {
 			await page.request.post('/api/mock/clear-media', { data: { guild_id: guildId } });
+		});
+	},
+
+	injectMediaMilestone: async ({ page }, use) => {
+		await use(async (opts = {}) => {
+			const response = await page.request.post('/api/mock/media-milestone', {
+				data: {
+					guild_id: opts.guildId ?? 123456789,
+					media_item_id: opts.mediaItemId ?? 1,
+					media_type: opts.mediaType ?? 'youtube',
+					metric_key: opts.metricKey ?? 'view_count',
+					milestone_value: opts.milestoneValue ?? 10000,
+					new_value: opts.newValue ?? 10001,
+					title: opts.title ?? 'Mock Milestone'
+				}
+			});
+			expect(response.ok()).toBeTruthy();
+		});
+	},
+
+	injectOwnerMetricUpdate: async ({ page }, use) => {
+		await use(async (opts = {}) => {
+			const response = await page.request.post('/api/mock/owner-metric-update', {
+				data: {
+					guild_id: opts.guildId ?? 123456789,
+					owner_id: opts.ownerId ?? 1,
+					media_type: opts.mediaType ?? 'youtube',
+					metric_key: opts.metricKey ?? 'subscriber_count',
+					value: opts.value ?? 1_000_000
+				}
+			});
+			expect(response.ok()).toBeTruthy();
+		});
+	},
+
+	injectMediaMetrics: async ({ page }, use) => {
+		await use(async (mediaItemId, metrics, guildId = 123456789) => {
+			const response = await page.request.post('/api/mock/media-metrics', {
+				data: { guild_id: guildId, media_item_id: mediaItemId, metrics }
+			});
+			expect(response.ok()).toBeTruthy();
+		});
+	},
+
+	injectLeaderboardSeed: async ({ page }, use) => {
+		await use(async (opts = {}) => {
+			const response = await page.request.post('/api/mock/leaderboard-seed', {
+				data: {
+					guild_id: opts.guildId ?? 123456789,
+					count: opts.count ?? 25,
+					base_user_id: opts.baseUserId ?? 10_000,
+					prefix: opts.prefix ?? 'SeedUser'
+				}
+			});
+			expect(response.ok()).toBeTruthy();
+			return response.json() as Promise<{ injected: number; guild_id: number }>;
+		});
+	},
+
+	injectVersionBroadcast: async ({ page }, use) => {
+		await use(async (opts = {}) => {
+			const response = await page.request.post('/api/mock/version-broadcast', {
+				data: {
+					guild_id: opts.guildId ?? 123456789,
+					server_version: opts.serverVersion ?? '99.99.99',
+					client_version: opts.clientVersion ?? '0.0.0'
+				}
+			});
+			expect(response.ok()).toBeTruthy();
 		});
 	}
 });
