@@ -129,7 +129,10 @@
 	<Card title="Guild admin roles">
 		{#if doc}
 			{#if doc.role_ids.length === 0}
-				<div class="text-muted text-sm py-2" data-testid="roles-empty">No admin roles configured.</div>
+				<div class="text-center py-4" data-testid="roles-empty">
+					<div class="text-muted text-sm">No admin roles configured yet.</div>
+					<div class="text-muted/70 text-xs mt-1">Add a Discord role ID below to grant guild admin access.</div>
+				</div>
 			{:else}
 				<ul class="divide-y divide-border" data-testid="roles-list">
 					{#each doc.role_ids as r (r)}
@@ -169,7 +172,10 @@
 	<Card title="Global admin users">
 		{#if doc}
 			{#if doc.global_user_ids.length === 0}
-				<div class="text-muted text-sm py-2" data-testid="users-empty">No global admins configured.</div>
+				<div class="text-center py-4" data-testid="users-empty">
+					<div class="text-muted text-sm">No global admins configured yet.</div>
+					<div class="text-muted/70 text-xs mt-1">Global admins can manage all guilds. Add a Discord user ID below.</div>
+				</div>
 			{:else}
 				<ul class="divide-y divide-border" data-testid="users-list">
 					{#each doc.global_user_ids as u (u)}
@@ -214,8 +220,8 @@
 
 <!-- Add User Modal -->
 <Modal bind:open={showAddUser} title="Add global admin" size="sm">
-	<FormField label="Discord user ID">
-		<Input bind:value={newUserInput} type="text" placeholder="User ID (e.g. 123456789012345678)" />
+	<FormField label="Discord user ID" for="add-user-id">
+		<Input bind:value={newUserInput} type="text" placeholder="User ID (e.g. 123456789012345678)" id="add-user-id" />
 	</FormField>
 	{#snippet footer()}
 		<Button variant="secondary" onclick={() => showAddUser = false}>Cancel</Button>
@@ -225,8 +231,8 @@
 
 <!-- Add Role Modal -->
 <Modal bind:open={showAddRole} title="Add guild admin role" size="sm">
-	<FormField label="Discord role ID">
-		<Input bind:value={newRoleInput} type="text" placeholder="Role ID (e.g. 123456789012345678)" />
+	<FormField label="Discord role ID" for="add-role-id">
+		<Input bind:value={newRoleInput} type="text" placeholder="Role ID (e.g. 123456789012345678)" id="add-role-id" />
 	</FormField>
 	{#snippet footer()}
 		<Button variant="secondary" onclick={() => showAddRole = false}>Cancel</Button>

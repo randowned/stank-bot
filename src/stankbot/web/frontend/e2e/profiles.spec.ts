@@ -273,14 +273,17 @@ test.describe('Profile detail page', () => {
 
 		await expect(page.getByTestId('profile-chart-metric')).toBeVisible({ timeout: 10000 });
 
-		// Open resolution dropdown (default 24h range)
-		// Note: profile-chart-resolution uses native <select> because custom dropdown
-		// has an unexplained interaction issue with $derived options in Playwright.
-		await page.getByTestId('profile-chart-resolution').selectOption('hourly');
-		// With 24h range, daily should not be available (verify by checking available options)
-		const resSelect1 = page.getByTestId('profile-chart-resolution');
-		await expect(resSelect1.locator('option', { hasText: 'Hourly' })).toBeAttached();
-		await expect(resSelect1.locator('option', { hasText: 'Daily' })).not.toBeAttached();
+		// Open resolution dropdown (default 24h range) and select hourly
+		await page.getByTestId('profile-chart-resolution').click();
+		await page.waitForTimeout(300);
+		await page.getByRole('menuitem', { name: /Hourly/ }).click();
+
+		// With 24h range, daily should not be available in the dropdown
+		await page.getByTestId('profile-chart-resolution').click();
+		await page.waitForTimeout(300);
+		await expect(page.getByRole('menuitem', { name: /Hourly/ })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: /Daily/ })).not.toBeVisible();
+		await page.keyboard.press('Escape');
 
 		// Switch range to 7 days
 		await page.keyboard.press('Escape');
@@ -289,12 +292,11 @@ test.describe('Profile detail page', () => {
 		await page.waitForTimeout(300);
 		await page.getByRole('menuitem', { name: '7 days' }).click();
 
-		// Open resolution dropdown again
-		await page.getByTestId('profile-chart-resolution').selectOption('daily');
-		// With 7 days range, daily resolution should now be available
-		const resSelect2 = page.getByTestId('profile-chart-resolution');
-		await expect(resSelect2.locator('option', { hasText: 'Daily' })).toBeAttached();
-		await expect(resSelect2.locator('option', { hasText: 'Hourly' })).toBeAttached();
+		// Open resolution dropdown again — daily should now be available
+		await page.getByTestId('profile-chart-resolution').click();
+		await page.waitForTimeout(300);
+		await expect(page.getByRole('menuitem', { name: /Daily/ })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: /Hourly/ })).toBeVisible();
 	});
 });
 

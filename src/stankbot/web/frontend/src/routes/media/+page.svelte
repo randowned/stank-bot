@@ -361,7 +361,7 @@
                             <img
                                 src={item.thumbnail_url}
                                 alt={item.title}
-                                class="w-full h-60 object-cover"
+                                class="w-full h-44 object-cover"
                                 loading="lazy"
                             />
                         {:else}

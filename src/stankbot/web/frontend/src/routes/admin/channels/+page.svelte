@@ -129,17 +129,18 @@ import { toErrorMessage } from '$lib/api-utils';
 				message="Pick a channel the bot should watch for stank sticker posts."
 			/>
 		{/if}
-		<FormField label="Channel ID" required hint="Right-click channel in Discord → Copy Channel ID">
-			<Input type="number" bind:value={channelId} placeholder="e.g. 1234567890" />
+		<FormField label="Channel ID" required hint="Right-click channel in Discord → Copy Channel ID" for="altar-channel-id">
+			<Input type="number" bind:value={channelId} placeholder="e.g. 1234567890" id="altar-channel-id" />
 		</FormField>
-		<FormField label="Sticker pattern" hint="Substring match, case-insensitive">
-			<Input bind:value={pattern} />
+		<FormField label="Sticker pattern" hint="Substring match, case-insensitive" for="altar-pattern">
+			<Input bind:value={pattern} id="altar-pattern" />
 		</FormField>
 		<FormField
 			label="Reaction emoji"
 			hint="Custom emoji like <:stank:12345> or a unicode emoji. Leave blank to skip reactions."
+			for="altar-emoji"
 		>
-			<Input bind:value={emoji} placeholder="<:stank:1234567890>" />
+			<Input bind:value={emoji} placeholder="<:stank:1234567890>" id="altar-emoji" />
 		</FormField>
 		<div class="flex justify-end mt-2">
 			<Button onclick={saveAltar} loading={altarSaving}>Set</Button>
@@ -158,8 +159,8 @@ import { toErrorMessage } from '$lib/api-utils';
 				<li class="text-muted text-sm">No announcement channels configured.</li>
 			{/each}
 		</ul>
-		<FormField label="Add channel ID">
-			<Input bind:value={newChannel} type="number" placeholder="Discord channel ID" />
+		<FormField label="Add channel ID" for="ann-channel-id">
+			<Input bind:value={newChannel} type="number" placeholder="Discord channel ID" id="ann-channel-id" />
 		</FormField>
 		<div class="flex justify-end mt-2">
 			<Button onclick={addAnnouncement}>Add</Button>

@@ -449,7 +449,6 @@
 						options={aggregationOptions}
 						bind:value={selectedAggregation}
 						testId="profile-chart-resolution"
-						native={true}
 					/>
 					<Select
 						options={viewOptions}

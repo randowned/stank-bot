@@ -96,14 +96,20 @@ test.describe('Sessions list page', () => {
 		await expect(sessionLinks.first()).toBeVisible({ timeout: 10000 });
 	});
 
-	test('session list shows SP/PP and duration', async ({ page, injectStank }) => {
+	test('session list shows stat badges with SP/PP', async ({ page, injectStank }) => {
 		const GUILD = 123456789;
 
 		await injectStank(GUILD, 10101, 'StatsUser');
 		await page.goto('/sessions');
 
-		await expect(page.getByText('SP:').first()).toBeVisible({ timeout: 10000 });
-		await expect(page.getByText('PP:').first()).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText('Session History')).toBeVisible({ timeout: 10000 });
+
+		// Stats are now rendered as inline badges with label + value
+		const sessionCard = page.locator('a[href*="/session/"]').first();
+		await expect(sessionCard).toBeVisible({ timeout: 10000 });
+		await expect(sessionCard.getByText('Stanks')).toBeVisible();
+		await expect(sessionCard.getByText('SP')).toBeVisible();
+		await expect(sessionCard.getByText('PP')).toBeVisible();
 	});
 });
 

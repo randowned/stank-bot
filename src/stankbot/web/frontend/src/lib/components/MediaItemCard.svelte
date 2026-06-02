@@ -61,7 +61,7 @@
 </script>
 
 <div
-	class="panel overflow-hidden {borderColor} hover:border-accent/50 transition-colors"
+	class="border border-border rounded-lg overflow-hidden {borderColor} hover:border-accent/50 transition-colors bg-panel"
 	data-testid={testId}
 >
 	<div class="flex gap-3 {compact ? 'p-2' : 'p-3'}">

@@ -200,6 +200,21 @@ test.describe('Board', () => {
 		expect(counterText !== '0 / 0' || rankingCount > 0).toBeTruthy();
 	});
 
+	test('stat tiles show sublabels for compound values', async ({ page }) => {
+		// Verify the sublabels we added between values and labels
+		const reactionsTile = page.locator('[data-testid="tile-reactions"]');
+		await expect(reactionsTile.getByText('chain · session')).toBeVisible();
+
+		const currentTile = page.locator('[data-testid="tile-current"]');
+		await expect(currentTile.getByText('stanks · unique')).toBeVisible();
+
+		const sessionTile = page.locator('[data-testid="tile-session"]');
+		await expect(sessionTile.getByText('record · unique')).toBeVisible();
+
+		const alltimeTile = page.locator('[data-testid="tile-alltime"]');
+		await expect(alltimeTile.getByText('record · unique')).toBeVisible();
+	});
+
 	test('session and alltime record tiles show 0 / 0 initially', async ({ page }) => {
 		// Session is reliably 0/0 after newSession() in beforeEach.
 		// Alltime may carry over from previous test runs — just check it has a value.

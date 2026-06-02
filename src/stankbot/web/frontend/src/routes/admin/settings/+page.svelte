@@ -125,7 +125,7 @@ import { toErrorMessage } from '$lib/api-utils';
 		<Card title="Behavior">
 			{#each BEHAVIOR_BOOL_KEYS as k (k)}
 				{#if doc.labels[k]}
-					<FormField label={doc.labels[k].title} hint={doc.labels[k].help}>
+					<FormField label={doc.labels[k].title} hint={doc.labels[k].help} for="setting-{k}">
 						<Toggle bind:checked={bools[k]} label={doc.labels[k].title} />
 					</FormField>
 				{/if}
@@ -135,8 +135,8 @@ import { toErrorMessage } from '$lib/api-utils';
 		<Card title="Reset windows">
 			{#each LIST_KEYS as k (k)}
 				{#if doc.labels[k]}
-					<FormField label={doc.labels[k].title} hint="{doc.labels[k].help} (comma-separated)">
-						<Input bind:value={lists[k]} placeholder="0, 6, 12, 18" />
+					<FormField label={doc.labels[k].title} hint="{doc.labels[k].help} (comma-separated)" for="setting-{k}">
+						<Input bind:value={lists[k]} placeholder="0, 6, 12, 18" id="setting-{k}" />
 					</FormField>
 				{/if}
 			{/each}
@@ -145,8 +145,8 @@ import { toErrorMessage } from '$lib/api-utils';
 		<Card title="Scoring">
 			{#each INT_KEYS as k (k)}
 				{#if doc.labels[k]}
-					<FormField label={doc.labels[k].title} hint={doc.labels[k].help}>
-						<Input type="number" bind:value={ints[k]} />
+					<FormField label={doc.labels[k].title} hint={doc.labels[k].help} for="setting-{k}">
+						<Input type="number" bind:value={ints[k]} id="setting-{k}" />
 					</FormField>
 				{/if}
 			{/each}

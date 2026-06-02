@@ -13,6 +13,7 @@
 	import ChainBreakOverlay from '$lib/components/ChainBreakOverlay.svelte';
 	import StatTile from '$lib/components/StatTile.svelte';
 	import Container from '$lib/components/Container.svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
 
 	interface Props {
 		data: {
@@ -162,6 +163,7 @@
 			<StatTile
 				value={`${formatNumber(board?.reactions ?? 0)} / ${formatNumber(board?.session_reactions ?? 0)}`}
 				label="Reactions"
+				sublabel="chain · session"
 				color="text-accent"
 				flash={flashReactions}
 				testId="tile-reactions"
@@ -170,6 +172,7 @@
 			<StatTile
 				value={`${formatNumber(board?.current ?? 0)} / ${formatNumber(board?.current_unique ?? 0)}`}
 				label="Current"
+				sublabel="stanks · unique"
 				color="text-accent"
 				flash={flashCurrent}
 				testId="tile-current"
@@ -179,6 +182,7 @@
 			<StatTile
 				value={`${formatNumber(board?.record ?? 0)} / ${formatNumber(board?.record_unique ?? 0)}`}
 				label="Session"
+				sublabel="record · unique"
 				flash={flashRecord}
 				testId="tile-session"
 				title="Session record chain length / Unique stankers in that chain"
@@ -186,6 +190,7 @@
 			<StatTile
 				value={`${formatNumber(board?.alltime_record ?? 0)} / ${formatNumber(board?.alltime_record_unique ?? 0)}`}
 				label="All-time"
+				sublabel="record · unique"
 				testId="tile-alltime"
 				title="All-time record chain length / Unique stankers in that chain"
 			/>
@@ -209,9 +214,10 @@
 		<div class="grid grid-cols-2 gap-4">
 			{#if board.chain_starter}
 				{@const starter = board.chain_starter}
-				<a href={getPlayerUrl(starter.user_id)} class="panel flex flex-col items-center gap-3">
-					<div class="text-sm text-muted uppercase">Starter</div>
-					<div class="text-center">
+				<a href={getPlayerUrl(starter.user_id)} class="panel flex flex-col items-center gap-2">
+					<div class="text-xs text-muted uppercase tracking-wide">Starter</div>
+					<Avatar name={starter.display_name} userId={String(starter.user_id)} discordAvatar={starter.discord_avatar ?? null} size="lg" />
+					<div class="text-center -mt-1">
 						<div class="font-medium truncate">{starter.display_name}</div>
 						<div class="text-sm text-muted">{starter.earned_sp} SP</div>
 					</div>
@@ -219,11 +225,12 @@
 			{/if}
 			{#if board.chainbreaker}
 				{@const breaker = board.chainbreaker}
-				<a href={getPlayerUrl(breaker.user_id)} class="panel flex flex-col items-center gap-3">
-					<div class="text-sm text-muted uppercase">Breaker</div>
-					<div class="text-center">
+				<a href={getPlayerUrl(breaker.user_id)} class="panel flex flex-col items-center gap-2">
+					<div class="text-xs text-muted uppercase tracking-wide">Breaker</div>
+					<Avatar name={breaker.display_name} userId={String(breaker.user_id)} discordAvatar={breaker.discord_avatar ?? null} size="lg" />
+					<div class="text-center -mt-1">
 						<div class="font-medium truncate">{breaker.display_name}</div>
-						<div class="text-sm text-muted">-{breaker.punishments} SP</div>
+						<div class="text-sm text-danger">-{breaker.punishments} SP</div>
 					</div>
 				</a>
 			{/if}
