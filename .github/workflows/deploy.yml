@@ -69,12 +69,13 @@ jobs:
         working-directory: src/stankbot/web/frontend
         run: npx svelte-kit sync && npx vitest run
 
-  release:
-    name: Release
+  prepare:
+    name: Prepare Release PR
     needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -94,15 +95,10 @@ jobs:
             # No tags yet — find the last versioned commit (vX.Y.Z)
             TAG=$(git log --oneline --grep="^v[0-9]" -1 --format="%H" 2>/dev/null || echo "")
             if [ -z "$TAG" ]; then
-              # No versioned commits either — use initial commit
               TAG=$(git rev-list --max-parents=0 HEAD | head -1)
             fi
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "is_initial=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "is_initial=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Read current version from pyproject.toml
         id: current_version
@@ -169,32 +165,36 @@ jobs:
             echo "DELIMITER"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Commit version bump
-        run: |
-          TAG="${{ steps.bump.outputs.tag }}"
-          SUMMARY=$(echo "${{ steps.summary.outputs.changes }}" | head -5 | tr '\n' '; ' | sed 's/; $//')
-          git add pyproject.toml
-          git commit -m "${TAG} - deploy: ${SUMMARY}"
-
-      - name: Push version bump to main
-        run: |
-          git push origin HEAD:main
-
-      - name: Sync release branch
-        run: |
-          git push origin HEAD:release --force
-
-      - name: Create and push tag
-        run: |
-          TAG="${{ steps.bump.outputs.tag }}"
-          git tag "$TAG"
-          git push origin "$TAG"
-
-      - name: Create GitHub Release
-        run: |
-          TAG="${{ steps.bump.outputs.tag }}"
-          gh release create "$TAG" \
-            --generate-notes \
-            --title "$TAG"
+      - name: Create release branch and PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.bump.outputs.tag }}"
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          CHANGES="${{ steps.summary.outputs.changes }}"
+
+          # Create branch from main
+          BRANCH="release/v${NEW_VERSION}"
+          git checkout -b "$BRANCH"
+
+          # Commit version bump
+          git add pyproject.toml
+          git commit -m "${TAG}
+
+          Changelog:
+          ${CHANGES}"
+
+          # Push branch
+          git push origin "$BRANCH"
+
+          # Create PR
+          gh pr create \
+            --title "${TAG}" \
+            --body "## Changelog
+
+          ${CHANGES}
+
+          ---
+          Merging this PR triggers the release pipeline: sync to release branch → Railway deploy → git tag → GitHub Release." \
+            --base main \
+            --head "$BRANCH"
