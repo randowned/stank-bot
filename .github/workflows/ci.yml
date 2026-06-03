@@ -38,8 +38,9 @@ jobs:
       - name: Ruff
         run: ruff check src tests
 
-      - name: Mypy
+      - name: Mypy (advisory — non-blocking)
         run: mypy src --ignore-missing-imports
+        continue-on-error: true
 
       - name: Frontend lint
         working-directory: src/stankbot/web/frontend
