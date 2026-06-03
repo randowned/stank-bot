@@ -130,14 +130,12 @@ jobs:
       - name: Install Python package
         run: pip install -e ".[dev]"
 
-      - name: Install root npm deps (Playwright)
-        run: npm ci
-
       - name: Install frontend deps
         working-directory: src/stankbot/web/frontend
         run: npm ci
 
       - name: Install Playwright Chromium
+        working-directory: src/stankbot/web/frontend
         run: npx playwright install chromium --with-deps
 
       - name: Create data directory
