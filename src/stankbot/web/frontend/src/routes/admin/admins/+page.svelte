@@ -2,7 +2,6 @@
 	import { apiFetch, apiPost } from '$lib/api';
 	import { toErrorMessage } from '$lib/api-utils';
 	import { onMount } from 'svelte';
-	import { tick } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
 	import Button from '$lib/components/Button.svelte';
@@ -93,13 +92,13 @@
 		}
 	}
 
-	function openAddUser() {
+	function _openAddUser() {
 		error = null;
 		newUserInput = '';
 		showAddUser = true;
 	}
 
-	function openAddRole() {
+	function _openAddRole() {
 		error = null;
 		newRoleInput = '';
 		showAddRole = true;
