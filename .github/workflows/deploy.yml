@@ -174,27 +174,37 @@ jobs:
           CHANGES="${{ steps.summary.outputs.changes }}"
 
           # Create branch from main
-          BRANCH="release/v${NEW_VERSION}"
+          BRANCH="deploy/v${NEW_VERSION}"
           git checkout -b "$BRANCH"
+
+          # Write commit message to file (avoids multiline shell issues)
+          {
+            echo "$TAG"
+            echo ""
+            echo "Changelog:"
+            echo "$CHANGES"
+          } > /tmp/commit_msg.txt
 
           # Commit version bump
           git add pyproject.toml
-          git commit -m "${TAG}
-
-          Changelog:
-          ${CHANGES}"
+          git commit -F /tmp/commit_msg.txt
 
           # Push branch
           git push origin "$BRANCH"
 
+          # Create PR body
+          {
+            echo "## Changelog"
+            echo ""
+            echo "$CHANGES"
+            echo ""
+            echo "---"
+            echo "Merging this PR triggers the release pipeline: sync to release branch → Railway deploy → git tag → GitHub Release."
+          } > /tmp/pr_body.txt
+
           # Create PR
           gh pr create \
-            --title "${TAG}" \
-            --body "## Changelog
-
-          ${CHANGES}
-
-          ---
-          Merging this PR triggers the release pipeline: sync to release branch → Railway deploy → git tag → GitHub Release." \
+            --title "$TAG" \
+            --body-file /tmp/pr_body.txt \
             --base main \
             --head "$BRANCH"
