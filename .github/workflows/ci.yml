@@ -107,7 +107,7 @@ jobs:
 
       - name: Unit tests (Frontend)
         working-directory: src/stankbot/web/frontend
-        run: npx vitest run
+        run: npx svelte-kit sync && npx vitest run
 
   e2e:
     name: E2E
