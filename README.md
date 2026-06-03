@@ -1,4 +1,6 @@
-![](static/Stank.gif)
+[![CI](https://github.com/randowned/stank-bot/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/randowned/stank-bot/actions/workflows/ci.yml)
+
+![](src/stankbot/web/frontend/static/stank.gif)
 
 # StankBot
 
