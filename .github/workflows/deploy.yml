@@ -91,8 +91,12 @@ jobs:
         run: |
           TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           if [ -z "$TAG" ]; then
-            # No tags yet — use the first commit as the baseline
-            TAG=$(git rev-list --max-parents=0 HEAD | head -1)
+            # No tags yet — find the last versioned commit (vX.Y.Z)
+            TAG=$(git log --oneline --grep="^v[0-9]" -1 --format="%H" 2>/dev/null || echo "")
+            if [ -z "$TAG" ]; then
+              # No versioned commits either — use initial commit
+              TAG=$(git rev-list --max-parents=0 HEAD | head -1)
+            fi
             echo "tag=$TAG" >> "$GITHUB_OUTPUT"
             echo "is_initial=true" >> "$GITHUB_OUTPUT"
           else
