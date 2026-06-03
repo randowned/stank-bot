@@ -176,11 +176,7 @@ jobs:
           git add pyproject.toml
           git commit -m "${TAG} - deploy: ${SUMMARY}"
 
-      - name: Push version bump to main
-        run: |
-          git push origin HEAD:main
-
-      - name: Sync release branch
+      - name: Push to release branch
         run: |
           git push origin HEAD:release --force
 
