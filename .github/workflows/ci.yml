@@ -102,6 +102,8 @@ jobs:
 
       - name: Unit tests (Python)
         run: pytest tests/unit/ -x --tb=short
+        env:
+          CHART_CACHE_DIR: /tmp/chart-cache
 
       - name: Unit tests (Frontend)
         working-directory: src/stankbot/web/frontend
@@ -145,3 +147,4 @@ jobs:
         run: node scripts/run-e2e.mjs
         env:
           CI: true
+          CHART_CACHE_DIR: /tmp/chart-cache
