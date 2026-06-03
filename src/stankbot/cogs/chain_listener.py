@@ -18,11 +18,11 @@ from discord.ext import commands
 
 from stankbot.cogs._identity import ensure_player
 from stankbot.db.models import RecordScope
-from stankbot.logging import log_guild_id, log_user_id
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import events as events_repo
 from stankbot.db.repositories import guild_members as guild_members_repo
 from stankbot.db.repositories import guilds as guilds_repo
+from stankbot.logging import log_guild_id, log_user_id
 from stankbot.services import embed_builders
 from stankbot.services.announcement_service import broadcast_to_guild
 from stankbot.services.chain_service import ChainOutcome, ChainService, StankInput

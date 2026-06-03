@@ -18,8 +18,12 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.db.repositories import media as media_repo
-from stankbot.services.chart_renderer import render_compare_chart, render_media_chart, render_owner_chart
-from stankbot.services.media_service import MediaService, _ITEM_TO_OWNER_AGG
+from stankbot.services.chart_renderer import (
+    render_compare_chart,
+    render_media_chart,
+    render_owner_chart,
+)
+from stankbot.services.media_service import _ITEM_TO_OWNER_AGG, MediaService
 from stankbot.services.settings_service import Keys, SettingsService
 from stankbot.web.tools import get_active_guild_id, get_db, require_guild_member
 from stankbot.web.transport import MsgPackResponse

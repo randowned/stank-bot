@@ -13,11 +13,10 @@ from stankbot.db.repositories import media as media_repo
 from stankbot.services.media_providers.base import MetricDef, OwnerResult
 from stankbot.services.media_providers.registry import MediaProviderRegistry
 from stankbot.services.media_service import (
+    _ITEM_TO_OWNER_AGG,
     MediaService,
     RefreshResult,
-    _ITEM_TO_OWNER_AGG,
 )
-
 
 # ── helpers ─────────────────────────────────────────────────────────────────
 
