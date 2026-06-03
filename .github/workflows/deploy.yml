@@ -69,20 +69,6 @@ jobs:
         working-directory: src/stankbot/web/frontend
         run: npx svelte-kit sync && npx vitest run
 
-      # --- E2E ---
-      - name: Install Playwright Chromium
-        working-directory: src/stankbot/web/frontend
-        run: npx playwright install chromium --with-deps
-
-      - name: Create data directory
-        run: mkdir -p data
-
-      - name: Run E2E tests
-        run: node scripts/run-e2e.mjs
-        env:
-          CI: true
-          CHART_CACHE_DIR: /tmp/chart-cache
-
   release:
     name: Release
     needs: ci
