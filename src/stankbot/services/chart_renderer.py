@@ -376,7 +376,7 @@ def render_compare_chart(
             tick_dt += td(hours=2) if t_span > 43200 else td(hours=1)
 
     # Series lines + dots
-    for idx, (s_meta, pts) in enumerate(valid):
+    for idx, (_s_meta, pts) in enumerate(valid):
         color = _SERIES_COLORS[idx % len(_SERIES_COLORS)]
         screen = [(px_x(dt), px_y(v)) for dt, v in pts]
         if len(screen) >= 2:

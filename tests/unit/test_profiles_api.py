@@ -7,7 +7,7 @@ SQLite database — the closest to production without a running server.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -16,7 +16,7 @@ from fastapi import FastAPI, status
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stankbot.db.models import Guild, MediaItem, MediaOwnerSnapshot
+from stankbot.db.models import Guild, MediaItem
 from stankbot.db.repositories import media as media_repo
 from stankbot.services.media_providers.base import (
     MediaProvider,
@@ -28,7 +28,6 @@ from stankbot.services.media_providers.base import (
 from stankbot.services.media_providers.registry import MediaProviderRegistry
 from stankbot.services.media_service import MediaService, RefreshResult
 from stankbot.web.routes.media_api import router as media_router
-
 
 # ── stub provider ────────────────────────────────────────────────────────
 
@@ -116,7 +115,7 @@ async def _seed(
     await session.flush()
 
     items: list[MediaItem] = []
-    for i, (eid, title, views, likes, comments) in enumerate([
+    for _i, (eid, title, views, likes, comments) in enumerate([
         ("vid_a", "Song A", 200_000, 8_000, 1_500),
         ("vid_b", "Song B", 150_000, 5_000, 800),
         ("vid_c", "Song C", 50_000, 2_000, 200),

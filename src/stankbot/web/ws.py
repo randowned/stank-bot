@@ -334,14 +334,14 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except Exception as e:
         log.warning("Failed to send initial state to WS client: %s", e)
 
-    _WS_MAX_MESSAGE_BYTES = 4096
-    _KNOWN_CLIENT_TYPES = {MSG_TYPE_PING, MSG_TYPE_VERSION_RESPONSE}
+    ws_max_message_bytes = 4096
+    known_client_types = {MSG_TYPE_PING, MSG_TYPE_VERSION_RESPONSE}
 
     try:
         while True:
             try:
                 data = await websocket.receive_bytes()
-                if len(data) > _WS_MAX_MESSAGE_BYTES:
+                if len(data) > ws_max_message_bytes:
                     await websocket.send_bytes(
                         msgpack.packb({"t": MSG_TYPE_ERROR, "d": {"error": "message too large"}})
                     )
@@ -359,7 +359,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                     )
                     continue
                 msg_type = msg.get("t")
-                if msg_type not in _KNOWN_CLIENT_TYPES:
+                if msg_type not in known_client_types:
                     continue
                 if msg_type == MSG_TYPE_PING:
                     await websocket.send_bytes(msgpack.packb({"t": MSG_TYPE_PONG}))
