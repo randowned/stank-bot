@@ -66,6 +66,9 @@ class Keys(StrEnum):
     # Features
     ENABLE_REACTION_BONUS = "enable_reaction_bonus"
     MAINTENANCE_MODE = "maintenance_mode"
+    # 4th Place
+    FOURTH_PLACE_ENABLED = "fourth_place_enabled"
+    FOURTH_PLACE_MIN_PARTICIPANTS = "fourth_place_min_participants"
     # Media (Maphra)
     MEDIA_YOUTUBE_UPDATE_INTERVAL_MINUTES = "media_youtube_update_interval_minutes"
     MEDIA_SPOTIFY_UPDATE_INTERVAL_MINUTES = "media_spotify_update_interval_minutes"
@@ -103,6 +106,8 @@ DEFAULTS: dict[str, Any] = {
     Keys.BOARD_NAME_MAX_LEN: 20,
     Keys.ENABLE_REACTION_BONUS: True,
     Keys.MAINTENANCE_MODE: False,
+    Keys.FOURTH_PLACE_ENABLED: True,
+    Keys.FOURTH_PLACE_MIN_PARTICIPANTS: 4,
     Keys.MEDIA_YOUTUBE_UPDATE_INTERVAL_MINUTES: 60,
     Keys.MEDIA_SPOTIFY_UPDATE_INTERVAL_MINUTES: 60,
     Keys.MEDIA_REPLIES_EPHEMERAL: True,
@@ -180,6 +185,14 @@ LABELS: dict[str, tuple[str, str]] = {
     Keys.MAINTENANCE_MODE: (
         "Maintenance mode",
         "Silently ignore new stanks — useful during config changes or migrations.",
+    ),
+    Keys.FOURTH_PLACE_ENABLED: (
+        "4th place awards enabled",
+        "Award a wooden-spoon badge to the player who finishes 4th in a session.",
+    ),
+    Keys.FOURTH_PLACE_MIN_PARTICIPANTS: (
+        "4th place min participants",
+        "Minimum distinct participants in a session before the 4th-place award activates.",
     ),
     Keys.MEDIA_YOUTUBE_UPDATE_INTERVAL_MINUTES: (
         "YouTube metrics update interval (minutes)",

@@ -243,8 +243,7 @@ async def api_player(
     rank = await events_repo.user_rank(session, guild_id, uid, session_id=current_session_id)
     streak = await _compute_stank_streak(session, guild_id, uid)
 
-    badge_keys = await achievements_svc.badges_for(session, guild_id, uid)
-    badge_set = set(badge_keys)
+    badge_counts = await achievements_svc.badges_for_with_counts(session, guild_id, uid)
 
     achievement_catalog = [
         {
@@ -252,7 +251,9 @@ async def api_player(
             "name": row["name"],
             "description": row["description"],
             "icon": row["icon"],
-            "unlocked": row["key"] in badge_set,
+            "unlocked": row["key"] in badge_counts,
+            "count": badge_counts.get(row["key"], 0),
+            "repeatable": row["repeatable"],
         }
         for row in achievements_svc.catalog_rows()
     ]
@@ -391,13 +392,13 @@ async def api_achievements(
 ) -> MsgPackResponse:
     from stankbot.services import achievements as achievements_svc
 
-    unlocked: set[str] = set()
+    badge_counts: dict[str, int] = {}
     if user_id is not None:
         try:
             uid = int(user_id)
         except ValueError as err:
             raise HTTPException(status_code=400, detail="Invalid user ID") from err
-        unlocked = set(await achievements_svc.badges_for(session, guild_id, uid))
+        badge_counts = await achievements_svc.badges_for_with_counts(session, guild_id, uid)
 
     catalog = [
         {
@@ -405,7 +406,9 @@ async def api_achievements(
             "name": row["name"],
             "description": row["description"],
             "icon": row["icon"],
-            "unlocked": row["key"] in unlocked,
+            "unlocked": row["key"] in badge_counts,
+            "count": badge_counts.get(row["key"], 0),
+            "repeatable": row["repeatable"],
         }
         for row in achievements_svc.catalog_rows()
     ]

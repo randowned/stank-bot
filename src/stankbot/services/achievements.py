@@ -466,6 +466,31 @@ async def badges_for(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def badges_for_with_counts(
+    session: AsyncSession, guild_id: int, user_id: int
+) -> dict[str, int]:
+    """Return ``{achievement_key: count}`` for this user.
+
+    Non-repeatable achievements will have count 1 if unlocked.
+    Repeatable achievements will have count >= 1.
+    """
+    from sqlalchemy import func as sqlfunc
+
+    stmt = (
+        select(
+            PlayerBadge.achievement_key,
+            sqlfunc.count(PlayerBadge.id).label("cnt"),
+        )
+        .where(
+            PlayerBadge.guild_id == guild_id,
+            PlayerBadge.user_id == user_id,
+        )
+        .group_by(PlayerBadge.achievement_key)
+    )
+    rows = (await session.execute(stmt)).all()
+    return {row[0]: row[1] for row in rows}
+
+
 def definition(key: str) -> AchievementDef | None:
     for a in _RULES:
         if a.key == key:

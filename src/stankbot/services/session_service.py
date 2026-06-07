@@ -25,6 +25,7 @@ from stankbot.db.repositories import cooldowns as cooldowns_repo
 from stankbot.db.repositories import events as events_repo
 from stankbot.services import achievements as achievements_svc
 from stankbot.services.chain_service import SessionIdProvider
+from stankbot.services.settings_service import SettingsService
 
 if TYPE_CHECKING:
     from stankbot.db.models import Event
@@ -119,11 +120,16 @@ class SessionService(SessionIdProvider):
                 self.session, guild_id, ended_id
             )
             if participants:
+                # Fetch guild settings for achievement evaluation.
+                settings_svc = SettingsService(self.session)
+                guild_settings = await settings_svc.all_for_guild(guild_id)
+
                 await achievements_svc.evaluate_session_close(
                     self.session,
                     guild_id=guild_id,
                     user_ids=participants,
                     session_id=ended_id,
+                    guild_settings=guild_settings,
                 )
         new_id: int | None = None
         if open_new:
