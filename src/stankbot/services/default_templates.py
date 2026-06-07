@@ -350,6 +350,31 @@ SPOTIFY_OWNER_MILESTONE_EMBED: dict[str, Any] = {
 }
 
 
+FOURTH_PLACE_EMBED: dict[str, Any] = {
+    "color": "#c0c0c0",
+    "title": "\U0001f944 Fourth Place \u2014 So Close!",
+    "description": (
+        "{user_mention} finished 4th in the session. "
+        "So close to the podium\u2026"
+    ),
+    "thumbnail": "{altar_sticker_url}",
+    "author": {"name": "StankBot", "url": "{board_url}"},
+    "fields": [
+        {
+            "name": "\U0001f4b0 SP Earned",
+            "value": "**{fourth_place_sp} SP**",
+            "inline": True,
+        },
+        {
+            "name": "\U0001f3c5 Badge",
+            "value": "\U0001f944 {badge_repeat_text}",
+            "inline": True,
+        },
+    ],
+    "footer": "\U0001f944 Fourth Place \u00b7 Better luck next time!",
+}
+
+
 ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "board_embed": BOARD_EMBED,
     "record_embed": RECORD_EMBED,
@@ -365,4 +390,5 @@ ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "spotify_owner_embed": SPOTIFY_OWNER_EMBED,
     "youtube_owner_milestone_embed": YOUTUBE_OWNER_MILESTONE_EMBED,
     "spotify_owner_milestone_embed": SPOTIFY_OWNER_MILESTONE_EMBED,
+    "fourth_place_embed": FOURTH_PLACE_EMBED,
 }

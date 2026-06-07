@@ -273,6 +273,42 @@ async def build_new_session_embed(
     return render_embed(tmpl, ctx)
 
 
+@dataclass(frozen=True, slots=True)
+class FourthPlaceVars:
+    user_id: int
+    user_display_name: str
+    sp_earned: int
+    award_count: int = 1
+
+
+async def build_fourth_place_embed(
+    *,
+    altar: Altar | None,
+    guild: discord.Guild | None,
+    vars_: FourthPlaceVars,
+    board_url: str = "",
+    session: AsyncSession,
+) -> discord.Embed:
+    """Build the 4th-place achievement embed."""
+    badge_repeat_text = (
+        f"(×{vars_.award_count})" if vars_.award_count > 1 else ""
+    )
+    ctx = RenderContext(
+        variables={
+            "stank_emoji": resolve_stank_emoji(guild, altar),
+            "altar_sticker_url": sticker_url(altar),
+            "user_mention": f"<@{vars_.user_id}>",
+            "user_display_name": vars_.user_display_name,
+            "fourth_place_sp": vars_.sp_earned,
+            "badge_repeat_text": badge_repeat_text,
+            "board_url": board_url,
+        }
+    )
+    guild_id = guild.id if guild is not None else 0
+    tmpl = await template_store.load("fourth_place_embed", session, guild_id)
+    return render_embed(tmpl, ctx)
+
+
 # --- data-assembly helpers ------------------------------------------------
 
 
@@ -633,6 +669,7 @@ async def build_owner_embed(
 
 __all__ = [
     "ChainBreakVars",
+    "FourthPlaceVars",
     "NewSessionVars",
     "PlayerRow",
     "RecordBreakVars",
@@ -642,6 +679,7 @@ __all__ = [
     "board_url_for",
     "build_chain_break_embed",
     "build_cooldown_embed",
+    "build_fourth_place_embed",
     "build_media_embed",
     "build_media_milestone_embed",
     "build_new_session_embed",

@@ -54,6 +54,8 @@ class AchievementDef:
     rule: Rule
     # Only evaluated on session close (needs session boundary state).
     session_close_only: bool = False
+    # If True, the badge can be earned multiple times; the UI shows ×N.
+    repeatable: bool = False
 
 
 # --- individual rules -----------------------------------------------------
@@ -317,6 +319,7 @@ def catalog_rows() -> list[dict[str, Any]]:
             "icon": a.icon,
             "rule_json": {"impl": "code", "key": a.key},
             "is_global": True,
+            "repeatable": a.repeatable,
         }
         for a in _RULES
     ]
