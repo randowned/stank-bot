@@ -21,6 +21,8 @@
 		description: string;
 		icon: string;
 		unlocked: boolean;
+		repeatable?: boolean;
+		count?: number;
 	}
 
 	let { data } = $props();
@@ -170,7 +172,12 @@
 						>
 							<span class="text-2xl leading-none">{a.icon}</span>
 							<div class="min-w-0">
-								<div class="font-medium text-sm">{a.name}</div>
+								<div class="font-medium text-sm">
+									{a.name}
+									{#if a.repeatable && a.count && a.count > 1}
+										<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold bg-accent/20 text-accent ml-1">×{a.count}</span>
+									{/if}
+								</div>
 								<div class="text-xs text-muted">{a.description}</div>
 							</div>
 						</div>
