@@ -11,9 +11,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from stankbot.db.models import Altar, Chain, ChainMessage, EventType, Guild
+from stankbot.db.models import Altar, Chain, ChainMessage, EventType, Guild, PlayerTotal
 from stankbot.db.repositories import events as events_repo
-from stankbot.services.achievements import _centurion, _comeback_kid, _streaker
+from stankbot.services.achievements import (
+    _centurion,
+    _comeback_kid,
+    _streaker,
+    _unlock_repeatable,
+    definition,
+    evaluate_session_close,
+)
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -281,3 +288,151 @@ async def test_comeback_kid_team_player_genuine_comeback(session: Any) -> None:
 
     # Net +5, was negative after PP, then team_player + SP base recovered.
     assert await _comeback_kid(session, 1, 100) is True
+
+
+# ── evaluate_session_close (fourth place) ─────────────────────────────────
+
+
+async def _seed_player_total(
+    session: Any,
+    *,
+    guild_id: int = 1,
+    user_id: int,
+    session_id: int,
+    earned_sp: int,
+    punishments: int = 0,
+) -> None:
+    pt = PlayerTotal(
+        guild_id=guild_id,
+        user_id=user_id,
+        session_id=session_id,
+        earned_sp=earned_sp,
+        punishments=punishments,
+    )
+    session.add(pt)
+    await session.flush()
+
+
+async def test_fourth_place_awards_correct_user(session: Any) -> None:
+    """User with 4th-highest net SP gets the achievement."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    # 5 participants with descending SP
+    for uid, sp in [(101, 100), (102, 80), (103, 60), (104, 40), (105, 20)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104, 105], session_id=sid
+    )
+    assert len(result.fourth_place) == 1
+    assert result.fourth_place[0].user_id == 104
+    assert result.fourth_place[0].sp_earned == 40
+
+
+async def test_fourth_place_tie_at_4th_no_award(session: Any) -> None:
+    """Two users tied at 4th place — no award (ambiguous)."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    # Exactly 4 users: 1st=100, 2nd=80, 3rd+4th tied at 60
+    for uid, sp in [(101, 100), (102, 80), (103, 60), (104, 60)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104], session_id=sid
+    )
+    assert len(result.fourth_place) == 0
+
+
+async def test_fourth_place_fewer_than_4_participants(session: Any) -> None:
+    """Fewer than 4 participants — no 4th-place award."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    for uid, sp in [(101, 100), (102, 80), (103, 60)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103], session_id=sid
+    )
+    assert len(result.fourth_place) == 0
+
+
+async def test_fourth_place_repeatable_award_count_increments(session: Any) -> None:
+    """Repeatable badge increments award_count on each unlock."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    achievement = definition("fourth_place")
+    assert achievement is not None
+
+    # First award
+    count1 = await _unlock_repeatable(
+        session,
+        guild_id=1,
+        user_id=104,
+        achievement=achievement,
+        session_id=10,
+        chain_id=None,
+    )
+    assert count1 == 1
+
+    # Second award
+    count2 = await _unlock_repeatable(
+        session,
+        guild_id=1,
+        user_id=104,
+        achievement=achievement,
+        session_id=20,
+        chain_id=None,
+    )
+    assert count2 == 2
+
+    # Third award
+    count3 = await _unlock_repeatable(
+        session,
+        guild_id=1,
+        user_id=104,
+        achievement=achievement,
+        session_id=30,
+        chain_id=None,
+    )
+    assert count3 == 3
+
+
+async def test_fourth_place_net_sp_used_for_ranking(session: Any) -> None:
+    """Ranking uses net SP (earned - punishments), not raw earned SP."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    # User 104: 60 earned, 30 PP = net 30
+    # User 105: 35 earned, 0 PP = net 35 (beats 104 on net)
+    # Ranking: 101(100) > 102(80) > 103(60) > 105(35) > 104(30)
+    # So 105 is 4th, 104 is 5th
+    for uid, sp, pp in [
+        (101, 100, 0),
+        (102, 80, 0),
+        (103, 60, 0),
+        (104, 60, 30),
+        (105, 35, 0),
+    ]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp, punishments=pp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104, 105], session_id=sid
+    )
+    assert len(result.fourth_place) == 1
+    # 105 has net 35 which is 4th; 104 has net 30 which is 5th
+    assert result.fourth_place[0].user_id == 105

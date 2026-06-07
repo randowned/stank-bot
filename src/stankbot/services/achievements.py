@@ -23,10 +23,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +54,26 @@ class AchievementDef:
     rule: Rule
     # Only evaluated on session close (needs session boundary state).
     session_close_only: bool = False
+    # If True, the badge can be earned multiple times; award_count is incremented.
+    repeatable: bool = False
+
+
+@dataclass(slots=True)
+class FourthPlaceResult:
+    """Outcome of the 4th-place achievement for one user."""
+
+    user_id: int
+    sp_earned: int
+    net_sp: int
+    award_count: int
+
+
+@dataclass(slots=True)
+class SessionCloseResult:
+    """Rich return type for ``evaluate_session_close``."""
+
+    unlocks: dict[int, list[str]] = field(default_factory=dict)
+    fourth_place: list[FourthPlaceResult] = field(default_factory=list)
 
 
 # --- individual rules -----------------------------------------------------
@@ -161,6 +181,7 @@ async def _comeback_kid(
         EventType.SP_FINISH_BONUS.value,
         EventType.SP_REACTION.value,
         EventType.SP_TEAM_PLAYER.value,
+        EventType.SP_FOURTH_PLACE.value,
     }
     async for row in await session.stream(stmt):
         t, delta = row
@@ -235,6 +256,14 @@ async def _team_player(
     return (await session.execute(stmt)).scalar_one_or_none() is not None
 
 
+async def _fourth_place_stub(
+    session: AsyncSession, guild_id: int, user_id: int
+) -> bool:
+    """Stub — the real ranking logic lives in ``evaluate_session_close``."""
+    del session, guild_id, user_id
+    return True
+
+
 # --- catalog --------------------------------------------------------------
 
 
@@ -303,6 +332,15 @@ _RULES: tuple[AchievementDef, ...] = (
         description="Broke a chain of 50+ stanks. Dubious honor.",
         icon="💀",
         rule=_chainbreaker_dubious,
+    ),
+    AchievementDef(
+        key="fourth_place",
+        name="Fourth Place",
+        description="Finished 4th in SP earned during a session. Repeatable.",
+        icon="4️⃣",
+        rule=_fourth_place_stub,
+        session_close_only=True,
+        repeatable=True,
     ),
 )
 
@@ -378,6 +416,63 @@ async def _unlock(
     return True
 
 
+async def _unlock_repeatable(
+    session: AsyncSession,
+    *,
+    guild_id: int,
+    user_id: int,
+    achievement: AchievementDef,
+    session_id: int | None,
+    chain_id: int | None,
+) -> int:
+    """Upsert a repeatable badge — increment ``award_count`` if the row
+    already exists, insert a fresh row otherwise.  Returns the new
+    ``award_count``.
+    """
+    stmt = (
+        select(PlayerBadge)
+        .where(
+            PlayerBadge.guild_id == guild_id,
+            PlayerBadge.user_id == user_id,
+            PlayerBadge.achievement_key == achievement.key,
+        )
+        .limit(1)
+    )
+    existing = (await session.execute(stmt)).scalar_one_or_none()
+    if existing is not None:
+        new_count = (existing.award_count or 1) + 1
+        await session.execute(
+            update(PlayerBadge)
+            .where(PlayerBadge.id == existing.id)
+            .values(award_count=new_count, session_id=session_id, chain_id=chain_id)
+        )
+        await session.flush()
+    else:
+        badge = PlayerBadge(
+            guild_id=guild_id,
+            user_id=user_id,
+            achievement_key=achievement.key,
+            chain_id=chain_id,
+            session_id=session_id,
+            award_count=1,
+        )
+        session.add(badge)
+        await session.flush()
+        new_count = 1
+
+    await events_repo.append(
+        session,
+        guild_id=guild_id,
+        type=EventType.ACHIEVEMENT_UNLOCKED,
+        user_id=user_id,
+        session_id=session_id,
+        chain_id=chain_id,
+        reason=achievement.key,
+        payload={"key": achievement.key, "name": achievement.name, "count": new_count},
+    )
+    return new_count
+
+
 async def evaluate_for_user(
     session: AsyncSession,
     *,
@@ -420,13 +515,68 @@ async def evaluate_for_user(
 
 async def evaluate_session_close(
     session: AsyncSession, *, guild_id: int, user_ids: list[int], session_id: int
-) -> dict[int, list[str]]:
-    """Evaluate the session-close-only rules for each participating user."""
-    result: dict[int, list[str]] = {}
+) -> SessionCloseResult:
+    """Evaluate the session-close-only rules for each participating user.
+
+    Returns a ``SessionCloseResult`` containing per-user unlocks and any
+    fourth-place award data.
+    """
+    result = SessionCloseResult()
+
+    # --- fourth-place ranking (computed once, outside the per-user loop) ---
+    fourth_achievement = definition("fourth_place")
+    fourth_uid: int | None = None
+    fourth_sp_earned = 0
+    fourth_net_sp = 0
+    if fourth_achievement is not None:
+        # Build a session-scoped leaderboard from player_totals cache.
+        from stankbot.db.models import PlayerTotal
+
+        sid = session_id
+        lb_stmt = (
+            select(
+                PlayerTotal.user_id,
+                PlayerTotal.earned_sp,
+                PlayerTotal.punishments,
+            )
+            .where(
+                PlayerTotal.guild_id == guild_id,
+                PlayerTotal.session_id == sid,
+                PlayerTotal.user_id.in_(user_ids),
+            )
+            .order_by((PlayerTotal.earned_sp - PlayerTotal.punishments).desc())
+        )
+        lb_rows = (await session.execute(lb_stmt)).all()
+        # Assign sequential ranks; on ties the same rank is shared.
+        rank = 0
+        prev_net: int | None = None
+        rank_occupants: list[int] = []
+        for idx, (uid, sp, pp) in enumerate(lb_rows):
+            net = int(sp or 0) - int(pp or 0)
+            if net != prev_net:
+                rank = idx + 1
+                rank_occupants = [int(uid)]
+                prev_net = net
+            else:
+                rank_occupants.append(int(uid))
+            if rank == 4:
+                # Fourth place resolved — only award if exactly one occupant.
+                if len(rank_occupants) == 1:
+                    fourth_uid = rank_occupants[0]
+                    fourth_sp_earned = int(sp or 0)
+                    fourth_net_sp = net
+                break
+            if rank > 4:
+                break
+
+    # --- per-user loop (existing session-close rules + fourth_place) ---
     for uid in user_ids:
         user_unlocks: list[str] = []
         for achievement in _RULES:
             if not achievement.session_close_only:
+                continue
+            if achievement.key == "fourth_place":
+                # Handled specially below — skip normal path.
                 continue
             if await _already_unlocked(session, guild_id, uid, achievement.key):
                 continue
@@ -448,7 +598,30 @@ async def evaluate_session_close(
             ):
                 user_unlocks.append(achievement.key)
         if user_unlocks:
-            result[uid] = user_unlocks
+            result.unlocks[uid] = user_unlocks
+
+    # --- award fourth place ---
+    if fourth_achievement is not None and fourth_uid is not None:
+        try:
+            award_count = await _unlock_repeatable(
+                session,
+                guild_id=guild_id,
+                user_id=fourth_uid,
+                achievement=fourth_achievement,
+                session_id=session_id,
+                chain_id=None,
+            )
+            result.fourth_place.append(
+                FourthPlaceResult(
+                    user_id=fourth_uid,
+                    sp_earned=fourth_sp_earned,
+                    net_sp=fourth_net_sp,
+                    award_count=award_count,
+                )
+            )
+        except Exception:  # noqa: BLE001
+            log.exception("fourth_place award failed user=%d", fourth_uid)
+
     return result
 
 

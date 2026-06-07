@@ -24,6 +24,7 @@ from stankbot.db.models import EventType, Record, SessionEndReason
 from stankbot.db.repositories import cooldowns as cooldowns_repo
 from stankbot.db.repositories import events as events_repo
 from stankbot.services import achievements as achievements_svc
+from stankbot.services.achievements import SessionCloseResult
 from stankbot.services.chain_service import SessionIdProvider
 
 if TYPE_CHECKING:
@@ -36,6 +37,15 @@ def _lock_for(guild_id: int) -> asyncio.Lock:
     if guild_id not in _session_locks:
         _session_locks[guild_id] = asyncio.Lock()
     return _session_locks[guild_id]
+
+
+@dataclass(slots=True)
+class SessionEndResult:
+    """Return type for ``end_session``."""
+
+    ended_session_id: int | None
+    new_session_id: int | None
+    close_result: SessionCloseResult | None = None
 
 
 @dataclass(slots=True)
@@ -94,15 +104,15 @@ class SessionService(SessionIdProvider):
         reason: SessionEndReason = SessionEndReason.AUTO,
         open_new: bool = True,
         when: datetime | None = None,
-    ) -> tuple[int | None, int | None]:
+    ) -> SessionEndResult:
         """Close the current session; optionally open a new one.
 
-        Returns ``(ended_session_id, new_session_id)`` — either half can
-        be ``None`` (e.g. when called on a guild with no prior session,
-        or when ``open_new=False``).
+        Returns a ``SessionEndResult`` with the ended/new session ids and
+        any achievement close data (including fourth-place awards).
         """
         now = when or datetime.now(tz=UTC)
         ended_id = await self.current(guild_id)
+        close_result: SessionCloseResult | None = None
         if ended_id is not None:
             await events_repo.append(
                 self.session,
@@ -119,7 +129,7 @@ class SessionService(SessionIdProvider):
                 self.session, guild_id, ended_id
             )
             if participants:
-                await achievements_svc.evaluate_session_close(
+                close_result = await achievements_svc.evaluate_session_close(
                     self.session,
                     guild_id=guild_id,
                     user_ids=participants,
@@ -141,7 +151,11 @@ class SessionService(SessionIdProvider):
         if ended_id is not None or new_id is not None:
             await self._reset_session_records(guild_id)
 
-        return ended_id, new_id
+        return SessionEndResult(
+            ended_session_id=ended_id,
+            new_session_id=new_id,
+            close_result=close_result,
+        )
 
     async def _session_is_alive(self, guild_id: int, session_id: int) -> bool:
         """True if no ``session_end`` event exists for this session id."""

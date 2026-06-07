@@ -631,8 +631,49 @@ async def build_owner_embed(
     return render_embed(tmpl, ctx)
 
 
+@dataclass(frozen=True, slots=True)
+class FourthPlaceVars:
+    user_name: str
+    sp_earned: int
+    net_sp: int
+    flat_sp: int
+    chain_length: int
+    award_count: int
+    session_number: int
+
+
+async def build_fourth_place_embed(
+    *,
+    altar: Altar | None,
+    guild: discord.Guild | None,
+    vars_: FourthPlaceVars,
+    board_url: str = "",
+    session: AsyncSession,
+    guild_id: int,
+) -> discord.Embed:
+    """Build the 4th-place achievement announcement embed."""
+    sp_awarded = vars_.flat_sp + vars_.chain_length
+    ctx = RenderContext(
+        variables={
+            "stank_emoji": resolve_stank_emoji(guild, altar),
+            "user_name": vars_.user_name,
+            "sp_earned": vars_.sp_earned,
+            "net_sp": vars_.net_sp,
+            "flat_sp": vars_.flat_sp,
+            "chain_length": vars_.chain_length,
+            "sp_awarded": sp_awarded,
+            "award_count": vars_.award_count,
+            "session_number": vars_.session_number,
+            "board_url": board_url,
+        }
+    )
+    tmpl = await template_store.load("fourth_place_embed", session, guild_id)
+    return render_embed(tmpl, ctx)
+
+
 __all__ = [
     "ChainBreakVars",
+    "FourthPlaceVars",
     "NewSessionVars",
     "PlayerRow",
     "RecordBreakVars",
@@ -642,6 +683,7 @@ __all__ = [
     "board_url_for",
     "build_chain_break_embed",
     "build_cooldown_embed",
+    "build_fourth_place_embed",
     "build_media_embed",
     "build_media_milestone_embed",
     "build_new_session_embed",

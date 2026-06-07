@@ -23,6 +23,7 @@ from sqlalchemy import select
 
 from stankbot.db.models import Guild, RecordScope, SessionEndReason
 from stankbot.services import embed_builders, history_service
+from stankbot.services.achievements import FourthPlaceResult
 from stankbot.services.announcement_service import broadcast_to_guild
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
@@ -132,9 +133,11 @@ class SessionScheduler:
                 await settings.get(guild_id, Keys.MAINTENANCE_MODE, False)
             )
             svc = SessionService(session)
-            ended_id, new_id = await svc.end_session(
+            end_result = await svc.end_session(
                 guild_id, reason=SessionEndReason.AUTO, when=now
             )
+            ended_id = end_result.ended_session_id
+            new_id = end_result.new_session_id
             if maintenance:
                 log.info(
                     "session rolled silently (maintenance) guild=%d", guild_id
@@ -153,6 +156,17 @@ class SessionScheduler:
             if embed is not None:
                 await broadcast_to_guild(
                     session, self.bot, guild_id=guild_id, embed=embed
+                )
+
+            # Broadcast 4th-place achievement embeds (one per awarded user).
+            close_result = end_result.close_result
+            if close_result is not None and close_result.fourth_place:
+                await _broadcast_fourth_place(
+                    session,
+                    bot=self.bot,
+                    guild_id=guild_id,
+                    fourth_place_results=close_result.fourth_place,
+                    ended_id=ended_id,
                 )
 
     async def _fire_warning(self, guild_id: int, warn_minutes: int) -> None:
@@ -291,6 +305,86 @@ async def _build_rollover_embed(
         session=session,
         guild_id=guild_id,
     )
+
+
+async def _broadcast_fourth_place(
+    session,
+    *,
+    bot: StankBot,
+    guild_id: int,
+    fourth_place_results: list[FourthPlaceResult],
+    ended_id: int | None,
+) -> None:
+    """Build and broadcast the 4th-place embed for each awarded user."""
+    from stankbot.db.models import EventType
+    from stankbot.db.repositories import altars as altars_repo
+    from stankbot.db.repositories import events as events_repo
+
+    altar = await altars_repo.primary(session, guild_id)
+
+    settings = SettingsService(session)
+    flat_sp = int(await settings.get(guild_id, Keys.SP_FOURTH_PLACE, 50))
+
+    # Compute session sequence number.
+    ended_seq = (
+        await events_repo.count_session_starts(session, guild_id, up_to_id=ended_id)
+        if ended_id is not None
+        else 0
+    )
+
+    # Get the last chain length for the session (for the chain-length bonus).
+    chain_length = 0
+    if altar is not None and ended_id is not None:
+        from stankbot.db.repositories import chains as chains_repo
+
+        last_chain = await chains_repo.last_chain_in_session(
+            session, guild_id, ended_id
+        )
+        if last_chain is not None:
+            chain_length = last_chain.final_length or 0
+
+    board_url = embed_builders.board_url_for(bot.config.oauth_redirect_uri, guild_id)
+
+    for fp in fourth_place_results:
+        sp_awarded = flat_sp + chain_length
+        # Emit the SP_FOURTH_PLACE event so it appears in the event log.
+        from stankbot.services.session_service import SessionService
+
+        svc = SessionService(session)
+        current_sid = await svc.current(guild_id)
+        await events_repo.append(
+            session,
+            guild_id=guild_id,
+            type=EventType.SP_FOURTH_PLACE,
+            delta=sp_awarded,
+            user_id=fp.user_id,
+            session_id=current_sid,
+            reason="fourth_place",
+        )
+
+        user_name = await embed_builders.display_name_of(
+            session, guild_id, fp.user_id
+        )
+        vars_ = embed_builders.FourthPlaceVars(
+            user_name=user_name,
+            sp_earned=fp.sp_earned,
+            net_sp=fp.net_sp,
+            flat_sp=flat_sp,
+            chain_length=chain_length,
+            award_count=fp.award_count,
+            session_number=ended_seq,
+        )
+        embed = await embed_builders.build_fourth_place_embed(
+            altar=altar,
+            guild=bot.get_guild(guild_id),
+            vars_=vars_,
+            board_url=board_url,
+            session=session,
+            guild_id=guild_id,
+        )
+        await broadcast_to_guild(
+            session, bot, guild_id=guild_id, embed=embed
+        )
 
 
 def _rollover_job_id(guild_id: int, hour: int) -> str:

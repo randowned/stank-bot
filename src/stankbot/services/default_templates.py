@@ -156,6 +156,28 @@ COOLDOWN_EMBED: dict[str, Any] = {
 }
 
 
+FOURTH_PLACE_EMBED: dict[str, Any] = {
+    "color": "#f97316",
+    "title": "4\ufe0f\u20e3 Fourth Place!",
+    "description": (
+        "{user_name} finished **4th** in SP this session! "
+        "{stank_emoji} **+{sp_awarded} SP** (flat {flat_sp} + chain {chain_length})."
+    ),
+    "author": {"name": "StankBot", "url": "{board_url}"},
+    "fields": [
+        {
+            "name": "\U0001f3c6 Achievement",
+            "value": (
+                "4\ufe0f\u20e3 Fourth Place \u00d7 **{award_count}**\n"
+                "{user_name} \u00b7 **{net_sp} net SP** this session"
+            ),
+            "inline": False,
+        },
+    ],
+    "footer": "Session #{session_number}",
+}
+
+
 POINTS_EMBED: dict[str, Any] = {
     "color": "#a47cff",
     "author": {"name": "{target_display_name}", "icon": "{target_avatar_url}"},
@@ -357,6 +379,7 @@ ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "new_session_embed": NEW_SESSION_EMBED,
     "cooldown_embed": COOLDOWN_EMBED,
     "points_embed": POINTS_EMBED,
+    "fourth_place_embed": FOURTH_PLACE_EMBED,
     "youtube_media_embed": YOUTUBE_MEDIA_EMBED,
     "spotify_media_embed": SPOTIFY_MEDIA_EMBED,
     "youtube_milestone_embed": YOUTUBE_MILESTONE_EMBED,

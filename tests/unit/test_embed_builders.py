@@ -200,3 +200,72 @@ class TestBuildMediaMilestoneEmbed:
 
         assert embed.url == "https://youtube.com/watch?v=abc"
         assert "https://youtube.com/watch?v=abc" in embed.footer.text
+
+
+class TestBuildFourthPlaceEmbed:
+    """Integration test — builds a real 4th-place embed via the template engine."""
+
+    async def test_fourth_place_embed_structure(self, session: Any) -> None:
+        from stankbot.services.embed_builders import (
+            FourthPlaceVars,
+            build_fourth_place_embed,
+        )
+
+        vars_ = FourthPlaceVars(
+            user_name="TestPlayer",
+            sp_earned=40,
+            net_sp=35,
+            flat_sp=50,
+            chain_length=12,
+            award_count=3,
+            session_number=7,
+        )
+        embed = await build_fourth_place_embed(
+            altar=None,
+            guild=None,
+            vars_=vars_,
+            board_url="https://stank.bot",
+            session=session,
+            guild_id=1,
+        )
+
+        assert isinstance(embed, discord.Embed)
+        assert embed.title is not None and "Fourth Place" in embed.title
+        assert embed.color == discord.Color(0xF97316)
+        # Description should mention user, SP awarded, and the breakdown
+        assert "TestPlayer" in embed.description
+        assert "+62 SP" in embed.description  # 50 + 12
+        assert "flat 50" in embed.description
+        assert "chain 12" in embed.description
+        # Achievement field should show award count
+        assert any("× **3**" in f.value for f in embed.fields)
+        # Footer has session number
+        assert embed.footer is not None
+        assert "Session #7" in embed.footer.text
+
+    async def test_fourth_place_embed_first_award(self, session: Any) -> None:
+        """First award — count is 1."""
+        from stankbot.services.embed_builders import (
+            FourthPlaceVars,
+            build_fourth_place_embed,
+        )
+
+        vars_ = FourthPlaceVars(
+            user_name="NewPlayer",
+            sp_earned=20,
+            net_sp=20,
+            flat_sp=50,
+            chain_length=5,
+            award_count=1,
+            session_number=1,
+        )
+        embed = await build_fourth_place_embed(
+            altar=None,
+            guild=None,
+            vars_=vars_,
+            board_url="",
+            session=session,
+            guild_id=1,
+        )
+        assert any("× **1**" in f.value for f in embed.fields)
+        assert "+55 SP" in embed.description  # 50 + 5

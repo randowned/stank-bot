@@ -46,6 +46,7 @@ class Keys(StrEnum):
     SP_FINISH_BONUS = "sp_finish_bonus"
     SP_REACTION = "sp_reaction"
     SP_TEAM_PLAYER_BONUS = "sp_team_player_bonus"
+    SP_FOURTH_PLACE = "sp_fourth_place"
     PP_BREAK_BASE = "pp_break_base"
     PP_BREAK_PER_STANK = "pp_break_per_stank"
     RESTANK_COOLDOWN_SECONDS = "restank_cooldown_seconds"
@@ -63,6 +64,7 @@ class Keys(StrEnum):
     NEW_SESSION_EMBED = "new_session_embed"
     COOLDOWN_EMBED = "cooldown_embed"
     POINTS_EMBED = "points_embed"
+    FOURTH_PLACE_EMBED = "fourth_place_embed"
     # Features
     ENABLE_REACTION_BONUS = "enable_reaction_bonus"
     MAINTENANCE_MODE = "maintenance_mode"
@@ -93,6 +95,7 @@ DEFAULTS: dict[str, Any] = {
     Keys.SP_FINISH_BONUS: DEFAULT_SP_FINISH_BONUS,
     Keys.SP_REACTION: DEFAULT_SP_REACTION,
     Keys.SP_TEAM_PLAYER_BONUS: DEFAULT_SP_TEAM_PLAYER_BONUS,
+    Keys.SP_FOURTH_PLACE: 50,
     Keys.PP_BREAK_BASE: DEFAULT_PP_BREAK_BASE,
     Keys.PP_BREAK_PER_STANK: DEFAULT_PP_BREAK_PER_STANK,
     Keys.RESTANK_COOLDOWN_SECONDS: DEFAULT_RESTANK_COOLDOWN_SECONDS,
@@ -140,6 +143,10 @@ LABELS: dict[str, tuple[str, str]] = {
     Keys.SP_TEAM_PLAYER_BONUS: (
         "Team Player bonus",
         "Extra SP awarded when the same user is the last stanker of one shift and the first stanker of the next.",
+    ),
+    Keys.SP_FOURTH_PLACE: (
+        "Fourth Place SP",
+        "Flat SP awarded to the player who finishes 4th in SP earned during a session (repeatable).",
     ),
     Keys.PP_BREAK_BASE: (
         "Break penalty (base)",
