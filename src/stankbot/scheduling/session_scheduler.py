@@ -332,20 +332,18 @@ async def _broadcast_fourth_place(
         else 0
     )
 
-    # Get the last chain length for the session (for the chain-length bonus).
-    chain_length = 0
-    if altar is not None and ended_id is not None:
-        from stankbot.db.repositories import chains as chains_repo
-
-        last_chain = await chains_repo.last_chain_in_session(
-            session, guild_id, ended_id
+    # Per-player stank count for the ended session (COUNT of SP_BASE events).
+    fp_user_ids = [fp.user_id for fp in fourth_place_results]
+    player_stank_counts: dict[int, int] = {}
+    if ended_id is not None:
+        player_stank_counts = await events_repo.count_sp_base_per_user_for_session(
+            session, guild_id, ended_id, user_ids=fp_user_ids
         )
-        if last_chain is not None:
-            chain_length = last_chain.final_length or 0
 
     board_url = embed_builders.board_url_for(bot.config.oauth_redirect_uri, guild_id)
 
     for fp in fourth_place_results:
+        chain_length = player_stank_counts.get(fp.user_id, 0)
         sp_awarded = flat_sp + chain_length
         # Emit the SP_FOURTH_PLACE event so it appears in the event log.
         from stankbot.services.session_service import SessionService

@@ -269,3 +269,49 @@ class TestBuildFourthPlaceEmbed:
         )
         assert any("× **1**" in f.value for f in embed.fields)
         assert "+55 SP" in embed.description  # 50 + 5
+
+    async def test_fourth_place_per_player_chain_length(self, session: Any) -> None:
+        """chain_length is per-player stank count, not shared guild chain length.
+
+        Two players with different stank counts get different SP awards.
+        """
+        from stankbot.services.embed_builders import (
+            FourthPlaceVars,
+            build_fourth_place_embed,
+        )
+
+        # Player A: 15 stanks in the session
+        vars_a = FourthPlaceVars(
+            user_name="PlayerA",
+            sp_earned=60,
+            net_sp=55,
+            flat_sp=50,
+            chain_length=15,
+            award_count=2,
+            session_number=3,
+        )
+        embed_a = await build_fourth_place_embed(
+            altar=None, guild=None, vars_=vars_a, board_url="",
+            session=session, guild_id=1,
+        )
+
+        # Player B: 8 stanks in the session
+        vars_b = FourthPlaceVars(
+            user_name="PlayerB",
+            sp_earned=30,
+            net_sp=28,
+            flat_sp=50,
+            chain_length=8,
+            award_count=1,
+            session_number=3,
+        )
+        embed_b = await build_fourth_place_embed(
+            altar=None, guild=None, vars_=vars_b, board_url="",
+            session=session, guild_id=1,
+        )
+
+        # SP = flat_sp + chain_length (per-player)
+        assert "+65 SP" in embed_a.description   # 50 + 15
+        assert "chain 15" in embed_a.description
+        assert "+58 SP" in embed_b.description   # 50 + 8
+        assert "chain 8" in embed_b.description
