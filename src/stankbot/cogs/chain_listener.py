@@ -39,6 +39,8 @@ except ImportError:
     _V2_NOTIFICATIONS_AVAILABLE = False
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
+from stankbot.utils.emoji import emoji_specs_match
+from stankbot.utils.stank_match import sticker_name_matches
 from stankbot.utils.time_utils import humanize_duration
 
 if TYPE_CHECKING:
@@ -70,34 +72,28 @@ _recent_messages = _RecentMessageIds()
 
 
 def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
-    """A 'stank' is a sticker whose name contains the altar's pattern as a
-    substring (case-insensitive), with no extra text.
+    """A 'stank' is a sticker whose name contains one of the altar's patterns
+    (comma-separated, case-insensitive substring), with no extra text.
 
     Text alongside the sticker is treated as noise (and will break an
-    open chain via the listener's non-stank branch).
-
-    Substring (not exact) match so multi-word / decorated sticker names
-    still trigger — e.g. pattern ``maphra wink`` matches a sticker named
-    ``Maphra Wink :3``. Keep this in sync with
-    ``rebuild_service._is_stank_message``.
+    open chain via the listener's non-stank branch). Matching lives in
+    ``utils.stank_match`` — shared with ``rebuild_service`` so they can't
+    drift.
     """
     if message.content and message.content.strip():
         return False
     if not message.stickers:
         return False
-    pattern = (altar.sticker_name_pattern or "").lower()
-    if not pattern:
-        return False
-    return any(pattern in (s.name or "").lower() for s in message.stickers)
+    return sticker_name_matches(
+        altar.sticker_name_pattern, [s.name for s in message.stickers]
+    )
 
 
 def _is_altar_reaction(emoji: discord.PartialEmoji, altar: Altar) -> bool:
-    """True if a reaction emoji is the one configured for this altar."""
-    if altar.reaction_emoji_id is not None:
-        return emoji.id == altar.reaction_emoji_id
-    if altar.reaction_emoji_name:
-        return (emoji.name or "") == altar.reaction_emoji_name
-    return False
+    """True if a reaction emoji is any of the ones configured for this altar."""
+    return emoji_specs_match(
+        altar.reaction_emoji_specs, event_id=emoji.id, event_name=emoji.name
+    )
 
 
 class ChainListener(commands.Cog):

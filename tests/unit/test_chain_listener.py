@@ -53,6 +53,12 @@ class TestIsStankMessage:
         msg = make_message(sticker_names=["Maphra Wink :3"])
         assert _is_stank_message(msg, altar) is True
 
+    def test_comma_separated_patterns_any_match(self, altar: Altar) -> None:
+        altar.sticker_name_pattern = "stank, maphra wink"
+        assert _is_stank_message(make_message(sticker_names=["Maphra Wink"]), altar) is True
+        assert _is_stank_message(make_message(sticker_names=["a stank b"]), altar) is True
+        assert _is_stank_message(make_message(sticker_names=["neither one"]), altar) is False
+
     def test_substring_matched(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
         msg = make_message(sticker_names=["Stank Jr."])
