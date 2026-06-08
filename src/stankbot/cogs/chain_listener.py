@@ -70,11 +70,16 @@ _recent_messages = _RecentMessageIds()
 
 
 def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
-    """A 'stank' is a sticker whose name matches the altar's pattern,
-    with no extra text.
+    """A 'stank' is a sticker whose name contains the altar's pattern as a
+    substring (case-insensitive), with no extra text.
 
     Text alongside the sticker is treated as noise (and will break an
     open chain via the listener's non-stank branch).
+
+    Substring (not exact) match so multi-word / decorated sticker names
+    still trigger — e.g. pattern ``maphra wink`` matches a sticker named
+    ``Maphra Wink :3``. Keep this in sync with
+    ``rebuild_service._is_stank_message``.
     """
     if message.content and message.content.strip():
         return False
@@ -83,7 +88,7 @@ def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
     pattern = (altar.sticker_name_pattern or "").lower()
     if not pattern:
         return False
-    return any(pattern == (s.name or "").lower() for s in message.stickers)
+    return any(pattern in (s.name or "").lower() for s in message.stickers)
 
 
 def _is_altar_reaction(emoji: discord.PartialEmoji, altar: Altar) -> bool:
@@ -148,13 +153,27 @@ class ChainListener(commands.Cog):
                 global_name=getattr(message.author, "global_name", None),
                 avatar=message.author.avatar.key if message.author.avatar else None,
             )
+            is_stank = _is_stank_message(message, altar)
+            if (
+                not is_stank
+                and message.stickers
+                and not (message.content and message.content.strip())
+            ):
+                # A sticker-only post that didn't match — surface the real
+                # sticker name(s) vs the configured pattern so admins can see
+                # why it failed to trigger (Discord sends the full name here).
+                log.info(
+                    "sticker did not match altar pattern: pattern=%r names=%r",
+                    altar.sticker_name_pattern,
+                    [s.name for s in message.stickers],
+                )
             stank_input = StankInput(
                 guild_id=message.guild.id,
                 altar=altar,
                 message_id=message.id,
                 author_id=message.author.id,
                 author_display_name=message.author.display_name,
-                is_stank=_is_stank_message(message, altar),
+                is_stank=is_stank,
                 created_at=message.created_at,
             )
             result = await chain_svc.process(stank_input, config)
