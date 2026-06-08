@@ -93,7 +93,7 @@ import { toErrorMessage } from '$lib/api-utils';
 <Card>
 	<div class="flex flex-wrap gap-2 mb-3">
 		<Input bind:value={actionFilter} placeholder="Action (e.g. settings.update)" />
-		<Input bind:value={actorFilter} type="number" placeholder="Actor ID" />
+		<Input bind:value={actorFilter} type="text" placeholder="Actor ID" />
 		<Button onclick={() => loadPage(true)}>Filter</Button>
 	</div>
 

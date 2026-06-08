@@ -52,7 +52,9 @@ import { toErrorMessage } from '$lib/api-utils';
 		altarMsg = null;
 		try {
 			await apiPost('/api/admin/altar/set', {
-				channel_id: Number(channelId),
+				// Discord IDs are 64-bit snowflakes — Number() rounds them past
+				// JS's safe-integer range, so send the raw string (backend coerces).
+				channel_id: channelId.trim(),
 				sticker_pattern: pattern,
 				reaction_emoji: emoji || null
 			});
@@ -77,7 +79,7 @@ import { toErrorMessage } from '$lib/api-utils';
 	async function addAnnouncement() {
 		if (!newChannel.trim()) return;
 		try {
-			await apiPost('/api/admin/announcements', { channel_id: Number(newChannel) });
+			await apiPost('/api/admin/announcements', { channel_id: newChannel.trim() });
 			newChannel = '';
 			await loadAnnouncements();
 		} catch (err) {
@@ -87,7 +89,7 @@ import { toErrorMessage } from '$lib/api-utils';
 
 	async function removeAnnouncement(id: string) {
 		try {
-			await apiPost('/api/admin/announcements/remove', { channel_id: Number(id) });
+			await apiPost('/api/admin/announcements/remove', { channel_id: id });
 			await loadAnnouncements();
 		} catch (err) {
 			annError = toErrorMessage(err, 'Remove failed');
@@ -130,7 +132,7 @@ import { toErrorMessage } from '$lib/api-utils';
 			/>
 		{/if}
 		<FormField label="Channel ID" required hint="Right-click channel in Discord → Copy Channel ID" for="altar-channel-id">
-			<Input type="number" bind:value={channelId} placeholder="e.g. 1234567890" id="altar-channel-id" />
+			<Input type="text" bind:value={channelId} placeholder="e.g. 1234567890" id="altar-channel-id" />
 		</FormField>
 		<FormField label="Sticker pattern" hint="Substring match, case-insensitive" for="altar-pattern">
 			<Input bind:value={pattern} id="altar-pattern" />
@@ -160,7 +162,7 @@ import { toErrorMessage } from '$lib/api-utils';
 			{/each}
 		</ul>
 		<FormField label="Add channel ID" for="ann-channel-id">
-			<Input bind:value={newChannel} type="number" placeholder="Discord channel ID" id="ann-channel-id" />
+			<Input bind:value={newChannel} type="text" placeholder="Discord channel ID" id="ann-channel-id" />
 		</FormField>
 		<div class="flex justify-end mt-2">
 			<Button onclick={addAnnouncement}>Add</Button>

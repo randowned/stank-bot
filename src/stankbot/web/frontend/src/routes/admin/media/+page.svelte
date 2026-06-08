@@ -124,7 +124,7 @@
 				admin_only: adminOnly,
 				providers_enabled: enabledProviders,
 				announce_milestones: milestonesEnabled,
-				announce_channel_id: milestonesChannelId ? Number(milestonesChannelId) : null
+				announce_channel_id: milestonesChannelId.trim() || null
 			});
 			settingsOpen = false;
 		} catch (err) {

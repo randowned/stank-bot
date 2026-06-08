@@ -41,7 +41,7 @@
 	async function removeUser(uid: string) {
 		error = null;
 		try {
-			await apiPost('/api/admin/roles/users/remove', { user_id: Number(uid) });
+			await apiPost('/api/admin/roles/users/remove', { user_id: uid });
 			await load();
 		} catch (err) {
 			error = toErrorMessage(err, 'Remove failed');
@@ -51,7 +51,7 @@
 	async function removeRole(role: string) {
 		error = null;
 		try {
-			await apiPost('/api/admin/roles/remove', { role_id: Number(role) });
+			await apiPost('/api/admin/roles/remove', { role_id: role });
 			await load();
 		} catch (err) {
 			error = toErrorMessage(err, 'Remove failed');
@@ -64,7 +64,7 @@
 		addingUser = true;
 		error = null;
 		try {
-			await apiPost('/api/admin/roles/users/add', { user_id: parseInt(trimmed, 10) });
+			await apiPost('/api/admin/roles/users/add', { user_id: trimmed });
 			newUserInput = '';
 			showAddUser = false;
 			await load();
@@ -81,7 +81,7 @@
 		addingRole = true;
 		error = null;
 		try {
-			await apiPost('/api/admin/roles/add', { role_id: Number(trimmed) });
+			await apiPost('/api/admin/roles/add', { role_id: trimmed });
 			newRoleInput = '';
 			showAddRole = false;
 			await load();
