@@ -164,6 +164,7 @@ async def save_settings(
     for key in _SIMPLE_BOOL_KEYS:
         if key in payload.values and payload.values[key] is not None:
             await svc.set(guild_id, key, bool(payload.values[key]))
+    needs_reschedule = False
     for key in _SIMPLE_INT_LIST_KEYS:
         if key in payload.values and payload.values[key] is not None:
             raw = payload.values[key]
@@ -175,6 +176,7 @@ async def save_settings(
             except (TypeError, ValueError) as err:
                 raise HTTPException(status_code=400, detail=f"bad list for {key}") from err
             await svc.set(guild_id, key, parsed)
+            needs_reschedule = True
 
     await audit_repo.append(
         session,
@@ -183,6 +185,17 @@ async def save_settings(
         action="settings.update",
         payload={"via": "web"},
     )
+
+    # Session reset hours / warning minutes only become live cron jobs when
+    # the scheduler re-syncs. Commit first so its fresh session reads the new
+    # values, then resync — otherwise the change needs a bot restart.
+    if needs_reschedule:
+        await session.commit()
+        bot = getattr(request.app.state, "bot", None)
+        scheduler = getattr(bot, "scheduler", None)
+        if scheduler is not None:
+            await scheduler.sync_guild(guild_id)
+
     return _ok(request)
 
 
