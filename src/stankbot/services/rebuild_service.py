@@ -41,6 +41,8 @@ from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services.chain_service import ChainService, StankInput
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import SettingsService
+from stankbot.utils.emoji import emoji_specs_match
+from stankbot.utils.stank_match import sticker_name_matches
 
 if TYPE_CHECKING:
     from stankbot.bot import StankBot
@@ -88,27 +90,29 @@ async def wipe_guild_state(session: AsyncSession, guild_id: int) -> None:
 
 
 def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
-    """Mirror of ``chain_listener._is_stank_message`` — duplicated to
-    keep the service framework-agnostic at import time.
+    """Mirror of ``chain_listener._is_stank_message`` — shares the matcher in
+    ``utils.stank_match`` so live scoring and rebuild can't diverge.
     """
     if message.content and message.content.strip():
         return False
     if not message.stickers:
         return False
-    pattern = (altar.sticker_name_pattern or "").lower()
-    if not pattern:
-        return False
-    return any(pattern in (s.name or "").lower() for s in message.stickers)
+    return sticker_name_matches(
+        altar.sticker_name_pattern, [s.name for s in message.stickers]
+    )
 
 
 def _reaction_matches(reaction: discord.Reaction, altar: Altar) -> bool:
     emoji = reaction.emoji
-    if altar.reaction_emoji_id is not None:
-        return isinstance(emoji, discord.Emoji) and emoji.id == altar.reaction_emoji_id
-    if altar.reaction_emoji_name:
-        name = emoji.name if not isinstance(emoji, str) else emoji
-        return name == altar.reaction_emoji_name
-    return False
+    if isinstance(emoji, str):
+        return emoji_specs_match(
+            altar.reaction_emoji_specs, event_id=None, event_name=emoji
+        )
+    return emoji_specs_match(
+        altar.reaction_emoji_specs,
+        event_id=getattr(emoji, "id", None),
+        event_name=getattr(emoji, "name", None),
+    )
 
 
 async def _replay_altar(

@@ -28,7 +28,7 @@ from stankbot.services import embed_builders
 from stankbot.services.permission_service import PermissionService
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
-from stankbot.utils.emoji import parse_reaction_emoji
+from stankbot.utils.emoji import emoji_to_markup, parse_reaction_emojis
 
 if TYPE_CHECKING:
     from stankbot.bot import StankBot
@@ -751,13 +751,13 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
     @app_commands.describe(
         channel="Altar channel",
         sticker_name=(
-            "Exact sticker name to match (case-insensitive). "
-            "E.g. 'stank' matches only a sticker named 'stank'."
+            "Sticker name(s) to match (case-insensitive substring). "
+            "Comma-separate several, e.g. 'stank, maphra wink'."
         ),
         reaction_emoji=(
-            "Emoji the bot reacts with + awards a bonus for. Also used "
-            "as {stank_emoji} in board/announcement templates. Type "
-            "`:name:` in the arg and Discord expands it to the full tag."
+            "Emoji(s) that award a bonus when reacted with — comma-separate "
+            "several. The first is the primary: the bot reacts with it and it "
+            "renders as {stank_emoji} in templates."
         ),
     )
     @requires_admin()
@@ -782,20 +782,20 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
             )
             return
 
-        emoji_id: int | None = None
-        emoji_name: str | None = None
-        emoji_animated = False
+        specs: list[dict] = []
         if reaction_emoji:
-            parsed = parse_reaction_emoji(reaction_emoji)
-            if parsed is None:
+            specs = parse_reaction_emojis(reaction_emoji)
+            if not specs:
                 await interaction.response.send_message(
                     "Couldn't read that emoji. Pick one from the emoji menu "
                     "(click the smiley icon in the arg field) or paste a "
-                    "custom-emoji tag like `<:Stank:123>` / `<a:Stank:123>`.",
+                    "custom-emoji tag like `<:Stank:123>` / `<a:Stank:123>`. "
+                    "Comma-separate several to accept more than one.",
                     ephemeral=True,
                 )
                 return
-            emoji_id, emoji_name, emoji_animated = parsed
+        primary = specs[0] if specs else {"id": None, "name": None, "animated": False}
+        reaction_emojis = specs if len(specs) > 1 else None
 
         async with self.bot.db() as session:
             await guilds_repo.ensure(
@@ -806,9 +806,10 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
                 guild_id=interaction.guild.id,
                 channel_id=channel.id,
                 sticker_name_pattern=pattern,
-                reaction_emoji_id=emoji_id,
-                reaction_emoji_name=emoji_name,
-                reaction_emoji_animated=emoji_animated,
+                reaction_emoji_id=primary["id"],
+                reaction_emoji_name=primary["name"],
+                reaction_emoji_animated=primary["animated"],
+                reaction_emojis=reaction_emojis,
             )
             await audit_repo.append(
                 session,
@@ -819,17 +820,19 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
                     "altar_id": altar_row.id,
                     "channel_id": channel.id,
                     "sticker_name_pattern": pattern,
-                    "reaction_emoji_id": emoji_id,
-                    "reaction_emoji_name": emoji_name,
+                    "reaction_emoji_id": primary["id"],
+                    "reaction_emoji_name": primary["name"],
+                    "reaction_emoji_count": len(specs),
                 },
             )
         verb = "Created" if created else "Updated"
-        reaction_desc = altar_row.display_name or "*(none)*"
+        primary_desc = altar_row.display_name or "*(none)*"
+        accepted = ", ".join(emoji_to_markup(s) for s in specs) or "*(none)*"
         await interaction.response.send_message(
             f"{verb} altar in {channel.mention}.\n"
-            f"- sticker pattern: `{pattern}`\n"
-            f"- reaction emoji: {reaction_desc}\n"
-            f"- `{{stank_emoji}}` in templates now renders as {reaction_desc}.",
+            f"- sticker pattern(s): `{pattern}`\n"
+            f"- accepted reaction emoji: {accepted}\n"
+            f"- `{{stank_emoji}}` in templates renders as {primary_desc}.",
             ephemeral=True,
         )
 

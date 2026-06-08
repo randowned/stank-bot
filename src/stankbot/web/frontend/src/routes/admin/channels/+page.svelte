@@ -137,12 +137,12 @@ import { toErrorMessage } from '$lib/api-utils';
 		<FormField label="Channel ID" required hint="Right-click channel in Discord → Copy Channel ID" for="altar-channel-id">
 			<Input type="text" bind:value={channelId} placeholder="e.g. 1234567890" id="altar-channel-id" />
 		</FormField>
-		<FormField label="Sticker pattern" hint="Substring match, case-insensitive" for="altar-pattern">
+		<FormField label="Sticker pattern" hint="Case-insensitive substring match. Comma-separate several, e.g. 'stank, maphra wink'." for="altar-pattern">
 			<Input bind:value={pattern} id="altar-pattern" />
 		</FormField>
 		<FormField
 			label="Reaction emoji"
-			hint="Custom emoji like <:stank:12345> or a unicode emoji. Leave blank to skip reactions."
+			hint="Custom emoji like <:stank:12345> or a unicode emoji. Comma-separate several to accept more than one — the first is primary (used for the stank-emoji token and auto-react). Leave blank to skip reactions."
 			for="altar-emoji"
 		>
 			<Input bind:value={emoji} placeholder="<:stank:1234567890>" id="altar-emoji" />

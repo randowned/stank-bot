@@ -208,17 +208,25 @@ class Altar(Base):
     # Optional exact-sticker snowflake (kept for thumbnail rendering only).
     # Matching happens by name.
     sticker_id: Mapped[int | None] = mapped_column(BigInteger)
-    # Substring match (case-insensitive) against incoming sticker names.
+    # Substring match (case-insensitive) against incoming sticker names. May
+    # hold several comma-separated patterns — a sticker is a stank if ANY
+    # pattern is a substring of its name. See utils.stank_match.
     sticker_name_pattern: Mapped[str] = mapped_column(
-        String(120), nullable=False, default="stank", server_default="stank"
+        String(255), nullable=False, default="stank", server_default="stank"
     )
-    # Reaction that awards the SP_REACTION bonus. Either a custom emoji id
-    # OR a unicode emoji character stored in ``reaction_emoji_name``.
+    # Primary reaction that awards the SP_REACTION bonus and renders as
+    # {stank_emoji}. Either a custom emoji id OR a unicode glyph in
+    # ``reaction_emoji_name``.
     reaction_emoji_id: Mapped[int | None] = mapped_column(BigInteger)
     reaction_emoji_name: Mapped[str | None] = mapped_column(String(120))
     reaction_emoji_animated: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    # Additional accepted reaction emojis: a reaction with ANY of these awards
+    # the bonus. List of {"id": int|None, "name": str|None, "animated": bool}
+    # with the primary emoji (reaction_emoji_* above) as element 0. NULL when
+    # only one emoji is configured (then the single columns are the source).
+    reaction_emojis: Mapped[list | None] = mapped_column(JSON, nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(120))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -237,6 +245,25 @@ class Altar(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    @property
+    def reaction_emoji_specs(self) -> list[dict]:
+        """Accepted reaction emojis, primary first.
+
+        Falls back to the single ``reaction_emoji_*`` columns when
+        ``reaction_emojis`` is unset (single-emoji altars / older rows).
+        """
+        if self.reaction_emojis:
+            return list(self.reaction_emojis)
+        if self.reaction_emoji_id is not None or self.reaction_emoji_name:
+            return [
+                {
+                    "id": self.reaction_emoji_id,
+                    "name": self.reaction_emoji_name,
+                    "animated": bool(self.reaction_emoji_animated),
+                }
+            ]
+        return []
 
 
 # ---------------------------------------------------------------------------

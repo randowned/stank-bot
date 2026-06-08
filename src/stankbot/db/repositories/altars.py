@@ -72,12 +72,15 @@ async def upsert(
     reaction_emoji_id: int | None = None,
     reaction_emoji_name: str | None = None,
     reaction_emoji_animated: bool = False,
+    reaction_emojis: list | None = None,
     sticker_id: int | None = None,
 ) -> tuple[Altar, bool]:
     """Create or update the guild's altar. Returns (altar, created).
 
-    ``display_name`` is always re-derived from the reaction emoji so it
-    stays in sync with whatever the admin just set.
+    The primary emoji (``reaction_emoji_*``) drives ``display_name`` /
+    ``{stank_emoji}`` and the auto-react. ``reaction_emojis`` is the full list
+    of *accepted* emojis (primary first); pass None to clear it when only one
+    emoji is configured.
     """
     display_name = _stank_emoji_markup(
         reaction_emoji_id, reaction_emoji_name, reaction_emoji_animated
@@ -94,6 +97,7 @@ async def upsert(
             reaction_emoji_id=reaction_emoji_id,
             reaction_emoji_name=reaction_emoji_name,
             reaction_emoji_animated=reaction_emoji_animated,
+            reaction_emojis=reaction_emojis,
             sticker_id=sticker_id,
             display_name=display_name,
         )
@@ -106,6 +110,7 @@ async def upsert(
     altar.reaction_emoji_id = reaction_emoji_id
     altar.reaction_emoji_name = reaction_emoji_name
     altar.reaction_emoji_animated = reaction_emoji_animated
+    altar.reaction_emojis = reaction_emojis
     if sticker_id is not None:
         altar.sticker_id = sticker_id
     altar.display_name = display_name

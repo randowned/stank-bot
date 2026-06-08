@@ -21,7 +21,7 @@ from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services.permission_service import PermissionService
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import LABELS, Keys, SettingsService
-from stankbot.utils.emoji import parse_reaction_emoji
+from stankbot.utils.emoji import emoji_to_markup, parse_reaction_emojis
 from stankbot.utils.time_utils import utc_isoformat
 from stankbot.web.tools import (
     get_active_guild_id,
@@ -213,10 +213,12 @@ def _altar_dict(altar: Any) -> dict[str, Any]:
         "sticker_name_pattern": altar.sticker_name_pattern,
         "reaction_emoji_id": str(altar.reaction_emoji_id) if altar.reaction_emoji_id else None,
         "reaction_emoji_name": altar.reaction_emoji_name,
-        # Full <:name:id> markup (or unicode glyph) for the editable emoji
-        # field — reaction_emoji_name alone is just the bare name and won't
-        # round-trip back through the parser.
-        "reaction_emoji_display": altar.display_name,
+        # Comma-joined <:name:id> markup (or unicode glyph) for every accepted
+        # emoji — the editable field round-trips back through the parser.
+        "reaction_emoji_display": ", ".join(
+            emoji_to_markup(s) for s in altar.reaction_emoji_specs
+        )
+        or None,
         "reaction_emoji_animated": bool(altar.reaction_emoji_animated),
         "enabled": bool(getattr(altar, "enabled", True)),
     }
@@ -247,11 +249,12 @@ async def altar_set(
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
 ) -> MsgPackResponse:
-    # Parse with the shared helper so the dashboard stores the emoji exactly
-    # like the slash command: reaction_emoji_name is the BARE name, never the
-    # full <:name:id> tag (the full markup is re-derived as display_name).
-    parsed = parse_reaction_emoji(payload.reaction_emoji)
-    emoji_id, emoji_name, emoji_animated = parsed or (None, None, False)
+    # Parse the (comma-separated) emoji field into accepted-emoji specs. The
+    # first is the primary (drives {stank_emoji} + auto-react); the bare name —
+    # never the full <:name:id> tag — is stored in reaction_emoji_name.
+    specs = parse_reaction_emojis(payload.reaction_emoji)
+    primary = specs[0] if specs else {"id": None, "name": None, "animated": False}
+    reaction_emojis = specs if len(specs) > 1 else None
 
     await guilds_repo.ensure(session, guild_id)
     altar_row, created = await altars_repo.upsert(
@@ -259,9 +262,10 @@ async def altar_set(
         guild_id=guild_id,
         channel_id=payload.channel_id,
         sticker_name_pattern=payload.sticker_pattern.strip().lower() or "stank",
-        reaction_emoji_id=emoji_id,
-        reaction_emoji_name=emoji_name,
-        reaction_emoji_animated=emoji_animated,
+        reaction_emoji_id=primary["id"],
+        reaction_emoji_name=primary["name"],
+        reaction_emoji_animated=primary["animated"],
+        reaction_emojis=reaction_emojis,
     )
     await audit_repo.append(
         session,
