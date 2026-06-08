@@ -18,60 +18,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  ci:
-    name: CI Gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: src/stankbot/web/frontend/package-lock.json
-
-      - name: Install Python dev deps
-        run: pip install -e ".[dev]"
-
-      - name: Install frontend deps
-        working-directory: src/stankbot/web/frontend
-        run: npm ci
-
-      # --- Lint ---
-      - name: Ruff
-        run: ruff check src tests
-
-      - name: Mypy (advisory — non-blocking)
-        run: mypy src --ignore-missing-imports
-        continue-on-error: true
-
-      - name: Frontend lint
-        working-directory: src/stankbot/web/frontend
-        run: npm run lint
-
-      # --- Build ---
-      - name: Build frontend
-        working-directory: src/stankbot/web/frontend
-        run: npm run build
-
-      # --- Unit tests ---
-      - name: Unit tests (Python)
-        run: pytest tests/unit/ -x --tb=short
-        env:
-          CHART_CACHE_DIR: /tmp/chart-cache
-
-      - name: Unit tests (Frontend)
-        working-directory: src/stankbot/web/frontend
-        run: npx svelte-kit sync && npx vitest run
-
+  # No CI gate here: every change reaches main only via a PR, which ci.yml
+  # already gates (lint + build + unit tests), and main is branch-protected.
+  # Re-running CI at deploy time would just duplicate that.
   prepare:
     name: Prepare Release PR
-    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: write
