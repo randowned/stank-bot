@@ -1,4 +1,4 @@
-"""Tests for chain_listener._is_stank_message — exact sticker name matching."""
+"""Tests for chain_listener._is_stank_message — substring sticker name matching."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def altar() -> Altar:
     )
 
 
-def make_message(content: str = "", sticker_names: list[str] | None = None) -> Mock:
+def make_message(content: str = "", sticker_names: list[str | None] | None = None) -> Mock:
     if sticker_names is None:
         sticker_names = []
     msg = Mock()
@@ -46,34 +46,46 @@ class TestIsStankMessage:
         msg = make_message(sticker_names=["StAnK"])
         assert _is_stank_message(msg, altar) is True
 
-    def test_substring_not_matched(self, altar: Altar) -> None:
+    def test_multiword_pattern_matches_decorated_name(self, altar: Altar) -> None:
+        # The reported case: a multi-word pattern matches a sticker whose
+        # real name carries extra decoration.
+        altar.sticker_name_pattern = "maphra wink"
+        msg = make_message(sticker_names=["Maphra Wink :3"])
+        assert _is_stank_message(msg, altar) is True
+
+    def test_substring_matched(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
         msg = make_message(sticker_names=["Stank Jr."])
-        assert _is_stank_message(msg, altar) is False
+        assert _is_stank_message(msg, altar) is True
 
-    def test_prefix_not_matched(self, altar: Altar) -> None:
+    def test_prefix_matched(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
         msg = make_message(sticker_names=["stankbot"])
-        assert _is_stank_message(msg, altar) is False
+        assert _is_stank_message(msg, altar) is True
 
-    def test_suffix_not_matched(self, altar: Altar) -> None:
+    def test_suffix_matched(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
         msg = make_message(sticker_names=["bigstank"])
-        assert _is_stank_message(msg, altar) is False
+        assert _is_stank_message(msg, altar) is True
 
-    def test_partial_contains_not_matched(self, altar: Altar) -> None:
+    def test_partial_contains_matched(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
         msg = make_message(sticker_names=["stanky"])
+        assert _is_stank_message(msg, altar) is True
+
+    def test_unrelated_name_not_matched(self, altar: Altar) -> None:
+        altar.sticker_name_pattern = "stank"
+        msg = make_message(sticker_names=["totally unrelated"])
         assert _is_stank_message(msg, altar) is False
 
-    def test_multiple_stickers_one_exact_match(self, altar: Altar) -> None:
+    def test_multiple_stickers_one_match(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
         msg = make_message(sticker_names=["other", "stank", "thing"])
         assert _is_stank_message(msg, altar) is True
 
-    def test_multiple_stickers_no_exact_match(self, altar: Altar) -> None:
+    def test_multiple_stickers_no_match(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
-        msg = make_message(sticker_names=["stank Jr.", "bigstank"])
+        msg = make_message(sticker_names=["apple", "banana"])
         assert _is_stank_message(msg, altar) is False
 
     def test_empty_pattern_always_false(self, altar: Altar) -> None:
@@ -93,6 +105,5 @@ class TestIsStankMessage:
 
     def test_none_sticker_name_not_matched(self, altar: Altar) -> None:
         altar.sticker_name_pattern = "stank"
-        stickers = [Mock(name=None)]
-        msg = Mock(content="", stickers=stickers)
+        msg = make_message(sticker_names=[None])
         assert _is_stank_message(msg, altar) is False
