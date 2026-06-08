@@ -15,6 +15,7 @@ import { toErrorMessage } from '$lib/api-utils';
 		channel_id: string;
 		sticker_name_pattern: string;
 		reaction_emoji_name: string | null;
+		reaction_emoji_display: string | null;
 		enabled: boolean;
 	}
 
@@ -38,7 +39,9 @@ import { toErrorMessage } from '$lib/api-utils';
 			if (altar) {
 				channelId = altar.channel_id;
 				pattern = altar.sticker_name_pattern;
-				emoji = altar.reaction_emoji_name ?? '';
+				// Use the full <:name:id> markup so the field round-trips back
+				// through the emoji parser on save (bare name alone won't).
+				emoji = altar.reaction_emoji_display ?? '';
 			}
 		} catch (err) {
 			altarMsg = toErrorMessage(err, 'Failed to load');

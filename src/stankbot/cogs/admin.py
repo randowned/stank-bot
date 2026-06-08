@@ -12,7 +12,6 @@ and the slash ``log`` command can surface who did what.
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING
 
 import discord
@@ -29,14 +28,13 @@ from stankbot.services import embed_builders
 from stankbot.services.permission_service import PermissionService
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
+from stankbot.utils.emoji import parse_reaction_emoji
 
 if TYPE_CHECKING:
     from stankbot.bot import StankBot
 
 log = logging.getLogger(__name__)
 
-
-_CUSTOM_EMOJI_RE = re.compile(r"<(a?):([A-Za-z0-9_~]+):(\d+)>")
 
 _TEXT_BASED_CHANNEL_TYPES = frozenset(
     {
@@ -53,27 +51,6 @@ _TEXT_BASED_CHANNEL_TYPES = frozenset(
 
 def _is_text_based(channel: app_commands.AppCommandChannel | discord.abc.GuildChannel | discord.Thread) -> bool:
     return getattr(channel, "type", None) in _TEXT_BASED_CHANNEL_TYPES
-
-
-def _parse_reaction_emoji(
-    raw: str,
-) -> tuple[int | None, str | None, bool] | None:
-    """Parse a slash-command emoji arg into (id, name, animated).
-
-    - ``<:Name:123>`` -> (123, "Name", False).
-    - ``<a:Name:123>`` -> (123, "Name", True).
-    - Unicode glyph like "🔥" -> (None, "🔥", False).
-    - Anything else (e.g. literal ``:name:``) -> None.
-    """
-    raw = raw.strip()
-    if not raw:
-        return None
-    m = _CUSTOM_EMOJI_RE.fullmatch(raw)
-    if m:
-        return int(m.group(3)), m.group(2), m.group(1) == "a"
-    if len(raw) <= 8 and not raw.startswith(":"):
-        return None, raw, False
-    return None
 
 
 class ConfirmView(discord.ui.View):
@@ -809,7 +786,7 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
         emoji_name: str | None = None
         emoji_animated = False
         if reaction_emoji:
-            parsed = _parse_reaction_emoji(reaction_emoji)
+            parsed = parse_reaction_emoji(reaction_emoji)
             if parsed is None:
                 await interaction.response.send_message(
                     "Couldn't read that emoji. Pick one from the emoji menu "
