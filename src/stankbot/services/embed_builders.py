@@ -216,6 +216,27 @@ async def build_cooldown_embed(
     return render_embed(tmpl, ctx)
 
 
+async def build_tissue_embed(
+    *,
+    target_display_name: str,
+    tissue_action: str,
+    tissue_count: int,
+    board_url: str = "",
+    session: AsyncSession,
+    guild_id: int = 0,
+) -> discord.Embed:
+    ctx = RenderContext(
+        variables={
+            "target_display_name": target_display_name,
+            "tissue_action": tissue_action,
+            "tissue_count": tissue_count,
+            "board_url": board_url,
+        }
+    )
+    tmpl = await template_store.load("tissue_embed", session, guild_id)
+    return render_embed(tmpl, ctx)
+
+
 @dataclass(slots=True)
 class NewSessionVars:
     new_session_number: int

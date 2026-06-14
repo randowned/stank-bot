@@ -767,6 +767,12 @@ _PREVIEW_CONTEXTS: dict[str, dict[str, Any]] = {
         "user": "Alice",
         "remaining_seconds": 45,
     },
+    "tissue": {
+        "target_display_name": "Alice",
+        "tissue_action": "grabbed a tissue",
+        "tissue_count": 7,
+        "board_url": "https://example.com/",
+    },
     "youtube_milestone": {
         "title": "Never Gonna Give You Up",
         "provider_url": "https://youtube.com/watch?v=dQw4w9WgXcQ",

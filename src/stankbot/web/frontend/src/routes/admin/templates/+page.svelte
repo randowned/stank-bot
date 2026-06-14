@@ -22,6 +22,7 @@ import { toErrorMessage } from '$lib/api-utils';
 		new_session_embed: 'New session',
 		cooldown_embed: 'Cooldown',
 		points_embed: 'Points',
+		tissue_embed: 'Tissue',
 		youtube_media_embed: 'YouTube Media',
 		spotify_media_embed: 'Spotify Media',
 		youtube_milestone_embed: 'YouTube Milestone',
@@ -35,6 +36,7 @@ import { toErrorMessage } from '$lib/api-utils';
 		new_session_embed: 'session_start',
 		cooldown_embed: 'cooldown',
 		points_embed: 'points',
+		tissue_embed: 'tissue',
 		youtube_milestone_embed: 'youtube_milestone',
 		spotify_milestone_embed: 'spotify_milestone'
 	};
