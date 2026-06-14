@@ -437,6 +437,28 @@ class Cooldown(Base):
     )
 
 
+class TissueCount(Base):
+    """Per-(guild, user) fun tally for the ``/napkin`` command.
+
+    Not event-sourced — a trivial standalone counter, mirroring the
+    ``Cooldown`` table. Rebuild-from-events does not apply here.
+    """
+
+    __tablename__ = "tissue_counts"
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("guilds.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class PlayerTotal(Base):
     """Materialized-view-style cache refreshed by ScoringService on each event.
 

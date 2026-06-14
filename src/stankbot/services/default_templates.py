@@ -179,6 +179,39 @@ POINTS_EMBED: dict[str, Any] = {
 }
 
 
+# Fun command: /napkin (alias /tissue). A random action line is injected
+# as {tissue_action} so the post alternates while the template stays
+# admin-editable. {tissue_count} is the invoking user's personal tally.
+TISSUE_ACTIONS: list[str] = [
+    "grabbed a tissue",
+    "blew their nose",
+    "wiped away a single tear",
+    "needed a napkin, stat",
+    "dabbed their eyes",
+    "sneezed dramatically",
+    "snagged the last tissue",
+    "honked into a hanky",
+    "is having A Moment",
+    "reached for the Kleenex",
+    "had something in their eye",
+    "mopped up the mess",
+    "let the waterworks flow",
+    "patted down a sweaty brow",
+    "caught a runaway sneeze",
+]
+
+
+TISSUE_EMBED: dict[str, Any] = {
+    "color": "#bcd0e5",
+    "title": "\U0001f9fb Bless you!",
+    "description": (
+        "**{target_display_name}** {tissue_action}\n"
+        "\U0001f9fb Tissues used: **{tissue_count}**"
+    ),
+    "author": {"name": "StankBot", "url": "{board_url}"},
+}
+
+
 YOUTUBE_MEDIA_EMBED: dict[str, Any] = {
     "color": "#ff0000",
     "title": "{title}",
@@ -357,6 +390,7 @@ ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "new_session_embed": NEW_SESSION_EMBED,
     "cooldown_embed": COOLDOWN_EMBED,
     "points_embed": POINTS_EMBED,
+    "tissue_embed": TISSUE_EMBED,
     "youtube_media_embed": YOUTUBE_MEDIA_EMBED,
     "spotify_media_embed": SPOTIFY_MEDIA_EMBED,
     "youtube_milestone_embed": YOUTUBE_MILESTONE_EMBED,

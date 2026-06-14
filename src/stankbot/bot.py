@@ -42,6 +42,7 @@ _COG_MODULES: tuple[str, ...] = (
     "stankbot.cogs.stank_commands",
     "stankbot.cogs.preview",
     "stankbot.cogs.media_commands",
+    "stankbot.cogs.fun_commands",
 )
 
 
