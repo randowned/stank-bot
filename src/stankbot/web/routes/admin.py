@@ -311,10 +311,12 @@ async def altar_remove(
 
 
 def _wiki_dict(wiki: Any) -> dict[str, Any]:
+    watch_ids = getattr(wiki, "wiki_watch_channel_ids", None) or []
     return {
         "id": wiki.id,
         "guild_id": str(wiki.guild_id),
         "wiki_channel_id": str(wiki.wiki_channel_id),
+        "wiki_watch_channel_ids": [str(id) for id in watch_ids],
         "enabled": bool(getattr(wiki, "enabled", True)),
     }
 
@@ -332,6 +334,7 @@ async def get_wiki(
 
 class WikiSetPayload(BaseModel):
     wiki_channel_id: int
+    wiki_watch_channel_ids: list[int] | None = None
 
 
 @router.post("/wiki/set")
@@ -348,6 +351,7 @@ async def wiki_set(
         session,
         guild_id=guild_id,
         wiki_channel_id=payload.wiki_channel_id,
+        wiki_watch_channel_ids=payload.wiki_watch_channel_ids,
     )
     await audit_repo.append(
         session,
@@ -357,6 +361,7 @@ async def wiki_set(
         payload={
             "wiki_id": wiki_row.id,
             "wiki_channel_id": payload.wiki_channel_id,
+            "wiki_watch_channel_ids": payload.wiki_watch_channel_ids,
         },
     )
     return _ok(request, {"wiki": _wiki_dict(wiki_row), "created": created})

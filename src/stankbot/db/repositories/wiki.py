@@ -47,6 +47,7 @@ async def upsert(
     *,
     guild_id: int,
     wiki_channel_id: int,
+    wiki_watch_channel_ids: list[int] | None = None,
 ) -> tuple[Wiki, bool]:
     """Create or update the guild's wiki. Returns (wiki, created).
     """
@@ -57,11 +58,13 @@ async def upsert(
         wiki = Wiki(
             guild_id=guild_id,
             wiki_channel_id=wiki_channel_id,
+            wiki_watch_channel_ids=wiki_watch_channel_ids,
         )
         session.add(wiki)
         await session.flush()
         return wiki, True
 
     wiki.wiki_channel_id = wiki_channel_id
+    wiki.wiki_watch_channel_ids = wiki_watch_channel_ids
     await session.flush()
     return wiki, False

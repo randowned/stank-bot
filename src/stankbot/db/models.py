@@ -797,5 +797,6 @@ class Wiki(Base):
     guild_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("guilds.id", ondelete="CASCADE"), nullable=False
     )
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)    
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     wiki_channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    wiki_watch_channel_ids: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)

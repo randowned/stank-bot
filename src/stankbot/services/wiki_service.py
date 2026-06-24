@@ -202,6 +202,7 @@ async def find_or_create_wiki_thread(
             async for msg in thread.history(limit=1, oldest_first=True):
                 return thread, msg
 
+    log.info(f"Creating new wiki-index thread in forum {channel.id}")
     initial_msg = await channel.create_thread(
         name=wiki_thread_name,
         content="*Wiki index loading...*",
@@ -209,13 +210,39 @@ async def find_or_create_wiki_thread(
 
     first_msg = initial_msg.message
     thread = initial_msg.thread
+    log.info(f"Created thread {thread.id}, first message {first_msg.id}")
 
     if http_client:
         try:
+            guild = thread.guild
+            bot_member = guild.me
+            perms = channel.permissions_for(bot_member)
+            log.info(f"Bot permissions in forum channel {channel.id}:")
+            log.info(f"  - manage_threads: {perms.manage_threads}")
+            log.info(f"  - manage_channels: {perms.manage_channels}")
+            log.info(f"  - moderate_members: {perms.moderate_members}")
+
+            log.info(f"Unpinning thread {thread.id} first (if pinned)")
+            try:
+                route = Route("PATCH", f"/channels/{thread.id}")
+                await http_client.request(route, json={"pinned": False})
+                log.info(f"Thread unpinned")
+            except discord.HTTPException as e:
+                log.info(f"Unpin failed or thread wasn't pinned: {e}")
+
+            log.info(f"Now pinning thread {thread.id}")
             route = Route("PATCH", f"/channels/{thread.id}")
             await http_client.request(route, json={"pinned": True})
-        except (discord.Forbidden, discord.HTTPException):
-            pass
+            log.info(f"Successfully pinned thread")
+        except discord.Forbidden as e:
+            log.error(f"Permission denied pinning thread (403): {e}")
+            log.error(f"Bot needs 'Manage Threads' permission in the forum channel")
+        except discord.HTTPException as e:
+            log.error(f"HTTP error pinning thread: {e.status} {e.code} - {e}")
+        except Exception as e:
+            log.error(f"Unexpected error pinning thread: {type(e).__name__}: {e}")
+    else:
+        log.info("No http_client provided, cannot pin thread")
 
     return thread, first_msg
 
@@ -292,11 +319,40 @@ async def archive_old_posts(
 async def update_wiki_message(
     thread: discord.Thread, msg: discord.Message, embeds: list[discord.Embed] | None = None
 ) -> None:
-    """Update wiki message in thread."""
+    """Update wiki message in thread and pin it."""
     log.info(f"Updating message {msg.id} in thread {thread.id}")
     try:
         await msg.edit(content=None, embeds=embeds or [])
         log.info(f"Message updated successfully")
     except (discord.Forbidden, discord.HTTPException) as e:
         log.error(f"Failed to update message: {type(e).__name__}: {e}")
-        pass
+        return
+
+    try:
+        guild = thread.guild
+        channel = thread.parent
+        if channel:
+            bot_member = guild.me
+            perms = channel.permissions_for(bot_member)
+            log.info(f"Bot permissions in forum channel {channel.id}:")
+            log.info(f"  - manage_threads: {perms.manage_threads}")
+            log.info(f"  - manage_channels: {perms.manage_channels}")
+            log.info(f"  - moderate_members: {perms.moderate_members}")
+
+        log.info(f"Unpinning thread {thread.id} first (if pinned)")
+        try:
+            await thread.edit(pinned=False)
+            log.info(f"Thread unpinned")
+        except discord.HTTPException as e:
+            log.info(f"Unpin failed or thread wasn't pinned: {e}")
+
+        log.info(f"Now pinning thread {thread.id}")
+        await thread.edit(pinned=True)
+        log.info(f"Thread pinned successfully")
+    except discord.Forbidden as e:
+        log.error(f"Permission denied pinning thread: {e}")
+        log.error(f"Bot needs 'Manage Threads' permission in the forum channel")
+    except discord.HTTPException as e:
+        log.error(f"HTTP error pinning thread: {e.status} {e.code} - {e}")
+    except Exception as e:
+        log.error(f"Unexpected error pinning thread: {type(e).__name__}: {e}")
