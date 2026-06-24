@@ -16,6 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.db.repositories import altars as altars_repo
+from stankbot.db.repositories import wiki as wiki_repo
 from stankbot.db.repositories import audit_log as audit_repo
 from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services.permission_service import PermissionService
@@ -301,6 +302,87 @@ async def altar_remove(
         payload={"altar_id": altar_id},
     )
     return _ok(request, {"altar_id": altar_id})
+
+
+
+# ---------------------------------------------------------------------------
+# Wiki
+# ---------------------------------------------------------------------------
+
+
+def _wiki_dict(wiki: Any) -> dict[str, Any]:
+    return {
+        "id": wiki.id,
+        "guild_id": str(wiki.guild_id),
+        "wiki_channel_id": str(wiki.wiki_channel_id),
+        "enabled": bool(getattr(wiki, "enabled", True)),
+    }
+
+
+@router.get("/wiki")
+async def get_wiki(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_active_guild_id),
+    _admin: dict = Depends(require_guild_admin),
+) -> MsgPackResponse:
+    wiki = await wiki_repo.for_guild(session, guild_id, enabled_only=False)
+    return MsgPackResponse({"wiki": _wiki_dict(wiki) if wiki else None}, request)
+
+
+class WikiSetPayload(BaseModel):
+    wiki_channel_id: int
+
+
+@router.post("/wiki/set")
+async def wiki_set(
+    request: Request,
+    payload: WikiSetPayload = msgpack_body(WikiSetPayload),
+    session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_active_guild_id),
+    user: dict = Depends(require_guild_admin),
+) -> MsgPackResponse:
+
+    await guilds_repo.ensure(session, guild_id)
+    wiki_row, created = await wiki_repo.upsert(
+        session,
+        guild_id=guild_id,
+        wiki_channel_id=payload.wiki_channel_id,
+    )
+    await audit_repo.append(
+        session,
+        guild_id=guild_id,
+        actor_id=int(user["id"]),
+        action="wiki_created" if created else "wiki_updated",
+        payload={
+            "wiki_id": wiki_row.id,
+            "wiki_channel_id": payload.wiki_channel_id,
+        },
+    )
+    return _ok(request, {"wiki": _wiki_dict(wiki_row), "created": created})
+
+
+@router.post("/wiki/remove")
+async def wiki_remove(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    guild_id: int = Depends(get_active_guild_id),
+    user: dict = Depends(require_guild_admin),
+) -> MsgPackResponse:
+    wiki_row = await wiki_repo.for_guild(session, guild_id, enabled_only=False)
+    if wiki_row is None:
+        return MsgPackResponse({"success": False, "error": "no altar"}, request, status_code=404)
+    wiki_id = wiki_row.id
+    await session.delete(wiki_row)
+    await audit_repo.append(
+        session,
+        guild_id=guild_id,
+        actor_id=int(user["id"]),
+        action="wiki_removed",
+        payload={"wiki_id": wiki_id},
+    )
+    return _ok(request, {"wiki_id": wiki_id})
+
 
 
 # ---------------------------------------------------------------------------

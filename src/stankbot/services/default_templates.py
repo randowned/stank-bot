@@ -382,6 +382,21 @@ SPOTIFY_OWNER_MILESTONE_EMBED: dict[str, Any] = {
     "footer": "\U0001f517 {owner_page_url}",
 }
 
+WIKI_INDEX: dict[str, Any] = {
+    "color": "#FFD700",
+    "title": "Wiki index",
+    "url": "{wiki_url}",
+    "thumbnail": "{thumbnail_url}",
+    "author": {"name": "Wiki index", "url": "{wiki_url}"},
+    "fields": [
+        {
+            "name": "\U0001f3c6 Wiki index",
+            "value": "{wiki_index}",
+            "inline": False,
+        },
+    ],
+    "footer": "\U0001f517 {wiki_url}",
+}
 
 ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "board_embed": BOARD_EMBED,
@@ -399,4 +414,5 @@ ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "spotify_owner_embed": SPOTIFY_OWNER_EMBED,
     "youtube_owner_milestone_embed": YOUTUBE_OWNER_MILESTONE_EMBED,
     "spotify_owner_milestone_embed": SPOTIFY_OWNER_MILESTONE_EMBED,
+    "wiki_index" : WIKI_INDEX
 }

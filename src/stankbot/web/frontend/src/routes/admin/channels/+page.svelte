@@ -27,6 +27,18 @@ import { toErrorMessage } from '$lib/api-utils';
 	let pattern = $state('stank');
 	let emoji = $state('');
 
+	interface Wiki {
+		id: number;
+		wiki_channel_id: string;
+		enabled: boolean;
+	}	
+
+	let wiki = $state<Wiki | null>(null);
+	let wikiLoaded = $state(false);
+	let wikiChannelId = $state('');
+	let wikiMsg = $state<string | null>(null);
+	let wikiSaving = $state(false);
+
 	let channelIds = $state<string[]>([]);
 	let newChannel = $state('');
 	let annError = $state<string | null>(null);
@@ -99,8 +111,42 @@ import { toErrorMessage } from '$lib/api-utils';
 		}
 	}
 
+	async function loadWiki() {
+		wikiLoaded = false;
+		try {
+			const res = await apiFetch<{ wiki: Wiki | null }>('/api/admin/wiki');
+			wiki = res.wiki;
+			if (wiki) {
+				wikiChannelId = wiki.wiki_channel_id;
+			}
+		} catch (err) {
+			wikiMsg = toErrorMessage(err, 'Failed to load');
+		} finally {
+			wikiLoaded = true;
+		}
+	}	
+
+	async function saveWiki() {
+		wikiSaving = true;
+		wikiMsg = null;
+		try {
+			await apiPost('/api/admin/wiki/set', {
+				// Discord IDs are 64-bit snowflakes — Number() rounds them past
+				// JS's safe-integer range, so send the raw string (backend coerces).
+				wiki_channel_id: wikiChannelId.trim(),
+			});
+			await loadAltar();
+			wikiMsg = 'Wiki saved.';
+		} catch (err) {
+			wikiMsg = toErrorMessage(err, 'Save failed');
+		} finally {
+			wikiSaving = false;
+		}
+	}
+
 	onMount(() => {
 		loadAltar();
+		loadWiki();
 		loadAnnouncements();
 	});
 </script>
@@ -170,5 +216,15 @@ import { toErrorMessage } from '$lib/api-utils';
 		<div class="flex justify-end mt-2">
 			<Button onclick={addAnnouncement}>Add</Button>
 		</div>
+	</Card>
+
+	<Card title="Wiki">
+		<FormField label="Wiki Channel ID" required hint="Right-click channel in Discord → Copy Channel ID" for="wiki-channel-id">
+			<Input type="text" bind:value={wikiChannelId} placeholder="e.g. 1234567890" id="wiki-channel-id" />
+		</FormField>
+		<div class="flex justify-end mt-2">
+			<Button onclick={saveWiki} loading={wikiSaving}>Set</Button>
+		</div>
+		{#if wikiMsg}<p class="text-sm text-muted mt-3">{wikiMsg}</p>{/if}
 	</Card>
 </div>
