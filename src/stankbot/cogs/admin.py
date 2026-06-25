@@ -26,7 +26,6 @@ from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.logging import tail_log
 from stankbot.services import embed_builders
 from stankbot.services.permission_service import PermissionService
-from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
 from stankbot.utils.emoji import emoji_to_markup, parse_reaction_emojis
 
