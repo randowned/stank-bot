@@ -182,7 +182,7 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
                 session, interaction.guild.id, interaction.guild.name
             )
             svc = SessionService(session)
-            ended, new_id = await svc.end_session(
+            end_result = await svc.end_session(
                 interaction.guild.id, reason=SessionEndReason.MANUAL
             )
             await audit_repo.append(
@@ -190,10 +190,14 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
                 guild_id=interaction.guild.id,
                 actor_id=interaction.user.id,
                 action="new_session",
-                payload={"ended_session_id": ended, "new_session_id": new_id},
+                payload={
+                    "ended_session_id": end_result.ended_session_id,
+                    "new_session_id": end_result.new_session_id,
+                },
             )
         await interaction.followup.send(
-            f"Session rolled. Ended #{ended}, started #{new_id}.", ephemeral=True
+            f"Session rolled. Ended #{end_result.ended_session_id}, started #{end_result.new_session_id}.",
+            ephemeral=True,
         )
 
     @app_commands.command(
