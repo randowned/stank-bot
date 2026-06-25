@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import audit_log as audit_repo
 from stankbot.db.repositories import guilds as guilds_repo
-from stankbot.db.models import Guild, RecordScope
 from stankbot.services.permission_service import PermissionService
 from stankbot.services.session_service import SessionEndReason, SessionService
 from stankbot.services.settings_service import LABELS, Keys, SettingsService
