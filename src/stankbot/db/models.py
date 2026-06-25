@@ -56,6 +56,7 @@ class EventType(StrEnum):
     SP_FINISH_BONUS = "sp_finish_bonus"
     SP_REACTION = "sp_reaction"
     SP_TEAM_PLAYER = "sp_team_player"
+    SP_FOURTH_PLACE = "sp_fourth_place"
     PP_BREAK = "pp_break"
     # Lifecycle (zero-delta marker events)
     SESSION_START = "session_start"
@@ -556,6 +557,9 @@ class PlayerBadge(Base):
         Integer, ForeignKey("chains.id", ondelete="SET NULL")
     )
     session_id: Mapped[int | None] = mapped_column(BigInteger)
+    award_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
 
 
 # ---------------------------------------------------------------------------

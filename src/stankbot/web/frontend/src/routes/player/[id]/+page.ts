@@ -21,6 +21,8 @@ interface AchievementEntry {
 	description: string;
 	icon: string;
 	unlocked: boolean;
+	repeatable: boolean;
+	count: number;
 }
 
 interface ExtendedPlayerProfile extends PlayerProfile {

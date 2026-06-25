@@ -77,6 +77,8 @@ export const test = base.extend<{
 	injectMediaMetrics: (mediaItemId: number, metrics: Record<string, number>, guildId?: number) => Promise<void>;
 	injectLeaderboardSeed: (opts?: { guildId?: number; count?: number; baseUserId?: number; prefix?: string }) => Promise<{ injected: number; guild_id: number }>;
 	injectVersionBroadcast: (opts?: { guildId?: number; serverVersion?: string; clientVersion?: string }) => Promise<void>;
+	injectAchievement: (opts?: { guildId?: number; userId?: number; achievementKey?: string; count?: number; broadcast?: boolean }) => Promise<void>;
+	injectAchievementBroadcast: (opts?: { guildId?: number; userId?: number; badge?: { key: string; name: string; icon: string; description: string } }) => Promise<void>;
 }>({
 	mockLogin: async ({ page }, use) => {
 		await use(async (user = defaultUser) => {
@@ -261,6 +263,43 @@ export const test = base.extend<{
 					guild_id: opts.guildId ?? 123456789,
 					server_version: opts.serverVersion ?? '99.99.99',
 					client_version: opts.clientVersion ?? '0.0.0'
+				}
+			});
+			expect(response.ok()).toBeTruthy();
+		});
+	},
+
+	injectAchievement: async ({ page }, use) => {
+		await use(async (opts = {}) => {
+			const response = await page.request.post('/api/mock/achievement', {
+				data: {
+					guild_id: opts.guildId ?? 123456789,
+					user_id: opts.userId ?? 1001,
+					achievement_key: opts.achievementKey ?? 'first_stank',
+					count: opts.count ?? 1,
+					broadcast: opts.broadcast ?? false
+				}
+			});
+			if (!response.ok()) {
+				const body = await response.text().catch(() => 'unknown');
+				console.error('injectAchievement failed:', response.status(), body);
+			}
+			expect(response.ok()).toBeTruthy();
+		});
+	},
+
+	injectAchievementBroadcast: async ({ page }, use) => {
+		await use(async (opts = {}) => {
+			const response = await page.request.post('/api/mock/achievement-broadcast', {
+				data: {
+					guild_id: opts.guildId ?? 123456789,
+					user_id: opts.userId ?? 1001,
+					badge: opts.badge ?? {
+						key: 'first_stank',
+						name: 'First Stank',
+						icon: '✨',
+						description: 'Dropped your very first stank.'
+					}
 				}
 			});
 			expect(response.ok()).toBeTruthy();

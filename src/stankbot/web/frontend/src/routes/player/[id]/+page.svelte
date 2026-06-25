@@ -21,6 +21,8 @@
 		description: string;
 		icon: string;
 		unlocked: boolean;
+		repeatable?: boolean;
+		count?: number;
 	}
 
 	let { data } = $props();
@@ -156,21 +158,29 @@
 		{/if}
 
 		<!-- Achievement gallery -->
-		<div class="panel">
+		<div class="panel" data-testid="achievements-gallery">
 			<h2 class="text-lg font-semibold mb-3">Achievements</h2>
 			{#if achievements.length}
 				{@const earnedCount = achievements.filter((a) => a.unlocked).length}
-				<p class="text-xs text-muted mb-3">{earnedCount} of {achievements.length} unlocked</p>
+				<p class="text-xs text-muted mb-3" data-testid="achievements-summary">{earnedCount} of {achievements.length} unlocked</p>
 				<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 					{#each achievements as a (a.key)}
 						<div
 							class="flex items-start gap-1 p-2 rounded-md border border-border
 								{a.unlocked ? 'bg-panel' : 'bg-bg opacity-50'}"
 							title={a.description}
+							data-testid="achievement-item"
+							data-achievement-key={a.key}
+							data-unlocked={a.unlocked}
 						>
 							<span class="text-2xl leading-none">{a.icon}</span>
 							<div class="min-w-0">
-								<div class="font-medium text-sm">{a.name}</div>
+								<div class="font-medium text-sm">
+									{a.name}
+									{#if a.repeatable && a.count && a.count > 1}
+										<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold bg-accent/20 text-accent ml-1" data-testid="achievement-count-pill">×{a.count}</span>
+									{/if}
+								</div>
 								<div class="text-xs text-muted">{a.description}</div>
 							</div>
 						</div>
