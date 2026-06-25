@@ -269,6 +269,7 @@ _SP_TYPES = (
     EventType.SP_FINISH_BONUS,
     EventType.SP_REACTION,
     EventType.SP_TEAM_PLAYER,
+    EventType.SP_FOURTH_PLACE,
 )
 
 

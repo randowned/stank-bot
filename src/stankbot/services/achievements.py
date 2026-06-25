@@ -17,16 +17,24 @@ Event triggers:
       a single COUNT or EXISTS query.
     * Session-end calls ``evaluate_session_close`` to settle achievements
       that only resolve once a session boundary exists.
+
+Positional achievements (ranking-based):
+    Positional achievements (e.g. 4th place) are registered in
+    ``_POSITIONAL_ACHIEVEMENTS``.  They share a single leaderboard query
+    at session close and delegate to ``_evaluate_positional`` which
+    handles ranking, tie-handling, and repeatable badge awarding.
+    Adding a new positional achievement requires zero changes to
+    ``evaluate_session_close`` — just add an entry to the registry.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +62,59 @@ class AchievementDef:
     rule: Rule
     # Only evaluated on session close (needs session boundary state).
     session_close_only: bool = False
+    # If True, the badge can be earned multiple times; award_count is incremented.
+    repeatable: bool = False
+
+
+@dataclass(slots=True)
+class RankingResult:
+    """Outcome of a positional/ranking achievement for one user."""
+
+    user_id: int
+    achievement_key: str
+    sp_earned: int
+    net_sp: int
+    award_count: int
+
+
+@dataclass(slots=True)
+class SessionCloseResult:
+    """Rich return type for ``evaluate_session_close``."""
+
+    unlocks: dict[int, list[str]] = field(default_factory=dict)
+    ranking_results: list[RankingResult] = field(default_factory=list)
+
+
+@dataclass(slots=True, frozen=True)
+class PositionalAchievement:
+    """Generic positional/ranking achievement configuration.
+
+    Fourth place is just ``PositionalAchievement(position=4, ...)``
+    To add third place: ``PositionalAchievement(position=3, ...)``
+    No changes to ``evaluate_session_close`` needed.
+    """
+
+    position: int
+    achievement_key: str
+    enabled_setting: str
+    min_participants_setting: str
+    min_participants_default: int = 4
+
+
+# --- positional achievement constants & registry -------------------------
+
+FOURTH_PLACE_KEY = "fourth_place"
+
+
+_POSITIONAL_ACHIEVEMENTS: tuple[PositionalAchievement, ...] = (
+    PositionalAchievement(
+        position=4,
+        achievement_key=FOURTH_PLACE_KEY,
+        enabled_setting="fourth_place_enabled",
+        min_participants_setting="fourth_place_min_participants",
+        min_participants_default=4,
+    ),
+)
 
 
 # --- individual rules -----------------------------------------------------
@@ -161,6 +222,7 @@ async def _comeback_kid(
         EventType.SP_FINISH_BONUS.value,
         EventType.SP_REACTION.value,
         EventType.SP_TEAM_PLAYER.value,
+        EventType.SP_FOURTH_PLACE.value,
     }
     async for row in await session.stream(stmt):
         t, delta = row
@@ -238,6 +300,13 @@ async def _team_player(
 # --- catalog --------------------------------------------------------------
 
 
+async def _always_true(
+    _session: AsyncSession, _guild_id: int, _user_id: int
+) -> bool:
+    """Stub rule — positional achievements decide eligibility via ranking."""
+    return True
+
+
 _RULES: tuple[AchievementDef, ...] = (
     AchievementDef(
         key="first_stank",
@@ -304,6 +373,15 @@ _RULES: tuple[AchievementDef, ...] = (
         icon="💀",
         rule=_chainbreaker_dubious,
     ),
+    AchievementDef(
+        key=FOURTH_PLACE_KEY,
+        name="Fourth Place",
+        description="Finished 4th in SP earned during a session. Repeatable.",
+        icon="4️⃣",
+        rule=_always_true,
+        session_close_only=True,
+        repeatable=True,
+    ),
 )
 
 
@@ -315,6 +393,7 @@ def catalog_rows() -> list[dict[str, Any]]:
             "name": a.name,
             "description": a.description,
             "icon": a.icon,
+            "repeatable": a.repeatable,
             "rule_json": {"impl": "code", "key": a.key},
             "is_global": True,
         }
@@ -378,6 +457,175 @@ async def _unlock(
     return True
 
 
+async def _unlock_repeatable(
+    session: AsyncSession,
+    *,
+    guild_id: int,
+    user_id: int,
+    achievement: AchievementDef,
+    session_id: int | None,
+    chain_id: int | None,
+) -> int:
+    """Upsert a repeatable badge — increment ``award_count`` if the row
+    already exists, insert a fresh row otherwise.  Returns the new
+    ``award_count``.
+    """
+    stmt = (
+        select(PlayerBadge)
+        .where(
+            PlayerBadge.guild_id == guild_id,
+            PlayerBadge.user_id == user_id,
+            PlayerBadge.achievement_key == achievement.key,
+        )
+        .limit(1)
+    )
+    existing = (await session.execute(stmt)).scalar_one_or_none()
+    if existing is not None:
+        new_count = (existing.award_count or 1) + 1
+        await session.execute(
+            update(PlayerBadge)
+            .where(PlayerBadge.id == existing.id)
+            .values(award_count=new_count, session_id=session_id, chain_id=chain_id)
+        )
+        await session.flush()
+    else:
+        badge = PlayerBadge(
+            guild_id=guild_id,
+            user_id=user_id,
+            achievement_key=achievement.key,
+            chain_id=chain_id,
+            session_id=session_id,
+            award_count=1,
+        )
+        session.add(badge)
+        await session.flush()
+        new_count = 1
+
+    await events_repo.append(
+        session,
+        guild_id=guild_id,
+        type=EventType.ACHIEVEMENT_UNLOCKED,
+        user_id=user_id,
+        session_id=session_id,
+        chain_id=chain_id,
+        reason=achievement.key,
+        payload={"key": achievement.key, "name": achievement.name, "count": new_count},
+    )
+    return new_count
+
+
+def _build_leaderboard(
+    rows: Sequence[Any],
+) -> list[tuple[int, int, int]]:
+    """Assign sequential ranks to leaderboard rows.
+
+    Input: rows of (user_id, earned_sp, punishments) ordered by net DESC.
+    Output: list of (user_id, sp_earned, net_sp) preserving order.
+
+    Ties (same net SP) share the same rank — handled by the caller.
+    """
+    return [(int(uid), int(sp or 0), int(sp or 0) - int(pp or 0)) for uid, sp, pp in rows]
+
+
+async def _evaluate_positional(
+    session: AsyncSession,
+    *,
+    guild_id: int,
+    session_id: int,
+    user_ids: list[int],
+    pa: PositionalAchievement,
+    leaderboard: list[tuple[int, int, int]],
+) -> RankingResult | None:
+    """Evaluate a single positional achievement against the leaderboard.
+
+    Returns a ``RankingResult`` if a unique winner exists at the target
+    position, or ``None`` if: disabled, too few participants, tie, or
+    no one at that rank.
+    """
+    from stankbot.services.settings_service import SettingsService
+
+    settings_svc = SettingsService(session)
+
+    # Feature toggle.
+    enabled = await settings_svc.get(guild_id, pa.enabled_setting, True)
+    if not enabled:
+        return None
+
+    # Min participants gate.
+    min_participants = await settings_svc.get(
+        guild_id, pa.min_participants_setting, pa.min_participants_default
+    )
+    if len(user_ids) < min_participants:
+        return None
+
+    # Walk the leaderboard to find the target rank.
+    rank = 0
+    prev_net: int | None = None
+    current_group: list[tuple[int, int, int]] = []  # (uid, sp, net)
+
+    for uid, sp, net in leaderboard:
+        if net != prev_net:
+            # Flush the previous rank group before starting a new one.
+            if current_group:
+                rank += 1
+                if rank == pa.position:
+                    if len(current_group) == 1:
+                        winner_uid, winner_sp, winner_net = current_group[0]
+                        achievement = definition(pa.achievement_key)
+                        if achievement is None:
+                            log.error("positional achievement %s not found in catalog", pa.achievement_key)
+                            return None
+                        award_count = await _unlock_repeatable(
+                            session,
+                            guild_id=guild_id,
+                            user_id=winner_uid,
+                            achievement=achievement,
+                            session_id=session_id,
+                            chain_id=None,
+                        )
+                        return RankingResult(
+                            user_id=winner_uid,
+                            achievement_key=pa.achievement_key,
+                            sp_earned=winner_sp,
+                            net_sp=winner_net,
+                            award_count=award_count,
+                        )
+                    return None  # tie — no award
+                if rank > pa.position:
+                    return None
+            current_group = [(uid, sp, net)]
+            prev_net = net
+        else:
+            current_group.append((uid, sp, net))
+
+    # Flush the last group.
+    if current_group:
+        rank += 1
+        if rank == pa.position and len(current_group) == 1:
+            winner_uid, winner_sp, winner_net = current_group[0]
+            achievement = definition(pa.achievement_key)
+            if achievement is None:
+                log.error("positional achievement %s not found in catalog", pa.achievement_key)
+                return None
+            award_count = await _unlock_repeatable(
+                session,
+                guild_id=guild_id,
+                user_id=winner_uid,
+                achievement=achievement,
+                session_id=session_id,
+                chain_id=None,
+            )
+            return RankingResult(
+                user_id=winner_uid,
+                achievement_key=pa.achievement_key,
+                sp_earned=winner_sp,
+                net_sp=winner_net,
+                award_count=award_count,
+            )
+
+    return None  # not enough ranked players
+
+
 async def evaluate_for_user(
     session: AsyncSession,
     *,
@@ -420,13 +668,64 @@ async def evaluate_for_user(
 
 async def evaluate_session_close(
     session: AsyncSession, *, guild_id: int, user_ids: list[int], session_id: int
-) -> dict[int, list[str]]:
-    """Evaluate the session-close-only rules for each participating user."""
-    result: dict[int, list[str]] = {}
+) -> SessionCloseResult:
+    """Evaluate the session-close-only rules for each participating user.
+
+    Returns a ``SessionCloseResult`` containing per-user unlocks and any
+    positional/ranking award data.
+
+    The leaderboard is computed once and shared across all positional
+    achievements.  Adding a new positional achievement requires zero
+    changes here — just register it in ``_POSITIONAL_ACHIEVEMENTS``.
+    """
+    result = SessionCloseResult()
+
+    # --- positional achievements (computed once, outside the per-user loop) ---
+    # Build a session-scoped leaderboard from player_totals cache.
+    from stankbot.db.models import PlayerTotal
+
+    lb_stmt = (
+        select(
+            PlayerTotal.user_id,
+            PlayerTotal.earned_sp,
+            PlayerTotal.punishments,
+        )
+        .where(
+            PlayerTotal.guild_id == guild_id,
+            PlayerTotal.session_id == session_id,
+            PlayerTotal.user_id.in_(user_ids),
+        )
+        .order_by((PlayerTotal.earned_sp - PlayerTotal.punishments).desc())
+    )
+    lb_rows = (await session.execute(lb_stmt)).all()
+    leaderboard = _build_leaderboard(lb_rows)
+
+    # Evaluate each registered positional achievement.
+    positional_keys: set[str] = set()
+    for pa in _POSITIONAL_ACHIEVEMENTS:
+        try:
+            ranking_result = await _evaluate_positional(
+                session,
+                guild_id=guild_id,
+                session_id=session_id,
+                user_ids=user_ids,
+                pa=pa,
+                leaderboard=leaderboard,
+            )
+            if ranking_result is not None:
+                result.ranking_results.append(ranking_result)
+        except Exception:  # noqa: BLE001
+            log.exception("positional achievement %s failed", pa.achievement_key)
+        positional_keys.add(pa.achievement_key)
+
+    # --- per-user loop (existing session-close rules, excluding positional) ---
     for uid in user_ids:
         user_unlocks: list[str] = []
         for achievement in _RULES:
             if not achievement.session_close_only:
+                continue
+            # Skip positional achievements — they're handled above.
+            if achievement.key in positional_keys:
                 continue
             if await _already_unlocked(session, guild_id, uid, achievement.key):
                 continue
@@ -448,7 +747,8 @@ async def evaluate_session_close(
             ):
                 user_unlocks.append(achievement.key)
         if user_unlocks:
-            result[uid] = user_unlocks
+            result.unlocks[uid] = user_unlocks
+
     return result
 
 
@@ -463,8 +763,43 @@ async def badges_for(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def badges_for_with_counts(
+    session: AsyncSession, guild_id: int, user_id: int
+) -> dict[str, int]:
+    """Return ``{achievement_key: count}`` for this user.
+
+    Non-repeatable achievements will have count 1 if unlocked.
+    Repeatable achievements will have count >= 1 (from ``award_count``).
+    """
+    from sqlalchemy import func as sqlfunc
+
+    stmt = (
+        select(
+            PlayerBadge.achievement_key,
+            sqlfunc.sum(PlayerBadge.award_count).label("cnt"),
+        )
+        .where(
+            PlayerBadge.guild_id == guild_id,
+            PlayerBadge.user_id == user_id,
+        )
+        .group_by(PlayerBadge.achievement_key)
+    )
+    rows = (await session.execute(stmt)).all()
+    return {row[0]: int(row[1] or 0) for row in rows}
+
+
 def definition(key: str) -> AchievementDef | None:
     for a in _RULES:
         if a.key == key:
             return a
     return None
+
+
+def positional_definitions() -> tuple[PositionalAchievement, ...]:
+    """Return all registered positional achievements."""
+    return _POSITIONAL_ACHIEVEMENTS
+
+
+def compute_fourth_place_sp(flat_sp: int, stank_count: int) -> int:
+    """Compute the SP awarded for a fourth-place finish."""
+    return flat_sp + stank_count

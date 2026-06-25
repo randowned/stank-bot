@@ -74,11 +74,13 @@ async def test_ensure_started_emits_session_start_once(session, guild) -> None: 
 async def test_end_session_emits_end_then_start(session, guild) -> None:  # type: ignore[no-untyped-def]
     svc = SessionService(session=session)
     s1 = await svc.ensure_started(guild.id, when=datetime(2026, 4, 19, 0, 0, tzinfo=UTC))
-    ended, s2 = await svc.end_session(
+    result = await svc.end_session(
         guild.id,
         reason=SessionEndReason.AUTO,
         when=datetime(2026, 4, 19, 7, 0, tzinfo=UTC),
     )
+    ended = result.ended_session_id
+    s2 = result.new_session_id
     assert ended == s1
     assert s2 is not None and s2 != s1
     # Sessions in order
@@ -88,11 +90,11 @@ async def test_end_session_emits_end_then_start(session, guild) -> None:  # type
 async def test_end_session_with_open_new_false(session, guild) -> None:  # type: ignore[no-untyped-def]
     svc = SessionService(session=session)
     s1 = await svc.ensure_started(guild.id)
-    ended, new = await svc.end_session(
+    result = await svc.end_session(
         guild.id, reason=SessionEndReason.BOARD_RESET, open_new=False
     )
-    assert ended == s1
-    assert new is None
+    assert result.ended_session_id == s1
+    assert result.new_session_id is None
     # No alive session after a reset without re-open.
     assert await svc.current(guild.id) is None
     s2 = await svc.ensure_started(guild.id)
@@ -301,11 +303,11 @@ async def test_end_session_noop_when_no_session_does_not_crash(
 ) -> None:  # type: ignore[no-untyped-def]
     """Calling end_session on a guild with no alive session is a no-op."""
     svc = SessionService(session=session)
-    ended, new = await svc.end_session(
+    result = await svc.end_session(
         guild.id, reason=SessionEndReason.AUTO, open_new=True
     )
-    assert ended is None  # nothing to end
-    assert new is not None  # still starts a new session
+    assert result.ended_session_id is None  # nothing to end
+    assert result.new_session_id is not None  # still starts a new session
     # No crash — the _reset_session_records is skipped because neither
     # ended_id nor new_id was set... wait, new_id IS set. But the
     # query is a DELETE, so when there are no rows it's just a no-op.

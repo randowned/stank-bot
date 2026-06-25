@@ -129,6 +129,26 @@ async def message_in_active_chain(
     return (await session.execute(stmt)).scalar_one_or_none() is not None
 
 
+async def last_chain_in_session(
+    session: AsyncSession, guild_id: int, session_id: int
+) -> Chain | None:
+    """Return the most recently created chain that belongs to *session_id*.
+
+    Used by the 4th-place embed builder to get the session's final chain
+    length for the chain-length bonus component.
+    """
+    stmt = (
+        select(Chain)
+        .where(
+            Chain.guild_id == guild_id,
+            Chain.session_id == session_id,
+        )
+        .order_by(Chain.id.desc())
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
 async def contributors(session: AsyncSession, chain_id: int) -> list[int]:
     """Return the ordered list of ``user_id``s that posted in this chain."""
     stmt = (

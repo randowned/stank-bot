@@ -7,8 +7,10 @@ breaks, and reactions for local development and Playwright E2E tests.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 
 from stankbot.db.engine import session_scope
 from stankbot.db.models import SessionEndReason
@@ -149,8 +151,11 @@ async def mock_session_end(
 
     async with session_scope(request.app.state.session_factory) as session:
         svc = SessionService(session)
-        ended_id, new_id = await svc.end_session(guild_id, reason=SessionEndReason.MANUAL)
-    return MsgPackResponse({"ended_session_id": ended_id, "new_session_id": new_id}, request)
+        end_result = await svc.end_session(guild_id, reason=SessionEndReason.MANUAL)
+    return MsgPackResponse(
+        {"ended_session_id": end_result.ended_session_id, "new_session_id": end_result.new_session_id},
+        request,
+    )
 
 
 @router.post("/random/start")
@@ -263,4 +268,127 @@ async def mock_version_broadcast(
             },
         },
     )
+    return MsgPackResponse({"broadcast": True}, request)
+
+
+@router.post("/achievement")
+async def mock_achievement(
+    request: Request,
+    config=Depends(get_config),
+) -> MsgPackResponse:
+    """Insert PlayerBadge rows and optionally broadcast via WebSocket."""
+    _dev_only(request)
+    body = await request.json()
+    guild_id = body.get("guild_id", config.mock_default_guild_id or config.default_guild_id)
+    user_id = int(body.get("user_id", 1001))
+    achievement_key = body.get("achievement_key", "first_stank")
+    count = int(body.get("count", 1))
+    broadcast = body.get("broadcast", True)
+
+    from stankbot.db.models import Achievement, PlayerBadge
+    from stankbot.services import achievements as achievements_svc
+
+    async with session_scope(request.app.state.session_factory) as session:
+        # Ensure the achievement row exists in the catalog table.
+        existing_ach = (
+            await session.execute(
+                select(Achievement).where(Achievement.key == achievement_key)
+            )
+        ).scalar_one_or_none()
+        if existing_ach is None:
+            # Insert from the code catalog.
+            cat_row = next(
+                (r for r in achievements_svc.catalog_rows() if r["key"] == achievement_key),
+                None,
+            )
+            if cat_row is None:
+                return MsgPackResponse(
+                    {"error": f"Unknown achievement key: {achievement_key}"},
+                    request,
+                    status_code=400,
+                )
+            session.add(
+                Achievement(
+                    key=cat_row["key"],
+                    name=cat_row["name"],
+                    description=cat_row["description"],
+                    icon=cat_row["icon"],
+                    rule_json=cat_row["rule_json"],
+                    is_global=cat_row["is_global"],
+                )
+            )
+            await session.flush()
+
+        # Upsert: set award_count on the single row for this user+achievement.
+        existing_badge = (
+            await session.execute(
+                select(PlayerBadge).where(
+                    PlayerBadge.guild_id == guild_id,
+                    PlayerBadge.user_id == user_id,
+                    PlayerBadge.achievement_key == achievement_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing_badge is not None:
+            existing_badge.award_count = max(count, 1)
+        else:
+            session.add(
+                PlayerBadge(
+                    guild_id=guild_id,
+                    user_id=user_id,
+                    achievement_key=achievement_key,
+                    award_count=max(count, 1),
+                )
+            )
+        await session.flush()
+
+        # Resolve the badge name/icon for broadcast.
+        cat_row = next(
+            (r for r in achievements_svc.catalog_rows() if r["key"] == achievement_key),
+            None,
+        )
+
+    if broadcast and cat_row:
+        from stankbot.web.ws import notify_achievement
+
+        await notify_achievement(
+            guild_id,
+            user_id,
+            {
+                "key": cat_row["key"],
+                "name": cat_row["name"],
+                "icon": cat_row["icon"],
+                "description": cat_row["description"],
+                "unlocked_at": datetime.now(tz=UTC).isoformat(),
+            },
+        )
+
+    return MsgPackResponse(
+        {"ok": True, "achievement_key": achievement_key, "count": count},
+        request,
+    )
+
+
+@router.post("/achievement-broadcast")
+async def mock_achievement_broadcast(
+    request: Request,
+) -> MsgPackResponse:
+    """Broadcast an achievement WS event without inserting DB rows.
+
+    Use this to test the toast notification independently of the DB state.
+    """
+    _dev_only(request)
+    body = await request.json()
+    guild_id = body.get("guild_id", 123456789)
+    user_id = body.get("user_id", 1001)
+    badge = body.get("badge", {
+        "key": "first_stank",
+        "name": "First Stank",
+        "icon": "✨",
+        "description": "Dropped your very first stank.",
+    })
+
+    from stankbot.web.ws import notify_achievement
+
+    await notify_achievement(guild_id, int(user_id), badge)
     return MsgPackResponse({"broadcast": True}, request)

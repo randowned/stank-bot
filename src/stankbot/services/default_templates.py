@@ -156,6 +156,8 @@ COOLDOWN_EMBED: dict[str, Any] = {
 }
 
 
+
+
 POINTS_EMBED: dict[str, Any] = {
     "color": "#a47cff",
     "author": {"name": "{target_display_name}", "icon": "{target_avatar_url}"},
@@ -383,6 +385,25 @@ SPOTIFY_OWNER_MILESTONE_EMBED: dict[str, Any] = {
 }
 
 
+FOURTH_PLACE_EMBED: dict[str, Any] = {
+    "color": "#f97316",
+    "title": "\U0001f944 Fourth Place \u2014 So Close!",
+    "description": (
+        "**{user_name}** finished 4th in the session "
+        "with **{sp_earned} SP** earned (net {net_sp}). "
+        "+{sp_awarded} SP awarded \u2014 flat {flat_sp} + stank {stank_count}."
+    ),
+    "fields": [
+        {
+            "name": "\U0001f3c5 Achievement",
+            "value": "\U0001f944 Fourth Place \u00d7 **{award_count}**",
+            "inline": True,
+        },
+    ],
+    "footer": "\U0001f944 Session #{session_number} \u00b7 Better luck next time!",
+}
+
+
 ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "board_embed": BOARD_EMBED,
     "record_embed": RECORD_EMBED,
@@ -390,6 +411,7 @@ ALL_DEFAULTS: dict[str, dict[str, Any]] = {
     "new_session_embed": NEW_SESSION_EMBED,
     "cooldown_embed": COOLDOWN_EMBED,
     "points_embed": POINTS_EMBED,
+    "fourth_place_embed": FOURTH_PLACE_EMBED,
     "tissue_embed": TISSUE_EMBED,
     "youtube_media_embed": YOUTUBE_MEDIA_EMBED,
     "spotify_media_embed": SPOTIFY_MEDIA_EMBED,

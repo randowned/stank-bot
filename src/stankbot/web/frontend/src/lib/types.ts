@@ -94,6 +94,8 @@ export interface AchievementEntry {
 	description: string;
 	icon: string;
 	unlocked: boolean;
+	count?: number;
+	repeatable?: boolean;
 }
 
 export interface Badge {

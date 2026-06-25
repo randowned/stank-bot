@@ -11,11 +11,25 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from stankbot.db.models import Altar, Chain, ChainMessage, EventType, Guild
+from stankbot.db.models import Altar, Chain, ChainMessage, EventType, Guild, PlayerTotal
 from stankbot.db.repositories import events as events_repo
-from stankbot.services.achievements import _centurion, _comeback_kid, _streaker
+from stankbot.services.achievements import (
+    _centurion,
+    _comeback_kid,
+    _streaker,
+    _unlock_repeatable,
+    badges_for_with_counts,
+    catalog_rows,
+    definition,
+    evaluate_session_close,
+)
 
 # ── helpers ────────────────────────────────────────────────────────────────
+
+
+def _fp(result: Any) -> list[Any]:
+    """Filter ranking_results for fourth_place entries."""
+    return [r for r in result.ranking_results if r.achievement_key == "fourth_place"]
 
 
 async def _event(
@@ -281,3 +295,304 @@ async def test_comeback_kid_team_player_genuine_comeback(session: Any) -> None:
 
     # Net +5, was negative after PP, then team_player + SP base recovered.
     assert await _comeback_kid(session, 1, 100) is True
+
+
+# ── evaluate_session_close (fourth place) ─────────────────────────────────
+
+
+async def _seed_player_total(
+    session: Any,
+    *,
+    guild_id: int = 1,
+    user_id: int,
+    session_id: int,
+    earned_sp: int,
+    punishments: int = 0,
+) -> None:
+    pt = PlayerTotal(
+        guild_id=guild_id,
+        user_id=user_id,
+        session_id=session_id,
+        earned_sp=earned_sp,
+        punishments=punishments,
+    )
+    session.add(pt)
+    await session.flush()
+
+
+async def test_fourth_place_awards_correct_user(session: Any) -> None:
+    """User with 4th-highest net SP gets the achievement."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    # 5 participants with descending SP
+    for uid, sp in [(101, 100), (102, 80), (103, 60), (104, 40), (105, 20)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104, 105], session_id=sid
+    )
+    assert len(_fp(result)) == 1
+    assert _fp(result)[0].user_id == 104
+    assert _fp(result)[0].sp_earned == 40
+
+
+async def test_fourth_place_tie_at_4th_no_award(session: Any) -> None:
+    """Two users tied at 4th place — no award (ambiguous)."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    # Exactly 4 users: 1st=100, 2nd=80, 3rd+4th tied at 60
+    for uid, sp in [(101, 100), (102, 80), (103, 60), (104, 60)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104], session_id=sid
+    )
+    assert len(_fp(result)) == 0
+
+
+async def test_fourth_place_fewer_than_4_participants(session: Any) -> None:
+    """Fewer than 4 participants — no 4th-place award."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    for uid, sp in [(101, 100), (102, 80), (103, 60)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103], session_id=sid
+    )
+    assert len(_fp(result)) == 0
+
+
+async def test_fourth_place_repeatable_award_count_increments(session: Any) -> None:
+    """Repeatable badge increments award_count on each unlock."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    achievement = definition("fourth_place")
+    assert achievement is not None
+
+    # First award
+    count1 = await _unlock_repeatable(
+        session,
+        guild_id=1,
+        user_id=104,
+        achievement=achievement,
+        session_id=10,
+        chain_id=None,
+    )
+    assert count1 == 1
+
+    # Second award
+    count2 = await _unlock_repeatable(
+        session,
+        guild_id=1,
+        user_id=104,
+        achievement=achievement,
+        session_id=20,
+        chain_id=None,
+    )
+    assert count2 == 2
+
+    # Third award
+    count3 = await _unlock_repeatable(
+        session,
+        guild_id=1,
+        user_id=104,
+        achievement=achievement,
+        session_id=30,
+        chain_id=None,
+    )
+    assert count3 == 3
+
+
+async def test_fourth_place_net_sp_used_for_ranking(session: Any) -> None:
+    """Ranking uses net SP (earned - punishments), not raw earned SP."""
+    session.add(Guild(id=1, name="Test"))
+    await session.flush()
+    sid = await _start_session(session)
+
+    # User 104: 60 earned, 30 PP = net 30
+    # User 105: 35 earned, 0 PP = net 35 (beats 104 on net)
+    # Ranking: 101(100) > 102(80) > 103(60) > 105(35) > 104(30)
+    # So 105 is 4th, 104 is 5th
+    for uid, sp, pp in [
+        (101, 100, 0),
+        (102, 80, 0),
+        (103, 60, 0),
+        (104, 60, 30),
+        (105, 35, 0),
+    ]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp, punishments=pp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104, 105], session_id=sid
+    )
+    assert len(_fp(result)) == 1
+    # 105 has net 35 which is 4th; 104 has net 30 which is 5th
+    assert _fp(result)[0].user_id == 105
+
+
+# ── toggle disabled ────────────────────────────────────────────────────────
+
+
+async def test_fourth_place_toggle_disabled_no_award(session: Any) -> None:
+    """When fourth_place_enabled is False via settings, no award is given."""
+    from stankbot.db.models import Achievement
+    from stankbot.services.settings_service import SettingsService
+
+    session.add(Guild(id=1, name="Test"))
+    session.add(
+        Achievement(
+            key="fourth_place",
+            name="Fourth Place",
+            description="Finished 4th in SP earned during a session. Repeatable.",
+            icon="4️⃣",
+            rule_json={"impl": "code", "key": "fourth_place"},
+            is_global=True,
+        )
+    )
+    await session.flush()
+
+    svc = SettingsService(session)
+    await svc.set(1, "fourth_place_enabled", False)
+
+    sid = await _start_session(session)
+    for uid, sp in [(101, 100), (102, 80), (103, 60), (104, 40), (105, 20)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104, 105], session_id=sid
+    )
+    assert len(_fp(result)) == 0
+
+
+# ── min_participants gate ──────────────────────────────────────────────────
+
+
+async def test_fourth_place_min_participants_gate_blocks(session: Any) -> None:
+    """Custom min_participants=6 blocks a 5-participant session."""
+    from stankbot.db.models import Achievement
+    from stankbot.services.settings_service import SettingsService
+
+    session.add(Guild(id=1, name="Test"))
+    session.add(
+        Achievement(
+            key="fourth_place",
+            name="Fourth Place",
+            description="Finished 4th in SP earned during a session. Repeatable.",
+            icon="4️⃣",
+            rule_json={"impl": "code", "key": "fourth_place"},
+            is_global=True,
+        )
+    )
+    await session.flush()
+
+    svc = SettingsService(session)
+    await svc.set(1, "fourth_place_min_participants", 6)
+
+    sid = await _start_session(session)
+    for uid, sp in [(101, 100), (102, 80), (103, 60), (104, 40), (105, 20)]:
+        await _seed_player_total(
+            session, user_id=uid, session_id=sid, earned_sp=sp
+        )
+
+    result = await evaluate_session_close(
+        session, guild_id=1, user_ids=[101, 102, 103, 104, 105], session_id=sid
+    )
+    assert len(_fp(result)) == 0
+
+
+# ── badges_for_with_counts ─────────────────────────────────────────────────
+
+
+async def test_badges_for_with_counts_returns_correct_dict(session: Any) -> None:
+    """badges_for_with_counts returns {key: sum(award_count)} for a user."""
+    from stankbot.db.models import Achievement
+
+    # Seed the fourth_place achievement so FK passes
+    session.add(Guild(id=1, name="Test"))
+    session.add(
+        Achievement(
+            key="fourth_place",
+            name="Fourth Place",
+            description="Finished 4th in SP earned during a session. Repeatable.",
+            icon="4️⃣",
+            rule_json={"impl": "code", "key": "fourth_place"},
+            is_global=True,
+        )
+    )
+    await session.flush()
+
+    achievement = definition("fourth_place")
+    assert achievement is not None
+    assert achievement.repeatable is True
+
+    # Award 3 times
+    for i in range(3):
+        await _unlock_repeatable(
+            session,
+            guild_id=1,
+            user_id=104,
+            achievement=achievement,
+            session_id=10 * (i + 1),
+            chain_id=None,
+        )
+
+    counts = await badges_for_with_counts(session, 1, 104)
+    assert "fourth_place" in counts
+    assert counts["fourth_place"] == 3
+
+    # A user with no badges returns empty dict
+    counts_empty = await badges_for_with_counts(session, 1, 999)
+    assert counts_empty == {}
+
+
+# ── catalog_rows includes repeatable field ─────────────────────────────────
+
+
+async def test_catalog_rows_includes_repeatable_field() -> None:
+    """catalog_rows() returns a list of dicts that each include 'repeatable'."""
+    rows = catalog_rows()
+    assert isinstance(rows, list)
+    assert len(rows) > 0
+
+    # Every row must have the repeatable key
+    for row in rows:
+        assert "repeatable" in row, f"Missing 'repeatable' in {row.get('key')}"
+        assert isinstance(row["repeatable"], bool)
+
+    # The fourth_place entry specifically is repeatable
+    fp_row = next(r for r in rows if r["key"] == "fourth_place")
+    assert fp_row["repeatable"] is True
+    assert fp_row["name"] == "Fourth Place"
+
+    # A non-repeatable entry (e.g. first_stank) should be False
+    fs_row = next(r for r in rows if r["key"] == "first_stank")
+    assert fs_row["repeatable"] is False
+
+
+# ── definition() ───────────────────────────────────────────────────────────
+
+
+async def test_definition_fourth_place_is_repeatable() -> None:
+    """definition('fourth_place') returns an AchievementDef with repeatable=True."""
+    ach = definition("fourth_place")
+    assert ach is not None
+    assert ach.key == "fourth_place"
+    assert ach.repeatable is True
+    assert ach.session_close_only is True
