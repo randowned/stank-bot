@@ -1,6 +1,6 @@
 """``/stank-admin`` command group — guild configuration + state ops.
 
-Narrow by design: state mutations (reset, new-session, record-test, log),
+Narrow by design: state mutations (reset, record-test, log),
 channel/role/altar wiring, read-only config view. Anything that needs a
 form (template bodies, scoring tuning, achievement rules) lives on the
 web dashboard — see the approved plan.
@@ -19,7 +19,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from stankbot.cogs._checks import requires_admin
-from stankbot.db.models import ChannelBinding, ChannelPurpose, SessionEndReason
+from stankbot.db.models import ChannelBinding, ChannelPurpose
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import audit_log as audit_repo
 from stankbot.db.repositories import guilds as guilds_repo
@@ -166,34 +166,6 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
         await interaction.response.send_message(
             f"Maintenance mode **{'enabled' if value else 'disabled'}**.",
             ephemeral=True,
-        )
-
-    @app_commands.command(
-        name="new-session",
-        description="End the current session; start a new one (chain persists).",
-    )
-    @requires_admin()
-    async def new_session(self, interaction: discord.Interaction) -> None:
-        if interaction.guild is None:
-            return
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        async with self.bot.db() as session:
-            await guilds_repo.ensure(
-                session, interaction.guild.id, interaction.guild.name
-            )
-            svc = SessionService(session)
-            ended, new_id = await svc.end_session(
-                interaction.guild.id, reason=SessionEndReason.MANUAL
-            )
-            await audit_repo.append(
-                session,
-                guild_id=interaction.guild.id,
-                actor_id=interaction.user.id,
-                action="new_session",
-                payload={"ended_session_id": ended, "new_session_id": new_id},
-            )
-        await interaction.followup.send(
-            f"Session rolled. Ended #{ended}, started #{new_id}.", ephemeral=True
         )
 
     @app_commands.command(
