@@ -18,8 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import audit_log as audit_repo
 from stankbot.db.repositories import guilds as guilds_repo
+from stankbot.db.models import Guild, RecordScope
 from stankbot.services.permission_service import PermissionService
-from stankbot.services.session_service import SessionService
+from stankbot.services.session_service import SessionEndReason, SessionService
 from stankbot.services.settings_service import LABELS, Keys, SettingsService
 from stankbot.utils.emoji import emoji_to_markup, parse_reaction_emojis
 from stankbot.utils.time_utils import utc_isoformat
@@ -857,23 +858,21 @@ async def new_session(
     guild_id: int = Depends(get_active_guild_id),
     user: dict = Depends(require_guild_admin),
 ) -> MsgPackResponse:
-    from stankbot.db.models import SessionEndReason
-
     await guilds_repo.ensure(session, guild_id)
     svc = SessionService(session)
-    ended, new_id = await svc.end_session(guild_id, reason=SessionEndReason.MANUAL)
+    end_result = await svc.end_session(guild_id, reason=SessionEndReason.MANUAL)
     await audit_repo.append(
         session,
         guild_id=guild_id,
         actor_id=int(user["id"]),
         action="new_session",
         payload={
-            "ended_session_id": ended,
-            "new_session_id": new_id,
+            "ended_session_id": end_result.ended_session_id,
+            "new_session_id": end_result.new_session_id,
             "via": "web",
         },
     )
-    return _ok(request, {"ended_session_id": ended, "new_session_id": new_id})
+    return _ok(request, {"ended_session_id": end_result.ended_session_id, "new_session_id": end_result.new_session_id})
 
 
 class ResetPayload(BaseModel):
