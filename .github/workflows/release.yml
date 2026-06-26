@@ -55,6 +55,12 @@ jobs:
         run: |
           git push origin HEAD:release --force
 
+      - name: Get previous release tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | head -1)
+          echo "tag=${PREV_TAG:-}" >> "$GITHUB_OUTPUT"
+
       - name: Create and push tag
         env:
           TAG: ${{ needs.check-release.outputs.tag }}
@@ -66,12 +72,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.check-release.outputs.tag }}
+          PREV_TAG: ${{ steps.prev_tag.outputs.tag }}
         run: |
-          # --generate-notes covers all commits since the last release tag.
-          # Use HEAD~1 to exclude the version bump commit (HEAD itself).
-          # Resolve to SHA because GitHub API rejects relative refs like HEAD~1.
-          TARGET_SHA=$(git rev-parse HEAD~1)
+          # Generate changelog from previous tag to HEAD~1 (excludes the version bump commit at HEAD).
+          NOTES="## What's Changed"
+          COMMITS=$(git log --format='* %s by @%an' "${PREV_TAG:-$(git rev-list --max-parents=0 HEAD)}..HEAD~1")
+          if [ -n "$COMMITS" ]; then
+            NOTES="${NOTES}"$'\n'"${COMMITS}"
+          else
+            NOTES="${NOTES}"$'\n'"* Initial release"
+          fi
+          # Append Full Changelog comparison link
+          if [ -n "$PREV_TAG" ]; then
+            NOTES="${NOTES}"$'\n\n'"**Full Changelog:** https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+          fi
           gh release create "$TAG" \
-            --generate-notes \
-            --target "$TARGET_SHA" \
-            --title "$TAG"
+            --title "$TAG" \
+            --notes "$NOTES"
