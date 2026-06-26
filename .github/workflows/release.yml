@@ -68,8 +68,10 @@ jobs:
           TAG: ${{ needs.check-release.outputs.tag }}
         run: |
           # --generate-notes covers all commits since the last release tag.
-          # Use --target HEAD~1 to exclude the version bump commit (HEAD itself).
+          # Use HEAD~1 to exclude the version bump commit (HEAD itself).
+          # Resolve to SHA because GitHub API rejects relative refs like HEAD~1.
+          TARGET_SHA=$(git rev-parse HEAD~1)
           gh release create "$TAG" \
             --generate-notes \
-            --target HEAD~1 \
+            --target "$TARGET_SHA" \
             --title "$TAG"
