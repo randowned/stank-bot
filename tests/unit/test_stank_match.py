@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from stankbot.utils.stank_match import split_patterns, sticker_name_matches
+from stankbot.utils.stank_match import (
+    split_patterns,
+    sticker_id_matches,
+    sticker_name_matches,
+)
 
 
 class TestSplitPatterns:
@@ -43,3 +47,21 @@ class TestStickerNameMatches:
 
     def test_none_sticker_name(self) -> None:
         assert sticker_name_matches("stank", [None]) is False
+
+
+class TestStickerIdMatches:
+    def test_single_match(self) -> None:
+        assert sticker_id_matches([123, 456], [123]) is True
+
+    def test_no_match(self) -> None:
+        assert sticker_id_matches([123, 456], [789]) is False
+
+    def test_empty_allowed_ids(self) -> None:
+        assert sticker_id_matches([], [123]) is False
+        assert sticker_id_matches(None, [123]) is False
+
+    def test_multiple_sticker_ids_one_matches(self) -> None:
+        assert sticker_id_matches([123], [456, 123]) is True
+
+    def test_multiple_stickers_all_match(self) -> None:
+        assert sticker_id_matches([123, 456], [123, 456]) is True

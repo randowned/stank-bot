@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { apiFetch, apiPost } from '$lib/api';
-import { toErrorMessage } from '$lib/api-utils';
+	import { toErrorMessage } from '$lib/api-utils';
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Card from '$lib/components/Card.svelte';
@@ -9,11 +9,15 @@ import { toErrorMessage } from '$lib/api-utils';
 	import Input from '$lib/components/Input.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import RemovableItem from '$lib/components/RemovableItem.svelte';
+	import StickerPicker from '$lib/components/StickerPicker.svelte';
+	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 
 	interface Altar {
 		id: number;
 		channel_id: string;
 		sticker_name_pattern: string;
+		sticker_id: string | null;
+		sticker_ids: number[];
 		reaction_emoji_name: string | null;
 		reaction_emoji_display: string | null;
 		enabled: boolean;
@@ -26,6 +30,8 @@ import { toErrorMessage } from '$lib/api-utils';
 	let channelId = $state('');
 	let pattern = $state('stank');
 	let emoji = $state('');
+	let selectedStickerIds = $state<number[]>([]);
+	let displayStickerId = $state<number | null>(null);
 
 	let channelIds = $state<string[]>([]);
 	let newChannel = $state('');
@@ -39,9 +45,9 @@ import { toErrorMessage } from '$lib/api-utils';
 			if (altar) {
 				channelId = altar.channel_id;
 				pattern = altar.sticker_name_pattern;
-				// Use the full <:name:id> markup so the field round-trips back
-				// through the emoji parser on save (bare name alone won't).
 				emoji = altar.reaction_emoji_display ?? '';
+				selectedStickerIds = altar.sticker_ids ?? [];
+				displayStickerId = altar.sticker_id ? Number(altar.sticker_id) : null;
 			}
 		} catch (err) {
 			altarMsg = toErrorMessage(err, 'Failed to load');
@@ -50,15 +56,22 @@ import { toErrorMessage } from '$lib/api-utils';
 		}
 	}
 
+	function onStickerChange(data: { stickerIds: number[]; displayStickerId: number | null }) {
+		selectedStickerIds = data.stickerIds;
+		displayStickerId = data.displayStickerId;
+	}
+
+	let selectedEmojiIds = $state<number[]>([]);
+
 	async function saveAltar() {
 		altarSaving = true;
 		altarMsg = null;
 		try {
 			await apiPost('/api/admin/altar/set', {
-				// Discord IDs are 64-bit snowflakes — Number() rounds them past
-				// JS's safe-integer range, so send the raw string (backend coerces).
 				channel_id: channelId.trim(),
 				sticker_pattern: pattern,
+				sticker_ids: selectedStickerIds.length > 0 ? selectedStickerIds : null,
+				display_sticker_id: displayStickerId,
 				reaction_emoji: emoji || null
 			});
 			await loadAltar();
@@ -137,9 +150,28 @@ import { toErrorMessage } from '$lib/api-utils';
 		<FormField label="Channel ID" required hint="Right-click channel in Discord → Copy Channel ID" for="altar-channel-id">
 			<Input type="text" bind:value={channelId} placeholder="e.g. 1234567890" id="altar-channel-id" />
 		</FormField>
-		<FormField label="Sticker pattern" hint="Case-insensitive substring match. Comma-separate several, e.g. 'stank, maphra wink'." for="altar-pattern">
-			<Input bind:value={pattern} id="altar-pattern" />
+
+		<!-- Visual sticker picker (replaces the old pattern text field) -->
+		<FormField label="Stickers" hint="Select which stickers count as stanks. Click a sticker to toggle; use ★ to set the display sticker." for="altar-stickers">
+			<StickerPicker
+				guildId={altar?.guild_id ?? ''}
+				selectedIds={selectedStickerIds}
+				displayStickerId={displayStickerId}
+				onchange={onStickerChange}
+			/>
 		</FormField>
+
+		<!-- Advanced: show current sticker_name_pattern for transition UX -->
+		{#if pattern && pattern !== 'stank'}
+			<FormField
+				label="Sticker pattern (legacy)"
+				hint="Previously configured name pattern. Kept as fallback during transition. Will be removed after all guilds migrate to sticker IDs."
+				for="altar-pattern-legacy"
+			>
+				<Input bind:value={pattern} id="altar-pattern-legacy" disabled />
+			</FormField>
+		{/if}
+
 		<FormField
 			label="Reaction emoji"
 			hint="Custom emoji like <:stank:12345> or a unicode emoji. Comma-separate several to accept more than one — the first is primary (used for the stank-emoji token and auto-react). Leave blank to skip reactions."
@@ -147,6 +179,7 @@ import { toErrorMessage } from '$lib/api-utils';
 		>
 			<Input bind:value={emoji} placeholder="<:stank:1234567890>" id="altar-emoji" />
 		</FormField>
+
 		<div class="flex justify-end mt-2">
 			<Button onclick={saveAltar} loading={altarSaving}>Set</Button>
 		</div>

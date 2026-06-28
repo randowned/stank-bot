@@ -211,6 +211,8 @@ def _altar_dict(altar: Any) -> dict[str, Any]:
         "guild_id": str(altar.guild_id),
         "channel_id": str(altar.channel_id),
         "sticker_name_pattern": altar.sticker_name_pattern,
+        "sticker_id": str(altar.sticker_id) if altar.sticker_id else None,
+        "sticker_ids": altar.sticker_ids or [],
         "reaction_emoji_id": str(altar.reaction_emoji_id) if altar.reaction_emoji_id else None,
         "reaction_emoji_name": altar.reaction_emoji_name,
         # Comma-joined <:name:id> markup (or unicode glyph) for every accepted
@@ -238,6 +240,8 @@ async def get_altar(
 class AltarSetPayload(BaseModel):
     channel_id: int
     sticker_pattern: str = "stank"
+    sticker_ids: list[int] | None = None
+    display_sticker_id: int | None = None
     reaction_emoji: str | None = None
 
 
@@ -266,6 +270,8 @@ async def altar_set(
         reaction_emoji_name=primary["name"],
         reaction_emoji_animated=primary["animated"],
         reaction_emojis=reaction_emojis,
+        sticker_id=payload.display_sticker_id,
+        sticker_ids=payload.sticker_ids,
     )
     await audit_repo.append(
         session,
@@ -301,6 +307,93 @@ async def altar_remove(
         payload={"altar_id": altar_id},
     )
     return _ok(request, {"altar_id": altar_id})
+
+
+# ---------------------------------------------------------------------------
+# Guild stickers & emojis — for the visual picker in the admin dashboard
+# ---------------------------------------------------------------------------
+
+
+@router.get("/guild-stickers")
+async def guild_stickers(
+    request: Request,
+    guild_id: int = Depends(get_active_guild_id),
+    _admin: dict = Depends(require_guild_admin),
+    include_default: bool = Query(False),
+) -> MsgPackResponse:
+    """Fetch guild custom stickers (+ optional default Discord stickers)."""
+    bot = getattr(request.app.state, "bot", None)
+    guild = bot.get_guild(guild_id) if bot else None
+    stickers: list[dict[str, Any]] = []
+
+    # Custom guild stickers (from bot's in-memory cache)
+    if guild:
+        for s in guild.stickers:
+            stickers.append({
+                "id": str(s.id),
+                "name": s.name,
+                "image_url": str(s.url) if s.url else None,
+                "type": "custom",
+            })
+
+    # Default Discord stickers (from sticker packs API)
+    if include_default and bot:
+        try:
+            packs = await bot.fetch_sticker_packs()
+            for pack in packs:
+                for s in pack.stickers:
+                    stickers.append({
+                        "id": str(s.id),
+                        "name": s.name,
+                        "image_url": str(s.url) if s.url else None,
+                        "type": "default",
+                    })
+        except Exception:
+            log.warning("Failed to fetch default sticker packs", exc_info=True)
+
+    return MsgPackResponse({"stickers": stickers}, request)
+
+
+@router.get("/guild-emojis")
+async def guild_emojis(
+    request: Request,
+    guild_id: int = Depends(get_active_guild_id),
+    _admin: dict = Depends(require_guild_admin),
+    include_default: bool = Query(False),
+) -> MsgPackResponse:
+    """Fetch guild custom emojis (+ optional default Unicode emojis)."""
+    bot = getattr(request.app.state, "bot", None)
+    guild = bot.get_guild(guild_id) if bot else None
+    emojis: list[dict[str, Any]] = []
+
+    # Custom guild emojis (from bot's in-memory cache)
+    if guild:
+        for e in guild.emojis:
+            emojis.append({
+                "id": str(e.id),
+                "name": e.name,
+                "image_url": str(e.url) if e.url else None,
+                "animated": e.animated,
+                "type": "custom",
+            })
+
+    # Default Unicode emojis (synthetic, no IDs)
+    if include_default:
+        _DEFAULT_EMOJIS = [
+            "😀", "😂", "🤣", "😍", "🥰", "😘", "😜", "🤩", "😎", "🤗",
+            "👍", "👎", "👏", "🙌", "🔥", "💯", "🎉", "✨", "❤️", "💀",
+            "😭", "😤", "🥺", "🤔", "🙄", "😬", "🤯", "🥳", "😈", "💩",
+        ]
+        for glyph in _DEFAULT_EMOJIS:
+            emojis.append({
+                "id": None,
+                "name": glyph,
+                "image_url": None,
+                "animated": False,
+                "type": "default",
+            })
+
+    return MsgPackResponse({"emojis": emojis}, request)
 
 
 # ---------------------------------------------------------------------------

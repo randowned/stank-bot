@@ -42,7 +42,7 @@ from stankbot.services.chain_service import ChainService, StankInput
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import SettingsService
 from stankbot.utils.emoji import emoji_specs_match
-from stankbot.utils.stank_match import sticker_name_matches
+from stankbot.utils.stank_match import sticker_id_matches, sticker_name_matches
 
 if TYPE_CHECKING:
     from stankbot.bot import StankBot
@@ -97,6 +97,10 @@ def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
         return False
     if not message.stickers:
         return False
+    # ID-based match first (primary path post-migration)
+    if sticker_id_matches(altar.sticker_ids, [s.id for s in message.stickers]):
+        return True
+    # Fallback: substring name match (deprecated, removed after PROD migration)
     return sticker_name_matches(
         altar.sticker_name_pattern, [s.name for s in message.stickers]
     )

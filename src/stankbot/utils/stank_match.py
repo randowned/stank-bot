@@ -25,3 +25,13 @@ def sticker_name_matches(
         return False
     names = [(n or "").lower() for n in sticker_names]
     return any(p in n for p in patterns for n in names)
+
+
+def sticker_id_matches(
+    allowed_ids: list[int] | None, sticker_ids: Iterable[int]
+) -> bool:
+    """True if any message sticker ID is in the allowed set."""
+    if not allowed_ids:
+        return False
+    allowed = set(allowed_ids)
+    return any(sid in allowed for sid in sticker_ids)

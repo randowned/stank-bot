@@ -40,7 +40,7 @@ except ImportError:
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
 from stankbot.utils.emoji import emoji_specs_match
-from stankbot.utils.stank_match import sticker_name_matches
+from stankbot.utils.stank_match import sticker_id_matches, sticker_name_matches
 from stankbot.utils.time_utils import humanize_duration
 
 if TYPE_CHECKING:
@@ -72,8 +72,12 @@ _recent_messages = _RecentMessageIds()
 
 
 def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
-    """A 'stank' is a sticker whose name contains one of the altar's patterns
-    (comma-separated, case-insensitive substring), with no extra text.
+    """A 'stank' is a sticker whose ID is in ``altar.sticker_ids`` OR whose
+    name contains one of the altar's patterns (comma-separated, case-insensitive
+    substring), with no extra text.
+
+    ID matching takes priority; name matching is a deprecated fallback kept
+    for backward compatibility during the migration window.
 
     Text alongside the sticker is treated as noise (and will break an
     open chain via the listener's non-stank branch). Matching lives in
@@ -84,6 +88,10 @@ def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
         return False
     if not message.stickers:
         return False
+    # ID-based match first (primary path post-migration)
+    if sticker_id_matches(altar.sticker_ids, [s.id for s in message.stickers]):
+        return True
+    # Fallback: substring name match (deprecated, removed after PROD migration)
     return sticker_name_matches(
         altar.sticker_name_pattern, [s.name for s in message.stickers]
     )

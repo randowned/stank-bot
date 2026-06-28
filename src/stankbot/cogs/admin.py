@@ -759,6 +759,13 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
             "several. The first is the primary: the bot reacts with it and it "
             "renders as {stank_emoji} in templates."
         ),
+        sticker_ids=(
+            "Comma-separated sticker snowflake IDs for exact matching. "
+            "Overrides name matching when set. Use Dev Mode → right-click sticker to copy ID."
+        ),
+        display_sticker_id=(
+            "Single sticker ID used for embed thumbnail rendering (must be in sticker_ids list)."
+        ),
     )
     @requires_admin()
     async def altar_set(
@@ -767,6 +774,8 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
         channel: app_commands.AppCommandChannel,
         sticker_name: str = "stank",
         reaction_emoji: str | None = None,
+        sticker_ids: str | None = None,
+        display_sticker_id: str | None = None,
     ) -> None:
         if interaction.guild is None:
             return
@@ -801,6 +810,27 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
             await guilds_repo.ensure(
                 session, interaction.guild.id, interaction.guild.name
             )
+            # Parse sticker_ids string → list of ints
+            parsed_sticker_ids: list[int] | None = None
+            if sticker_ids:
+                try:
+                    parsed_sticker_ids = [int(x.strip()) for x in sticker_ids.split(",") if x.strip()]
+                except ValueError:
+                    await interaction.response.send_message(
+                        "`sticker_ids` must be comma-separated snowflake numbers.",
+                        ephemeral=True,
+                    )
+                    return
+            parsed_display_id: int | None = None
+            if display_sticker_id:
+                try:
+                    parsed_display_id = int(display_sticker_id.strip())
+                except ValueError:
+                    await interaction.response.send_message(
+                        "`display_sticker_id` must be a snowflake number.",
+                        ephemeral=True,
+                    )
+                    return
             altar_row, created = await altars_repo.upsert(
                 session,
                 guild_id=interaction.guild.id,
@@ -810,6 +840,8 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
                 reaction_emoji_name=primary["name"],
                 reaction_emoji_animated=primary["animated"],
                 reaction_emojis=reaction_emojis,
+                sticker_id=parsed_display_id,
+                sticker_ids=parsed_sticker_ids,
             )
             await audit_repo.append(
                 session,
@@ -828,9 +860,12 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
         verb = "Created" if created else "Updated"
         primary_desc = altar_row.display_name or "*(none)*"
         accepted = ", ".join(emoji_to_markup(s) for s in specs) or "*(none)*"
+        id_info = ""
+        if parsed_sticker_ids:
+            id_info = f"\n- sticker IDs: `{parsed_sticker_ids}`"
         await interaction.response.send_message(
             f"{verb} altar in {channel.mention}.\n"
-            f"- sticker pattern(s): `{pattern}`\n"
+            f"- sticker pattern(s): `{pattern}`{id_info}\n"
             f"- accepted reaction emoji: {accepted}\n"
             f"- `{{stank_emoji}}` in templates renders as {primary_desc}.",
             ephemeral=True,
@@ -879,9 +914,12 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
             )
             return
         reaction_desc = a.display_name or "*(none)*"
+        id_info = ""
+        if a.sticker_ids:
+            id_info = f"\n- sticker IDs: `{a.sticker_ids}`"
         await interaction.response.send_message(
             f"**Altar:** <#{a.channel_id}>\n"
-            f"- sticker pattern: `{a.sticker_name_pattern}`\n"
+            f"- sticker pattern: `{a.sticker_name_pattern}`{id_info}\n"
             f"- reaction emoji: {reaction_desc}\n"
             f"- enabled: {a.enabled}",
             ephemeral=True,
