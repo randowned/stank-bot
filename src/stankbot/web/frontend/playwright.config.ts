@@ -24,7 +24,7 @@ export default defineConfig({
 
 	webServer: [
 		{
-			command: 'npm run build && npm run preview',
+			command: 'npm run build && node ../../../../scripts/static-server.mjs',
 			url: 'http://localhost:4173',
 			reuseExistingServer: !process.env.CI,
 			timeout: process.env.CI ? 180000 : 60000
