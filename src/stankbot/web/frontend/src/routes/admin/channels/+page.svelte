@@ -13,15 +13,17 @@
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 
 	interface Altar {
-		id: number;
-		channel_id: string;
-		sticker_name_pattern: string;
-		sticker_id: string | null;
-		sticker_ids: number[];
-		reaction_emoji_name: string | null;
-		reaction_emoji_display: string | null;
-		enabled: boolean;
-	}
+		interface Altar {
+			id: number;
+			guild_id: string;
+			channel_id: string;
+			sticker_name_pattern: string;
+			sticker_id: string | null;
+			sticker_ids: number[];
+			reaction_emoji_name: string | null;
+			reaction_emoji_display: string | null;
+			enabled: boolean;
+		}
 
 	let altar = $state<Altar | null>(null);
 	let altarLoaded = $state(false);
@@ -154,7 +156,7 @@
 		<!-- Visual sticker picker (replaces the old pattern text field) -->
 		<FormField label="Stickers" hint="Select which stickers count as stanks. Click a sticker to toggle; use ★ to set the display sticker." for="altar-stickers">
 			<StickerPicker
-				guildId={altar?.guild_id ?? ''}
+				guildId={altar?.channel_id ?? ''}
 				selectedIds={selectedStickerIds}
 				displayStickerId={displayStickerId}
 				onchange={onStickerChange}

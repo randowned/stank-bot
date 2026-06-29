@@ -193,7 +193,7 @@
 					{#if isSelected && !isDisplay}
 						<button
 							type="button"
-							onclick|stopPropagation={() => id && setDisplay(id)}
+							onclick={(e: MouseEvent) => { e.stopPropagation(); id && setDisplay(id); }}
 							class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-background/80 hover:bg-background flex items-center justify-center text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity"
 							title="Set as display sticker"
 						>★</button>
