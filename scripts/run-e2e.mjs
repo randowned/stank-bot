@@ -108,6 +108,10 @@ async function main() {
     await killPort(5173);
     await new Promise((r) => setTimeout(r, 500));
 
+    // Ensure data/ directory exists for SQLite DB (gitignored, not in CI checkout)
+    const dataDir = resolve(repoRoot, 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
     // Start backend
     console.log('Starting backend (ENV=dev-mock)...');
     const env = { ...process.env, ENV: 'dev-mock', PYTHONPATH: resolve(repoRoot, 'src') };
