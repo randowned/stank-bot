@@ -379,12 +379,12 @@ async def guild_emojis(
 
     # Default Unicode emojis (synthetic, no IDs)
     if include_default:
-        _DEFAULT_EMOJIS = [
+        _default_emojis = [
             "😀", "😂", "🤣", "😍", "🥰", "😘", "😜", "🤩", "😎", "🤗",
             "👍", "👎", "👏", "🙌", "🔥", "💯", "🎉", "✨", "❤️", "💀",
             "😭", "😤", "🥺", "🤔", "🙄", "😬", "🤯", "🥳", "😈", "💩",
         ]
-        for glyph in _DEFAULT_EMOJIS:
+        for glyph in _default_emojis:
             emojis.append({
                 "id": None,
                 "name": glyph,
