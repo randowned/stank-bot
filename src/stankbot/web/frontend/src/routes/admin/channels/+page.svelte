@@ -9,6 +9,7 @@
 	import Input from '$lib/components/Input.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import RemovableItem from '$lib/components/RemovableItem.svelte';
+	import StickerPicker from '$lib/components/StickerPicker.svelte';
 	interface Altar {
 		id: number;
 		guild_id: string;
@@ -59,7 +60,7 @@
 		displayStickerId = data.displayStickerId;
 	}
 
-	let selectedEmojiIds = $state<number[]>([]);
+	let _selectedEmojiIds = $state<number[]>([]);
 
 	async function saveAltar() {
 		altarSaving = true;

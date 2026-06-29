@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { apiFetch } from '$lib/api';
 	import { toErrorMessage } from '$lib/api-utils';
-	import FormField from '$lib/components/FormField.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 
@@ -20,7 +19,7 @@
 	}
 
 	let {
-		guildId,
+		guildId: _guildId,
 		selectedIds = [],
 		onchange
 	}: Props = $props();

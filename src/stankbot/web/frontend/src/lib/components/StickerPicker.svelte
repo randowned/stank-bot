@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { apiFetch } from '$lib/api';
 	import { toErrorMessage } from '$lib/api-utils';
-	import Card from '$lib/components/Card.svelte';
-	import FormField from '$lib/components/FormField.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -22,7 +20,7 @@
 	}
 
 	let {
-		guildId,
+		guildId: _guildId,
 		selectedIds = [],
 		displayStickerId = null,
 		onchange
@@ -193,7 +191,7 @@
 					{#if isSelected && !isDisplay}
 						<button
 							type="button"
-							onclick={(e: MouseEvent) => { e.stopPropagation(); id && setDisplay(id); }}
+							onclick={(e: MouseEvent) => { e.stopPropagation(); if (id) setDisplay(id); }}
 							class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-background/80 hover:bg-background flex items-center justify-center text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity"
 							title="Set as display sticker"
 						>★</button>
