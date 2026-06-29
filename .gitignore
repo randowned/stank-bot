@@ -58,3 +58,6 @@ e2e-results.json
 # IDE
 .idea/
 .vscode/
+
+# Hermes agent workspace
+.hermes/

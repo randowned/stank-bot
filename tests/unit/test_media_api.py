@@ -5,6 +5,7 @@ compare_ids parameter added in v2.30.0.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -325,6 +326,16 @@ async def test_compare_endpoint_removed(
         resp = await client.get("/api/media/compare?ids=1,2&metric=view_count&hours=24")
 
     assert resp.status_code in (status.HTTP_404_NOT_FOUND, 422)
+
+
+@pytest.fixture(autouse=True)
+def _patch_chart_cache_dir(tmp_path: Path) -> None:
+    """Set CHART_CACHE_DIR to a temp dir so tests don't try to write to /data/media/chart."""
+    import stankbot.web.routes.media_api as media_api_mod
+
+    cache_dir = tmp_path / "media" / "chart"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    media_api_mod.CHART_CACHE_DIR = cache_dir
 
 
 @pytest.mark.asyncio
