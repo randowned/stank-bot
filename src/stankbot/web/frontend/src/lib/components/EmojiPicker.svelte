@@ -20,7 +20,7 @@
 
 	let {
 		guildId: _guildId,
-		selectedIds = [],
+		selectedIds: _selectedIds = [],
 		onchange
 	}: Props = $props();
 
@@ -32,7 +32,7 @@
 
 	// Track selection by emoji name for default emojis (no IDs), by ID for custom
 	let selectedNames = $state<Set<string>>(new Set());
-	let selectedIdSet = $state<Set<number>>(new Set(selectedIds.map(Number)));
+	let selectedIdSet = $state<Set<number>>(new Set(_selectedIds.map(Number)));
 
 	let dropdownEl = $state<HTMLDivElement>();
 

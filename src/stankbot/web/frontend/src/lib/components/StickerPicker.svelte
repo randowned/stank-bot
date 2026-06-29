@@ -21,8 +21,8 @@
 
 	let {
 		guildId: _guildId,
-		selectedIds = [],
-		displayStickerId = null,
+		selectedIds: _selectedIds = [],
+		displayStickerId: _displayStickerId = null,
 		onchange
 	}: Props = $props();
 
@@ -32,8 +32,8 @@
 	let showDefault = $state(false);
 	let search = $state('');
 
-	let selected = $state<Set<number>>(new Set(selectedIds.map(Number)));
-	let displayId = $state<number | null>(displayStickerId ? Number(displayStickerId) : null);
+	let selected = $state<Set<number>>(new Set(_selectedIds.map(Number)));
+	let displayId = $state<number | null>(_displayStickerId ? Number(_displayStickerId) : null);
 
 	async function loadStickers() {
 		loading = true;
@@ -189,12 +189,14 @@
 					{/if}
 					<!-- Display sticker star button -->
 					{#if isSelected && !isDisplay}
-						<button
-							type="button"
+						<div
+							role="button"
+							tabindex="0"
 							onclick={(e: MouseEvent) => { e.stopPropagation(); if (id) setDisplay(id); }}
-							class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-background/80 hover:bg-background flex items-center justify-center text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity"
+							onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); if (id) setDisplay(id); } }}
+							class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-background/80 hover:bg-background flex items-center justify-center text-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
 							title="Set as display sticker"
-						>★</button>
+						>★</div>
 					{/if}
 					{#if isDisplay}
 						<div class="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center">
