@@ -112,6 +112,16 @@ async function main() {
     const dataDir = resolve(repoRoot, 'data');
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
+    // Build frontend so the backend can serve the SPA directly
+    console.log('Building frontend...');
+    try {
+        execSync('npm run build', { cwd: frontendDir, stdio: 'pipe' });
+        console.log('Frontend build complete.');
+    } catch (err) {
+        console.error('Frontend build failed:', err.stderr?.toString() || err.message);
+        process.exit(1);
+    }
+
     // Start backend
     console.log('Starting backend (ENV=dev-mock)...');
     const env = { ...process.env, ENV: 'dev-mock', PYTHONPATH: resolve(repoRoot, 'src') };
