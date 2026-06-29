@@ -2,7 +2,7 @@
 // Starts the Python backend with health-check polling, runs Playwright,
 // and cleans up on exit. Backend output is written to a log file.
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
@@ -113,7 +113,19 @@ async function main() {
     const env = { ...process.env, ENV: 'dev-mock', PYTHONPATH: resolve(repoRoot, 'src') };
     const logStream = fs.createWriteStream(logFile, { flags: 'w' });
 
-    const backend = spawn('python', ['-m', 'stankbot'], {
+    // Detect uv for WSL/uv environments — fall back to bare python
+    let backendCmd = process.platform === 'win32' ? 'python' : 'python3';
+    let backendArgs = ['-m', 'stankbot'];
+    try {
+        execSync('uv --version', { stdio: 'ignore' });
+        backendCmd = 'uv';
+        backendArgs = ['run', 'python', '-m', 'stankbot'];
+        console.log('Using uv run for backend');
+    } catch {
+        console.log(`Using ${backendCmd} for backend`);
+    }
+
+    const backend = spawn(backendCmd, backendArgs, {
         cwd: repoRoot,
         env,
         stdio: ['ignore', 'pipe', 'pipe'],

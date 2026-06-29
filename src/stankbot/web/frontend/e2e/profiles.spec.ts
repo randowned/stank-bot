@@ -1,10 +1,10 @@
-import { test, expect } from './fixtures';
+import { test, expect, defaultUser } from './fixtures';
 
-const GUILD = 123456789;
+const GUILD = 123456812;
 
 test.describe('Profiles listing page', () => {
 	test.beforeEach(async ({ mockLogin, clearMedia }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await clearMedia();
 	});
 
@@ -275,26 +275,21 @@ test.describe('Profile detail page', () => {
 
 		// Open resolution dropdown (default 24h range) and select hourly
 		await page.getByTestId('profile-chart-resolution').click();
-		await page.waitForTimeout(300);
 		await page.getByRole('menuitem', { name: /Hourly/ }).click();
 
 		// With 24h range, daily should not be available in the dropdown
 		await page.getByTestId('profile-chart-resolution').click();
-		await page.waitForTimeout(300);
 		await expect(page.getByRole('menuitem', { name: /Hourly/ })).toBeVisible();
 		await expect(page.getByRole('menuitem', { name: /Daily/ })).not.toBeVisible();
 		await page.keyboard.press('Escape');
 
 		// Switch range to 7 days
 		await page.keyboard.press('Escape');
-		await page.waitForTimeout(500);
 		await page.getByTestId('profile-chart-range').click();
-		await page.waitForTimeout(300);
 		await page.getByRole('menuitem', { name: '7 days' }).click();
 
 		// Open resolution dropdown again — daily should now be available
 		await page.getByTestId('profile-chart-resolution').click();
-		await page.waitForTimeout(300);
 		await expect(page.getByRole('menuitem', { name: /Daily/ })).toBeVisible();
 		await expect(page.getByRole('menuitem', { name: /Hourly/ })).toBeVisible();
 	});

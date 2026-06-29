@@ -67,7 +67,9 @@
 		const defaultOptions: Record<string, unknown> = {
 			responsive: true,
 			maintainAspectRatio: false,
-			animation: { duration: 300 },
+			animation: typeof document !== 'undefined' && document.documentElement.classList.contains('e2e')
+				? false
+				: { duration: 300 },
 			interaction: { intersect: false, mode: 'index' },
 			plugins: {
 				legend: {

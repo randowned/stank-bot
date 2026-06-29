@@ -1,12 +1,13 @@
-import { test, expect, adminUser } from './fixtures';
+import { test, expect, adminUser, defaultUser } from './fixtures';
+
+const GUILD = 123456807;
 
 test.describe('Game events page', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(adminUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
 	test('events page shows stank and break entries after injection', async ({ page, injectStank, injectBreak }) => {
-		const GUILD = 123456789;
 		const STANKER = 7001;
 		const BREAKER = 7002;
 
@@ -22,7 +23,6 @@ test.describe('Game events page', () => {
 	});
 
 	test('events page shows reaction entries', async ({ page, injectStank, injectReaction }) => {
-		const GUILD = 123456789;
 		const STANKER = 8001;
 
 		const result = await injectStank(GUILD, STANKER, 'StankerUser');
@@ -34,7 +34,6 @@ test.describe('Game events page', () => {
 	});
 
 	test('grep filter narrows results by event type', async ({ page, injectStank, injectBreak }) => {
-		const GUILD = 123456789;
 		const STANKER = 9001;
 		const BREAKER = 9002;
 
@@ -72,7 +71,6 @@ test.describe('Game events page', () => {
 	});
 
 	test('new event appears via WebSocket after injection', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		await page.goto('/admin/events');
 		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
@@ -87,7 +85,6 @@ test.describe('Game events page', () => {
 	});
 
 	test('WS-injected event row shows a date in the When column', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		await page.goto('/admin/events');
 		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });

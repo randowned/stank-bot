@@ -154,3 +154,13 @@
 		padding-top: env(safe-area-inset-top);
 	}
 }
+
+/* Disable all animations and transitions during E2E tests */
+html.e2e *,
+html.e2e *::before,
+html.e2e *::after {
+	animation-duration: 0s !important;
+	animation-delay: 0s !important;
+	transition-duration: 0s !important;
+	transition-delay: 0s !important;
+}

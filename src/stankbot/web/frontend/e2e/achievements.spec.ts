@@ -1,16 +1,16 @@
 import { test, expect, defaultUser } from './fixtures';
 
-const GUILD = 123456789;
+const GUILD = 123456800;
 let idCounter = 0;
 
 function makeId(): number {
 	idCounter++;
-	return 90000 + (Date.now() % 10000) * 10 + idCounter;
+	return (GUILD * 10000) + (Date.now() % 10000) * 10 + idCounter;
 }
 
 test.describe('Achievement gallery on player profile', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(defaultUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
 	test('shows achievements gallery with unlocked and locked badges', async ({
@@ -23,7 +23,12 @@ test.describe('Achievement gallery on player profile', () => {
 		await injectAchievement({ guildId: GUILD, userId, achievementKey: 'first_stank', count: 1 });
 
 		await page.goto(`/player/${userId}`);
-		await expect(page.getByTestId('achievements-gallery')).toBeVisible({ timeout: 10000 });
+		// Wait for the player API response before asserting visibility
+		await page.waitForResponse(resp =>
+			resp.url().includes('/api/player/') && resp.status() === 200,
+			{ timeout: 10000 }
+		);
+		await expect(page.getByTestId('achievements-gallery')).toBeVisible();
 		await expect(page.getByTestId('achievements-summary')).toContainText('1 of ');
 
 		// The first_stank badge should be unlocked
@@ -48,7 +53,11 @@ test.describe('Achievement gallery on player profile', () => {
 		await injectAchievement({ guildId: GUILD, userId, achievementKey: 'fourth_place', count: 3 });
 
 		await page.goto(`/player/${userId}`);
-		await expect(page.getByTestId('achievements-gallery')).toBeVisible({ timeout: 10000 });
+		await page.waitForResponse(resp =>
+			resp.url().includes('/api/player/') && resp.status() === 200,
+			{ timeout: 10000 }
+		);
+		await expect(page.getByTestId('achievements-gallery')).toBeVisible();
 
 		// The fourth_place badge should show ×3 pill
 		const fourthBadge = page.getByTestId('achievement-item').filter({ hasText: 'Fourth Place' });
@@ -69,7 +78,11 @@ test.describe('Achievement gallery on player profile', () => {
 		await injectAchievement({ guildId: GUILD, userId, achievementKey: 'first_stank', count: 1 });
 
 		await page.goto(`/player/${userId}`);
-		await expect(page.getByTestId('achievements-gallery')).toBeVisible({ timeout: 10000 });
+		await page.waitForResponse(resp =>
+			resp.url().includes('/api/player/') && resp.status() === 200,
+			{ timeout: 10000 }
+		);
+		await expect(page.getByTestId('achievements-gallery')).toBeVisible();
 
 		// The first_stank badge should NOT have a count pill
 		const firstBadge = page.locator('[data-testid="achievement-item"][data-achievement-key="first_stank"]');
@@ -88,7 +101,11 @@ test.describe('Achievement gallery on player profile', () => {
 		await injectAchievement({ guildId: GUILD, userId, achievementKey: 'fourth_place', count: 1 });
 
 		await page.goto(`/player/${userId}`);
-		await expect(page.getByTestId('achievements-gallery')).toBeVisible({ timeout: 10000 });
+		await page.waitForResponse(resp =>
+			resp.url().includes('/api/player/') && resp.status() === 200,
+			{ timeout: 10000 }
+		);
+		await expect(page.getByTestId('achievements-gallery')).toBeVisible();
 
 		const fourthBadge = page.getByTestId('achievement-item').filter({ hasText: 'Fourth Place' });
 		await expect(fourthBadge).toBeVisible();
@@ -108,7 +125,11 @@ test.describe('Achievement gallery on player profile', () => {
 		await injectAchievement({ guildId: GUILD, userId, achievementKey: 'fourth_place', count: 2 });
 
 		await page.goto(`/player/${userId}`);
-		await expect(page.getByTestId('achievements-gallery')).toBeVisible({ timeout: 10000 });
+		await page.waitForResponse(resp =>
+			resp.url().includes('/api/player/') && resp.status() === 200,
+			{ timeout: 10000 }
+		);
+		await expect(page.getByTestId('achievements-gallery')).toBeVisible();
 
 		// Summary should say "3 of N unlocked"
 		await expect(page.getByTestId('achievements-summary')).toContainText('3 of ');
@@ -117,7 +138,7 @@ test.describe('Achievement gallery on player profile', () => {
 
 test.describe('Achievement unlock toast via WebSocket', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(defaultUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
 	test('achievement unlock toast fires via WebSocket broadcast', async ({

@@ -1,8 +1,10 @@
-import { test, expect } from './fixtures';
+import { test, expect, defaultUser } from './fixtures';
+
+const GUILD = 123456806;
 
 test.describe('Duration', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 	});
 
@@ -36,7 +38,6 @@ test.describe('Duration', () => {
 	});
 
 	test('chain detail page shows duration and tooltip', async ({ page, injectStank, injectBreak }) => {
-		const GUILD = 123456789;
 
 		await injectStank(GUILD, 10001, 'ChainUser');
 		await injectStank(GUILD, 10002, 'ChainUser2');
@@ -61,7 +62,6 @@ test.describe('Duration', () => {
 	});
 
 	test('chain detail has no Started/Ended footer', async ({ page, injectStank, injectBreak }) => {
-		const GUILD = 123456789;
 
 		await injectStank(GUILD, 20001, 'FooterUser');
 		await injectBreak(GUILD, 20099, 'FooterBreaker');

@@ -5,12 +5,19 @@ export default defineConfig({
 	fullyParallel: false,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: 1,
+	workers: 3,
 	reporter: 'html',
 
 	projects: [
 		{
+			name: 'smoke',
+			testMatch: /smoke\.spec\.ts/,
+			use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' }
+		},
+		{
 			name: 'e2e',
+			testMatch: /\.spec\.ts/,
+			testIgnore: /smoke\.spec\.ts/,
 			use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' }
 		}
 	],
@@ -20,7 +27,7 @@ export default defineConfig({
 			command: 'npm run dev',
 			url: 'http://localhost:5173',
 			reuseExistingServer: !process.env.CI,
-			timeout: 30000
+			timeout: process.env.CI ? 120000 : 30000
 		}
 	]
 });

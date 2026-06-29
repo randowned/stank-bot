@@ -1,8 +1,10 @@
-import { test, expect } from './fixtures';
+import { test, expect, defaultUser } from './fixtures';
+
+const GUILD = 123456804;
 
 test.describe('Board', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 	});
 
@@ -100,7 +102,6 @@ test.describe('Board', () => {
 		injectStank,
 		injectReaction
 	}) => {
-		const GUILD = 123456789;
 		const STANKER = 7001;
 		const REACTOR = 7002;
 
@@ -132,7 +133,6 @@ test.describe('Board', () => {
 		injectStank,
 		injectReaction
 	}) => {
-		const GUILD = 123456789;
 
 		// Create more than PAGE_SIZE (20) users to trigger pagination
 		for (let i = 0; i < 25; i++) {
@@ -145,8 +145,10 @@ test.describe('Board', () => {
 		// Scroll down to trigger infinite-scroll pagination
 		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
-		// Wait for pagination to load — either more rows appear or verify current rows have counters
-		await page.waitForTimeout(1500);
+		// Wait for pagination to load — check for the API response instead of sleeping
+		await page.waitForResponse(resp =>
+			resp.url().includes('/api/leaderboard') && resp.status() === 200
+		);
 
 		// Verify some rows show counters (stanks/reacted format)
 		const rowsWithCounters = page.locator('[data-testid="rank-row"]').filter({ hasText: /Stanks/ });
@@ -159,7 +161,6 @@ test.describe('Board', () => {
 		injectStank,
 		injectReaction
 	}) => {
-		const GUILD = 123456789;
 		const STANKER = 9001;
 		const REACTOR = 9002;
 
@@ -229,7 +230,6 @@ test.describe('Board', () => {
 		injectStank,
 		injectBreak
 	}) => {
-		const GUILD = 123456789;
 		const BASE = 400000;
 
 		// Build a chain of 3 unique stankers with IDs that won't conflict
@@ -252,7 +252,6 @@ test.describe('Board', () => {
 		injectBreak,
 		newSession
 	}) => {
-		const GUILD = 123456789;
 		const BASE = 500000;
 
 		// Build and break a chain of 3
@@ -289,7 +288,6 @@ test.describe('Board', () => {
 		injectBreak,
 		newSession
 	}) => {
-		const GUILD = 123456789;
 		const BASE = 600000;
 
 		// Build a chain of 15 — enough unique users to set a visible alltime record

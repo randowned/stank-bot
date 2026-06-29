@@ -87,6 +87,10 @@ export const test = base.extend<{
 			expect(response.ok()).toBeTruthy();
 			// Navigate first so evaluate runs in the correct origin
 			await page.goto('/');
+			// Disable animations for E2E — runs before any page JS
+			await page.addInitScript(() => {
+				document.documentElement.classList.add('e2e');
+			});
 			// Suppress version-mismatch toast by syncing localStorage version
 			const vResp = await page.request.get('/api/version');
 			const { version } = await vResp.json();

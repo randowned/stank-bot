@@ -1,10 +1,10 @@
 import { test, expect } from './fixtures';
 
-const GUILD = 123456789;
+const GUILD = 123456808;
 
 test.describe('Media admin page', () => {
 	test.beforeEach(async ({ mockLogin, clearMedia, page }) => {
-		await mockLogin({ user_id: 222222222, username: 'E2E Admin', is_global_admin: true, is_guild_admin: true });
+		await mockLogin({ guild: GUILD, user_id: 222222222, username: 'E2E Admin', is_global_admin: true, is_guild_admin: true });
 		await clearMedia();
 	});
 

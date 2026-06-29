@@ -1,9 +1,9 @@
-import { test, expect } from './fixtures';
+import { test, expect, defaultUser } from './fixtures';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-const GUILD = 123456789;
+const GUILD = 123456816;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SNAPSHOT_DIR = path.resolve(__dirname, '__snapshots__');
 
@@ -90,7 +90,7 @@ test.describe('Visual Audit', () => {
 		const findings: string[] = [];
 
 		// ---- Seed data once (outside viewport loop) ----
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 		await injectLeaderboardSeed({ guildId: GUILD, count: 22, prefix: 'AuditUser' });
 		await clearMedia();
@@ -117,7 +117,6 @@ test.describe('Visual Audit', () => {
 			// ---- Populated dashboard ----
 			await safeGoto(page, '/');
 			await page.waitForLoadState('domcontentloaded');
-			await page.waitForTimeout(500);
 			await page.screenshot({ path: shotPath('/populated', vp.name), fullPage: true });
 			await checkOverflow(page, '/ (populated)', vp.name, findings);
 
@@ -142,14 +141,12 @@ test.describe('Visual Audit', () => {
 			// ---- Media detail single chart ----
 			await safeGoto(page, `/media/${item1.id}`);
 			await page.waitForLoadState('domcontentloaded');
-			await page.waitForTimeout(800);
 			await page.screenshot({ path: shotPath('/media-detail', vp.name), fullPage: true });
 			await checkOverflow(page, '/media/:id', vp.name, findings);
 
 			// ---- Media detail compare mode ----
 			await safeGoto(page, `/media/${item1.id}?compare=${item2.id}&metric=view_count&days=2`);
 			await page.waitForLoadState('domcontentloaded');
-			await page.waitForTimeout(800);
 			await page.screenshot({ path: shotPath('/media-compare', vp.name), fullPage: true });
 			await checkOverflow(page, '/media/:id (compare)', vp.name, findings);
 
@@ -162,14 +159,12 @@ test.describe('Visual Audit', () => {
 			// ---- Admin settings ----
 			await safeGoto(page, '/admin/settings');
 			await page.waitForLoadState('domcontentloaded');
-			await page.waitForTimeout(500);
 			await page.screenshot({ path: shotPath('/admin-settings', vp.name), fullPage: true });
 			await checkOverflow(page, '/admin/settings', vp.name, findings);
 
 			// ---- Admin templates ----
 			await safeGoto(page, '/admin/templates');
 			await page.waitForLoadState('domcontentloaded');
-			await page.waitForTimeout(500);
 			await page.screenshot({ path: shotPath('/admin-templates', vp.name), fullPage: true });
 			await checkOverflow(page, '/admin/templates', vp.name, findings);
 

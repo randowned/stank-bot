@@ -1,16 +1,16 @@
 import { test, expect, defaultUser, adminUser } from './fixtures';
 
-const GUILD = 123456789;
+const GUILD = 123456811;
 let idCounter = 0;
 
 function makeId(): number {
 	idCounter++;
-	return 80000 + (Date.now() % 10000) * 10 + idCounter;
+	return (GUILD * 10000) + (Date.now() % 10000) * 10 + idCounter;
 }
 
 test.describe('Player profile session vs all-time', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(adminUser);
+		await mockLogin({ ...adminUser, guild: GUILD });
 	});
 
 	test('session and alltime show different values after activity in current session', async ({ page, injectStank, injectBreak, newSession }) => {

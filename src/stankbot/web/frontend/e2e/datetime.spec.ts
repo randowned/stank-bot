@@ -1,13 +1,14 @@
-import { test, expect, adminUser } from './fixtures';
+import { test, expect, adminUser, defaultUser } from './fixtures';
+
+const GUILD = 123456805;
 
 test.describe('Datetime serialization', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
-		await mockLogin(adminUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 	});
 
 	test('chain API response includes +00:00 in all datetime fields', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 		const STANKER = 6001;
 
 		const stank = await injectStank(GUILD, STANKER, 'TimeTestUser');
@@ -31,7 +32,6 @@ test.describe('Datetime serialization', () => {
 	});
 
 	test('session list API returns +00:00 in datetime fields', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 		const STANKER = 6002;
 
 		await injectStank(GUILD, STANKER, 'SessionTimeTest');
@@ -51,7 +51,6 @@ test.describe('Datetime serialization', () => {
 	});
 
 	test('player API returns +00:00 in last_stank_at', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 		const STANKER = 6003;
 
 		await injectStank(GUILD, STANKER, 'PlayerTimeTest');

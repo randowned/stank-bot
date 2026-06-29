@@ -1,13 +1,14 @@
-import { test, expect } from './fixtures';
+import { test, expect, defaultUser } from './fixtures';
+
+const GUILD = 123456810;
 
 test.describe('Player profile page', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 	});
 
 	test('player profile loads after stank injection', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 		const USER = 7001;
 
 		await injectStank(GUILD, USER, 'TestPlayer');
@@ -19,7 +20,6 @@ test.describe('Player profile page', () => {
 	});
 
 	test('player profile shows SP and PP values', async ({ page, injectStank, injectBreak }) => {
-		const GUILD = 123456789;
 		const STANKER = 7002;
 		const BREAKER = 7003;
 
@@ -32,7 +32,6 @@ test.describe('Player profile page', () => {
 	});
 
 	test('player profile shows avatar, rank badge, and streak', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 		const USER = 7010;
 
 		await injectStank(GUILD, USER, 'PlayerWithRank');
@@ -46,12 +45,11 @@ test.describe('Player profile page', () => {
 
 test.describe('Session detail page', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 	});
 
 	test('session detail page loads with session data', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		await injectStank(GUILD, 9001, 'SessionUser');
 
@@ -65,7 +63,6 @@ test.describe('Session detail page', () => {
 	});
 
 	test('session detail shows SP/PP totals', async ({ page, injectStank, injectBreak }) => {
-		const GUILD = 123456789;
 		const USER = 9010;
 
 		await injectStank(GUILD, USER, 'SPTestUser');
@@ -81,12 +78,11 @@ test.describe('Session detail page', () => {
 
 test.describe('Sessions list page', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 	});
 
 	test('sessions list shows entries after activity', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		await injectStank(GUILD, 10001, 'ListUser');
 		await page.goto('/sessions');
@@ -97,7 +93,6 @@ test.describe('Sessions list page', () => {
 	});
 
 	test('session list shows stat badges with SP/PP', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		await injectStank(GUILD, 10101, 'StatsUser');
 		await page.goto('/sessions');
@@ -115,12 +110,11 @@ test.describe('Sessions list page', () => {
 
 test.describe('Chain detail page', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await newSession();
 	});
 
 	test('chain page shows chain totals in subtitle', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		const stank1 = await injectStank(GUILD, 5001, 'ChainStanker');
 		const chainId = stank1.chain_id;
@@ -137,7 +131,6 @@ test.describe('Chain detail page', () => {
 	});
 
 	test('chain page shows timeline', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		const stank1 = await injectStank(GUILD, 5003, 'TimelineUser');
 		const chainId = stank1.chain_id;
@@ -154,7 +147,6 @@ test.describe('Chain detail page', () => {
 	});
 
 	test('chain page shows status banner', async ({ page, injectStank }) => {
-		const GUILD = 123456789;
 
 		const stank1 = await injectStank(GUILD, 5005, 'BannerUser');
 		const chainId = stank1.chain_id;
