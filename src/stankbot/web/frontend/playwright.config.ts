@@ -12,22 +12,22 @@ export default defineConfig({
 		{
 			name: 'smoke',
 			testMatch: /smoke\.spec\.ts/,
-			use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' }
+			use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4173' }
 		},
 		{
 			name: 'e2e',
 			testMatch: /\.spec\.ts/,
 			testIgnore: /smoke\.spec\.ts/,
-			use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' }
+			use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4173' }
 		}
 	],
 
 	webServer: [
 		{
-			command: 'npm run dev',
-			url: 'http://localhost:5173',
+			command: 'npm run build && npm run preview',
+			url: 'http://localhost:4173',
 			reuseExistingServer: !process.env.CI,
-			timeout: process.env.CI ? 120000 : 30000
+			timeout: process.env.CI ? 180000 : 60000
 		}
 	]
 });
