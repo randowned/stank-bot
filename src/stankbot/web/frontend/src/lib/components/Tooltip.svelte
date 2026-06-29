@@ -39,6 +39,7 @@
 <span
 	data-testid="tooltip-root"
 	tabindex="0"
+	role="button"
 	class="group relative inline-flex outline-none"
 >
 	{@render children()}

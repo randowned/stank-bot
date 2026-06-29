@@ -209,9 +209,15 @@ class Altar(Base):
     # Optional exact-sticker snowflake (kept for thumbnail rendering only).
     # Matching happens by name.
     sticker_id: Mapped[int | None] = mapped_column(BigInteger)
+    # ID-based matching: a sticker is a stank if its ID is in this JSON list.
+    # Replaces `sticker_name_pattern` once all guilds migrate. NULL = not yet
+    # configured; empty list = configured with no IDs (OR-fallback to name).
+    sticker_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     # Substring match (case-insensitive) against incoming sticker names. May
     # hold several comma-separated patterns — a sticker is a stank if ANY
     # pattern is a substring of its name. See utils.stank_match.
+    # DEPRECATED: superseded by `sticker_ids`. Kept as OR fallback until
+    # all guilds migrate; drop in a follow-up post-PROD migration.
     sticker_name_pattern: Mapped[str] = mapped_column(
         String(255), nullable=False, default="stank", server_default="stank"
     )

@@ -507,7 +507,8 @@
 
 	// Track last-fetched timestamp so the freshness pill updates in real-time
 	// and animates to "just now" when WS snapshots arrive.
-	let lastFetchedAt = $state<string | null | undefined>(item?.metrics_last_fetched_at);
+	const _initialFetchedAt = item?.metrics_last_fetched_at;
+	let lastFetchedAt = $state<string | null | undefined>(_initialFetchedAt);
 	$effect(() => {
 		if (item?.metrics_last_fetched_at) {
 			lastFetchedAt = item.metrics_last_fetched_at;

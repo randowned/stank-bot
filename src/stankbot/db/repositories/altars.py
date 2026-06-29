@@ -74,6 +74,7 @@ async def upsert(
     reaction_emoji_animated: bool = False,
     reaction_emojis: list | None = None,
     sticker_id: int | None = None,
+    sticker_ids: list[int] | None = None,
 ) -> tuple[Altar, bool]:
     """Create or update the guild's altar. Returns (altar, created).
 
@@ -99,6 +100,7 @@ async def upsert(
             reaction_emoji_animated=reaction_emoji_animated,
             reaction_emojis=reaction_emojis,
             sticker_id=sticker_id,
+            sticker_ids=sticker_ids,
             display_name=display_name,
         )
         session.add(altar)
@@ -113,6 +115,8 @@ async def upsert(
     altar.reaction_emojis = reaction_emojis
     if sticker_id is not None:
         altar.sticker_id = sticker_id
+    if sticker_ids is not None:
+        altar.sticker_ids = sticker_ids
     altar.display_name = display_name
     await session.flush()
     return altar, False
