@@ -6,11 +6,12 @@ breaks, and reactions for local development and Playwright E2E tests.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import delete, select, text
 
 from stankbot.db.engine import session_scope
 from stankbot.db.models import SessionEndReason
@@ -367,6 +368,107 @@ async def mock_achievement(
         {"ok": True, "achievement_key": achievement_key, "count": count},
         request,
     )
+
+
+@router.post("/db/reset")
+async def mock_db_reset(
+    request: Request,
+) -> MsgPackResponse:
+    """Reset all mock data — clears events, sessions, media, and derived rows.
+
+    Only available in dev-mock mode. Used between E2E spec files to prevent
+    cross-file data contamination (shared SQLite DB accumulates data).
+    Re-seeds the default guild/altar/players after clearing.
+    """
+    _dev_only(request)
+
+    from stankbot.db.models import (
+        Achievement,
+        Chain,
+        ChainMessage,
+        Cooldown,
+        Event,
+        Guild,
+        MediaItem,
+        MediaMilestone,
+        MediaOwner,
+        MediaOwnerMilestone,
+        MediaOwnerSnapshot,
+        MetricCache,
+        MetricSnapshot,
+        Player,
+        PlayerBadge,
+        PlayerChainTotal,
+        PlayerTotal,
+        ReactionAward,
+        Record,
+        TissueCount,
+    )
+
+    # Stop the random event generator so it doesn't re-insert during cleanup
+    gen = getattr(request.app.state, "_mock_event_generator", None)
+    if gen is not None:
+        with contextlib.suppress(Exception):
+            await gen.stop()
+
+    async with session_scope(request.app.state.session_factory) as session:
+        # Delete data tables — FK-safe order (children first)
+        tables = [
+            ReactionAward,
+            PlayerBadge,
+            ChainMessage,
+            MetricSnapshot,
+            MetricCache,
+            MediaMilestone,
+            MediaOwnerSnapshot,
+            MediaOwnerMilestone,
+            MediaOwner,
+            MediaItem,
+            TissueCount,
+            PlayerChainTotal,
+            PlayerTotal,
+            Cooldown,
+            Record,
+            Event,
+            Chain,
+            Player,
+            Achievement,
+            Guild,
+        ]
+        for table in tables:
+            await session.execute(delete(table))
+        # Reset auto-increment counters for clean IDs. sqlite_sequence is only
+        # created when at least one table uses INTEGER PRIMARY KEY AUTOINCREMENT;
+        # many tables in the schema don't, so guard with a table-existence check.
+        if request.app.state.config.database_url.startswith("sqlite"):
+            existing_seqs = {
+                row[0]
+                for row in (
+                    await session.execute(
+                        text(
+                            "SELECT name FROM sqlite_master "
+                            "WHERE type='table' AND name='sqlite_sequence'"
+                        )
+                    )
+                ).fetchall()
+            }
+            if existing_seqs:
+                for table in tables:
+                    if table.__tablename__ in existing_seqs:
+                        await session.execute(
+                            text(
+                                f"DELETE FROM sqlite_sequence "
+                                f"WHERE name='{table.__tablename__}'"
+                            )
+                        )
+
+    # Re-seed the base guild structure for the next test
+    config = request.app.state.config
+    bridge = _get_bridge(request)
+    guild_id = config.mock_default_guild_id or config.default_guild_id
+    await bridge.ensure_guild(guild_id)
+
+    return MsgPackResponse({"success": True}, request)
 
 
 @router.post("/achievement-broadcast")

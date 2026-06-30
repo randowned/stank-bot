@@ -2,7 +2,7 @@
 // Starts the Python backend with health-check polling, runs Playwright,
 // and cleans up on exit. Backend output is written to a log file.
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
@@ -108,12 +108,38 @@ async function main() {
     await killPort(5173);
     await new Promise((r) => setTimeout(r, 500));
 
+    // Ensure data/ directory exists for SQLite DB (gitignored, not in CI checkout)
+    const dataDir = resolve(repoRoot, 'data');
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+    // Build frontend so the backend can serve the SPA directly
+    console.log('Building frontend...');
+    try {
+        execSync('npm run build', { cwd: frontendDir, stdio: 'pipe' });
+        console.log('Frontend build complete.');
+    } catch (err) {
+        console.error('Frontend build failed:', err.stderr?.toString() || err.message);
+        process.exit(1);
+    }
+
     // Start backend
     console.log('Starting backend (ENV=dev-mock)...');
     const env = { ...process.env, ENV: 'dev-mock', PYTHONPATH: resolve(repoRoot, 'src') };
     const logStream = fs.createWriteStream(logFile, { flags: 'w' });
 
-    const backend = spawn('python', ['-m', 'stankbot'], {
+    // Detect uv for WSL/uv environments — fall back to bare python
+    let backendCmd = process.platform === 'win32' ? 'python' : 'python3';
+    let backendArgs = ['-m', 'stankbot'];
+    try {
+        execSync('uv --version', { stdio: 'ignore' });
+        backendCmd = 'uv';
+        backendArgs = ['run', 'python', '-m', 'stankbot'];
+        console.log('Using uv run for backend');
+    } catch {
+        console.log(`Using ${backendCmd} for backend`);
+    }
+
+    const backend = spawn(backendCmd, backendArgs, {
         cwd: repoRoot,
         env,
         stdio: ['ignore', 'pipe', 'pipe'],

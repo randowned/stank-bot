@@ -2,6 +2,20 @@ import { test as base, expect as baseExpect, type Page } from '@playwright/test'
 
 export const expect = baseExpect;
 
+// ---- Per-test DB reset to prevent cross-test data contamination ----
+// With workers=1, spec files run sequentially in one worker. The shared
+// SQLite mock DB accumulates data across tests within the same file,
+// causing assertion failures (e.g. achievement count "2 of 10" instead of
+// "1 of 10"). This resets the mock backend DB before every single test.
+
+base.beforeEach(async ({ request }) => {
+  try {
+    await request.post('http://127.0.0.1:8000/api/mock/db/reset');
+  } catch {
+    // Backend may not be ready yet — first reset can race startup
+  }
+});
+
 async function waitForBackend(page: Page, timeoutMs = 10000): Promise<void> {
 	const started = Date.now();
 	while (Date.now() - started < timeoutMs) {
@@ -11,7 +25,7 @@ async function waitForBackend(page: Page, timeoutMs = 10000): Promise<void> {
 		} catch {
 			// backend not reachable yet
 		}
-		await new Promise((r) => setTimeout(r, 250));
+		await new Promise((r) => setTimeout(r, 100));
 	}
 	throw new Error(
 		`Backend not reachable at /ping after ${timeoutMs}ms. ` +
@@ -64,7 +78,8 @@ export interface BotGuild {
 export const test = base.extend<{
 	mockLogin: (user?: MockUser) => Promise<void>;
 	mockBotGuilds: (guilds: BotGuild[]) => Promise<void>;
-	newSession: () => Promise<void>;
+	newSession: (guild?: number) => Promise<void>;
+	resetDb: () => Promise<void>;
 	injectStank: (guildId: number, userId: number, displayName: string) => Promise<void>;
 	injectBreak: (guildId: number, userId: number, displayName: string) => Promise<void>;
 	injectReaction: (guildId: number, messageId: number, userId: number) => Promise<void>;
@@ -87,6 +102,10 @@ export const test = base.extend<{
 			expect(response.ok()).toBeTruthy();
 			// Navigate first so evaluate runs in the correct origin
 			await page.goto('/');
+			// Disable animations for E2E — runs before any page JS
+			await page.addInitScript(() => {
+				document.documentElement.classList.add('e2e');
+			});
 			// Suppress version-mismatch toast by syncing localStorage version
 			const vResp = await page.request.get('/api/version');
 			const { version } = await vResp.json();
@@ -116,10 +135,26 @@ export const test = base.extend<{
 	},
 
 	newSession: async ({ page }, use) => {
+		// Optional GUILD override — tests that work on a non-default guild must pass it.
+		let activeGuild: number | undefined;
+		await use(async (guild?: number) => {
+			activeGuild = guild;
+			const body = guild ? { guild_id: guild } : {};
+			// Break any active chain so the counter resets to 0, then start a new session.
+			// Mock endpoints commit before returning the response — no client-side wait needed.
+			await page.request.post('/api/mock/break', { data: body });
+			await page.request.post('/api/mock/session/end', { data: body });
+			// Wait for the reloaded page to finish its CSR fetches. The page varies
+			// by test (board, player profile, dashboard), so we wait for networkidle
+			// rather than a specific endpoint.
+			await page.reload();
+			await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null);
+		});
+	},
+
+	resetDb: async ({ page }, use) => {
 		await use(async () => {
-			// Break any active chain so the counter resets to 0, then start a new session
-			await page.request.post('/api/mock/break', { data: {} });
-			await page.request.post('/api/mock/session/end', { data: {} });
+			await page.request.post('/api/mock/db/reset');
 			await page.reload();
 		});
 	},

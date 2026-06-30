@@ -1,20 +1,20 @@
 import { test, expect, defaultUser, adminUser } from './fixtures';
 
-const GUILD = 123456789;
+const GUILD = 123456811;
 let idCounter = 0;
 
 function makeId(): number {
 	idCounter++;
-	return 80000 + (Date.now() % 10000) * 10 + idCounter;
+	return (GUILD * 10000) + (Date.now() % 10000) * 10 + idCounter;
 }
 
 test.describe('Player profile session vs all-time', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(adminUser);
+		await mockLogin({ ...adminUser, guild: GUILD });
 	});
 
 	test('session and alltime show different values after activity in current session', async ({ page, injectStank, injectBreak, newSession }) => {
-		await newSession();
+		await newSession(GUILD);
 
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'TestPlayer');
@@ -31,7 +31,7 @@ test.describe('Player profile session vs all-time', () => {
 	});
 
 	test('session stats reflect activity in current session only', async ({ page, injectStank, newSession }) => {
-		await newSession();
+		await newSession(GUILD);
 
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'SessionPlayer');
@@ -59,7 +59,8 @@ test.describe('Player profile session vs all-time', () => {
 		expect(alltimeSpBefore).not.toBe('0');
 		expect(alltimePpBefore).not.toBe('0');
 
-		await newSession();
+		// Pass GUILD: newSession() defaults to mock guild 123456789, not the test's guild.
+		await newSession(GUILD);
 
 		await injectStank(GUILD, userId, 'Accumulator2');
 		await page.goto(`/player/${userId}`);
@@ -70,7 +71,7 @@ test.describe('Player profile session vs all-time', () => {
 	});
 
 	test('after rebuild-from-db, session and alltime still differ correctly', async ({ page, injectStank, newSession }) => {
-		await newSession();
+		await newSession(GUILD);
 
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'RebuildTestUser');
@@ -119,7 +120,7 @@ test.describe('Player profile session vs all-time', () => {
 
 test.describe('Player profile page loads', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(defaultUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
 	test('player profile page renders for existing player', async ({ page, injectStank }) => {
@@ -139,7 +140,7 @@ test.describe('Player profile page loads', () => {
 
 test.describe('Player profile new features', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(defaultUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
 	test('avatar and rank badge are visible for active player', async ({ page, injectStank }) => {

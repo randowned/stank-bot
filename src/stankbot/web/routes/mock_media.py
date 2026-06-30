@@ -17,6 +17,8 @@ from sqlalchemy import delete, select
 from stankbot.db.engine import session_scope
 from stankbot.db.models import (
     MediaItem,
+    MediaOwner,
+    MediaOwnerSnapshot,
     MetricCache,
     MetricSnapshot,
 )
@@ -64,6 +66,23 @@ async def mock_clear_media(
             await session.execute(
                 delete(MediaItem).where(MediaItem.guild_id == payload.guild_id)
             )
+
+        # Delete orphan owner snapshots + owners that no media item references
+        # (owners are global but each test should start with a clean slate).
+        await session.execute(
+            delete(MediaOwnerSnapshot).where(
+                ~MediaOwnerSnapshot.media_owner_id.in_(
+                    select(MediaItem.id).where(MediaItem.channel_id == MediaOwner.external_id)
+                )
+            )
+        )
+        await session.execute(
+            delete(MediaOwner).where(
+                ~MediaOwner.id.in_(
+                    select(MediaItem.id).where(MediaItem.channel_id == MediaOwner.external_id)
+                )
+            )
+        )
 
     return MsgPackResponse({"success": True}, request)
 
