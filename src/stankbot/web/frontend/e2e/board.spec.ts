@@ -29,7 +29,7 @@ test.describe('Board', () => {
 
 		await expect(page.locator('[data-testid="chain-counter"]')).toHaveText(/^0 /);
 
-		await injectStank(123456789, 111, 'Alice');
+		await injectStank(GUILD, 111, 'Alice');
 
 		await expect(page.locator('[data-testid="chain-counter"]')).toHaveText(/^1 /);
 	});
@@ -69,12 +69,12 @@ test.describe('Board', () => {
 			/Receiving live updates/
 		);
 
-		await injectStank(123456789, 111, 'Alice');
-		await injectStank(123456789, 222, 'Bob');
+		await injectStank(GUILD, 111, 'Alice');
+		await injectStank(GUILD, 222, 'Bob');
 
 		await expect(page.locator('[data-testid="chain-counter"]')).toHaveText(/^2 /);
 
-		await injectBreak(123456789, 333, 'Charlie');
+		await injectBreak(GUILD, 333, 'Charlie');
 
 		await expect(page.locator('[data-testid="chain-counter"]')).toHaveText(/^0 /);
 	});
@@ -88,7 +88,7 @@ test.describe('Board', () => {
 		const liveUserId = Date.now() % 1_000_000_000;
 		const liveUser = `LiveUpdate_${liveUserId}`;
 
-		await injectStank(123456789, liveUserId, liveUser);
+		await injectStank(GUILD, liveUserId, liveUser);
 
 		const row = page.locator(`[data-testid="rank-row"][href$="/player/${liveUserId}"]`);
 		await expect(row).toBeVisible({ timeout: 5000 });
