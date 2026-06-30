@@ -5,7 +5,7 @@ const GUILD = 123456806;
 test.describe('Duration', () => {
 	test.beforeEach(async ({ mockLogin, newSession }) => {
 		await mockLogin({ ...defaultUser, guild: GUILD });
-		await newSession();
+		await newSession(GUILD);
 	});
 
 	test('dashboard shows countdown in 2-unit format', async ({ page }) => {

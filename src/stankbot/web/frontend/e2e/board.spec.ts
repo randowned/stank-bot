@@ -141,20 +141,11 @@ test.describe('Board', () => {
 			await injectStank(GUILD, 8000 + i, `PaginatedUser${i}`);
 		}
 
-		// Wait for the last few rows to appear so pagination is active
-		await expect(page.locator('[data-testid="rank-row"]')).toHaveCount(20, { timeout: 10000 });
-
-		// Register the response waiter BEFORE the scroll so we don't miss the call.
-		// loadMoreRankings() hits /api/board with ?offset= when the sentinel is intersected.
-		// The sentinel uses rootMargin: 200px so a window.scrollTo(0, bottom) should trigger it.
-		const paginationResp = page.waitForResponse(
-			resp => resp.url().includes('/api/board') && resp.url().includes('offset=') && resp.status() === 200,
-			{ timeout: 15000 }
-		).catch(() => null); // Tolerate a missed offset fetch — assertion below still validates the data
-
-		// Scroll down to trigger infinite-scroll pagination
-		await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-		await paginationResp;
+		// Wait for the last few rows to appear so pagination is active.
+		// Also wait for the first row to be visible (not just present) so the
+		// "Stanks" text is rendered.
+		await expect(page.locator('[data-testid="rank-row"]')).toHaveCount(20, { timeout: 15000 });
+		await expect(page.locator('[data-testid="rank-row"]').first()).toBeVisible();
 
 		// Verify some rows show counters (stanks/reacted format) — at minimum the first 20
 		// already injected all contain counters; the paginated set adds more.

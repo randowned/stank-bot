@@ -144,7 +144,11 @@ export const test = base.extend<{
 			// Mock endpoints commit before returning the response — no client-side wait needed.
 			await page.request.post('/api/mock/break', { data: body });
 			await page.request.post('/api/mock/session/end', { data: body });
+			// Wait for the board API to respond after reload so the page renders fresh state
+			// (without this, tests can race the page's CSR fetch and read stale "—" / "3/3").
+			const boardResp = page.waitForResponse(r => r.url().includes('/api/board'), { timeout: 10000 });
 			await page.reload();
+			await boardResp;
 		});
 	},
 
