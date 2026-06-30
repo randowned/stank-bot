@@ -6,6 +6,7 @@ breaks, and reactions for local development and Playwright E2E tests.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -407,10 +408,8 @@ async def mock_db_reset(
     # Stop the random event generator so it doesn't re-insert during cleanup
     gen = getattr(request.app.state, "_mock_event_generator", None)
     if gen is not None:
-        try:
+        with contextlib.suppress(Exception):
             await gen.stop()
-        except Exception:
-            pass
 
     async with session_scope(request.app.state.session_factory) as session:
         # Delete data tables — FK-safe order (children first)
