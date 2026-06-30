@@ -65,7 +65,7 @@ test.describe('Profiles listing page', () => {
 
 test.describe('Profile detail page', () => {
 	test.beforeEach(async ({ mockLogin, clearMedia }) => {
-		await mockLogin();
+		await mockLogin({ ...defaultUser, guild: GUILD });
 		await clearMedia();
 	});
 

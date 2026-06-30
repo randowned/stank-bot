@@ -437,12 +437,30 @@ async def mock_db_reset(
         ]
         for table in tables:
             await session.execute(delete(table))
-        # Reset auto-increment counters for clean IDs
+        # Reset auto-increment counters for clean IDs. sqlite_sequence is only
+        # created when at least one table uses INTEGER PRIMARY KEY AUTOINCREMENT;
+        # many tables in the schema don't, so guard with a table-existence check.
         if request.app.state.config.database_url.startswith("sqlite"):
-            for table in tables:
-                await session.execute(
-                    text(f"DELETE FROM sqlite_sequence WHERE name='{table.__tablename__}'")
-                )
+            existing_seqs = {
+                row[0]
+                for row in (
+                    await session.execute(
+                        text(
+                            "SELECT name FROM sqlite_master "
+                            "WHERE type='table' AND name='sqlite_sequence'"
+                        )
+                    )
+                ).fetchall()
+            }
+            if existing_seqs:
+                for table in tables:
+                    if table.__tablename__ in existing_seqs:
+                        await session.execute(
+                            text(
+                                f"DELETE FROM sqlite_sequence "
+                                f"WHERE name='{table.__tablename__}'"
+                            )
+                        )
 
     # Re-seed the base guild structure for the next test
     config = request.app.state.config

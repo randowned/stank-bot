@@ -25,7 +25,7 @@ async function waitForBackend(page: Page, timeoutMs = 10000): Promise<void> {
 		} catch {
 			// backend not reachable yet
 		}
-		await new Promise((r) => setTimeout(r, 250));
+		await new Promise((r) => setTimeout(r, 100));
 	}
 	throw new Error(
 		`Backend not reachable at /ping after ${timeoutMs}ms. ` +
@@ -78,7 +78,7 @@ export interface BotGuild {
 export const test = base.extend<{
 	mockLogin: (user?: MockUser) => Promise<void>;
 	mockBotGuilds: (guilds: BotGuild[]) => Promise<void>;
-	newSession: () => Promise<void>;
+	newSession: (guild?: number) => Promise<void>;
 	resetDb: () => Promise<void>;
 	injectStank: (guildId: number, userId: number, displayName: string) => Promise<void>;
 	injectBreak: (guildId: number, userId: number, displayName: string) => Promise<void>;
@@ -135,10 +135,15 @@ export const test = base.extend<{
 	},
 
 	newSession: async ({ page }, use) => {
-		await use(async () => {
-			// Break any active chain so the counter resets to 0, then start a new session
-			await page.request.post('/api/mock/break', { data: {} });
-			await page.request.post('/api/mock/session/end', { data: {} });
+		// Optional GUILD override — tests that work on a non-default guild must pass it.
+		let activeGuild: number | undefined;
+		await use(async (guild?: number) => {
+			activeGuild = guild;
+			const body = guild ? { guild_id: guild } : {};
+			// Break any active chain so the counter resets to 0, then start a new session.
+			// Mock endpoints commit before returning the response — no client-side wait needed.
+			await page.request.post('/api/mock/break', { data: body });
+			await page.request.post('/api/mock/session/end', { data: body });
 			await page.reload();
 		});
 	},

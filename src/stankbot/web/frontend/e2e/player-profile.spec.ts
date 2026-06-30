@@ -119,7 +119,7 @@ test.describe('Player profile session vs all-time', () => {
 
 test.describe('Player profile page loads', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(defaultUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
 	test('player profile page renders for existing player', async ({ page, injectStank }) => {
@@ -139,7 +139,7 @@ test.describe('Player profile page loads', () => {
 
 test.describe('Player profile new features', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin(defaultUser);
+		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
 	test('avatar and rank badge are visible for active player', async ({ page, injectStank }) => {

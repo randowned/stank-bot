@@ -51,12 +51,15 @@ test.describe('Smoke: Core pages', () => {
 		await expect(page.getByTestId('live-badge')).toHaveAttribute('title', /Receiving live updates/, { timeout: 5000 });
 	});
 
-	test('guild switcher works', async ({ page, mockBotGuilds }) => {
+	test('guild switcher works', async ({ page, mockBotGuilds, mockLogin }) => {
 		await mockBotGuilds([
 			{ id: 123456789, name: 'Alpha Server' },
 			{ id: 987654321, name: 'Beta Server' }
 		]);
-		const switcher = page.getByTestId('guild-switcher');
+		await mockLogin({ ...adminUser, guild: 123456789 });
+		// The guild switcher lives inside the user menu — open it and verify the toggle is present.
+		await page.locator('[data-testid="user-menu-trigger"]').click();
+		const switcher = page.getByTestId('guild-switcher-toggle');
 		await expect(switcher).toBeVisible({ timeout: 5000 });
 	});
 });

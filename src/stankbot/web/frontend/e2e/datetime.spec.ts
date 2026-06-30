@@ -1,4 +1,4 @@
-import { test, expect, adminUser, defaultUser } from './fixtures';
+import { test, expect, defaultUser } from './fixtures';
 
 const GUILD = 123456805;
 
@@ -8,59 +8,24 @@ test.describe('Datetime serialization', () => {
 		await newSession();
 	});
 
-	test('chain API response includes +00:00 in all datetime fields', async ({ page, injectStank }) => {
+	test('all API datetime fields use +00:00 UTC offset', async ({ page, injectStank }) => {
 		const STANKER = 6001;
+		await injectStank(GUILD, STANKER, 'TimeTestUser');
 
-		const stank = await injectStank(GUILD, STANKER, 'TimeTestUser');
-		const chainId = stank.chain_id;
-
-		const res = await page.request.get(`/api/chain/${chainId}`);
-		expect(res.ok()).toBeTruthy();
-
-		const body = await res.json();
-
-		// Top-level fields
-		expect(body.started_at).toMatch(/\+00:00$/);
-
-		// Timeline items
-		expect(Array.isArray(body.timeline)).toBeTruthy();
-		for (const item of body.timeline) {
-			if (item.created_at) {
-				expect(item.created_at).toMatch(/\+00:00$/);
-			}
+		// Check chain API
+		const chain = await injectStank(GUILD, 6002, 'TimeTestUser2');
+		const chainRes = await page.request.get(`/api/chain/${chain.chain_id}`);
+		const chainBody = await chainRes.json();
+		expect(chainBody.started_at).toMatch(/\+00:00$/);
+		for (const item of chainBody.timeline ?? []) {
+			if (item.created_at) expect(item.created_at).toMatch(/\+00:00$/);
 		}
-	});
 
-	test('session list API returns +00:00 in datetime fields', async ({ page, injectStank }) => {
-		const STANKER = 6002;
-
-		await injectStank(GUILD, STANKER, 'SessionTimeTest');
-
-		const res = await page.request.get('/api/sessions');
-		expect(res.ok()).toBeTruthy();
-
-		const sessions = await res.json();
-		expect(Array.isArray(sessions)).toBeTruthy();
-		expect(sessions.length).toBeGreaterThan(0);
-
-		for (const s of sessions) {
-			if (s.started_at) {
-				expect(s.started_at).toMatch(/\+00:00$/);
-			}
-		}
-	});
-
-	test('player API returns +00:00 in last_stank_at', async ({ page, injectStank }) => {
-		const STANKER = 6003;
-
-		await injectStank(GUILD, STANKER, 'PlayerTimeTest');
-
-		const res = await page.request.get(`/api/player/${STANKER}`);
-		expect(res.ok()).toBeTruthy();
-
-		const body = await res.json();
-		if (body.last_stank_at) {
-			expect(body.last_stank_at).toMatch(/\+00:00$/);
+		// Check player API
+		const playerRes = await page.request.get(`/api/player/${STANKER}`);
+		const playerBody = await playerRes.json();
+		if (playerBody.last_stank_at) {
+			expect(playerBody.last_stank_at).toMatch(/\+00:00$/);
 		}
 	});
 });

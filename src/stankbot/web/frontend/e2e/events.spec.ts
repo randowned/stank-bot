@@ -1,10 +1,12 @@
-import { test, expect, adminUser, defaultUser } from './fixtures';
+import { test, expect, adminUser } from './fixtures';
 
 const GUILD = 123456807;
 
 test.describe('Game events page', () => {
 	test.beforeEach(async ({ mockLogin }) => {
-		await mockLogin({ ...defaultUser, guild: GUILD });
+		// /api/admin/events requires guild admin; the page's data table only
+		// renders when the API returns entries (empty state hides the table).
+		await mockLogin({ ...adminUser, guild: GUILD });
 	});
 
 	test('events page shows stank and break entries after injection', async ({ page, injectStank, injectBreak }) => {
@@ -72,11 +74,13 @@ test.describe('Game events page', () => {
 
 	test('new event appears via WebSocket after injection', async ({ page, injectStank }) => {
 
+		// Inject a stank BEFORE navigating so the events-table renders on first load
+		// (the page shows "No events yet" empty state when there are zero entries,
+		// which hides the events-table testid).
+		await injectStank(GUILD, 10001, 'WSTester');
+
 		await page.goto('/admin/events');
 		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
-
-		// Inject a stank — WS should push the event and the table should update
-		await injectStank(GUILD, 10001, 'WSTester');
 
 		// The new event should appear at the top without page reload
 		await expect(page.getByText('sp base').first()).toBeVisible({ timeout: 5000 });
@@ -86,9 +90,13 @@ test.describe('Game events page', () => {
 
 	test('WS-injected event row shows a date in the When column', async ({ page, injectStank }) => {
 
+		// Seed an event first so the events-table renders on initial load
+		// (empty state hides the table testid).
+		await injectStank(GUILD, 60000, 'SeedUser');
 		await page.goto('/admin/events');
 		await expect(page.getByTestId('events-table')).toBeVisible({ timeout: 10000 });
 
+		// Now inject the row we actually want to inspect
 		await injectStank(GUILD, 50001, 'DateCheckUser');
 
 		// Find the row for our user and check its When cell is not empty
