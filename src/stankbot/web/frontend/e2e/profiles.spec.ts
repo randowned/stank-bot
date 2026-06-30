@@ -38,7 +38,10 @@ test.describe('Profiles listing page', () => {
 
 	test('profile card shows metrics and tracked count', async ({ page, injectMedia }) => {
 		await injectMedia({ guildId: GUILD, slug: 'profile-metrics', historyDays: 7 });
+		// Wait for the profiles API before checking for the card (avoids parallel-load race).
+		const profilesResp = page.waitForResponse(r => r.url().includes('/api/media/profiles') && r.status() === 200);
 		await page.goto('/media/profiles');
+		await profilesResp;
 		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
 
 		const card = page.getByTestId('profile-card').first();
@@ -76,7 +79,10 @@ test.describe('Profile detail page', () => {
 
 	test('shows cover photo hero with name and provider', async ({ page, injectMedia }) => {
 		await injectMedia({ guildId: GUILD, slug: 'profile-hero', historyDays: 7 });
+		// Wait for the profiles API before checking for the card (avoids parallel-load race).
+		const profilesResp = page.waitForResponse(r => r.url().includes('/api/media/profiles') && r.status() === 200);
 		await page.goto('/media/profiles');
+		await profilesResp;
 		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
 		await page.getByTestId('profile-card').first().click();
 		await expect(page).toHaveURL(/\/media\/profile\//);
@@ -130,7 +136,10 @@ test.describe('Profile detail page', () => {
 
 	test('clicking tracked media item navigates to media detail', async ({ page, injectMedia }) => {
 		const { id } = await injectMedia({ guildId: GUILD, slug: 'profile-to-media', historyDays: 7 });
+		// Wait for the profiles API before checking for the card (avoids parallel-load race).
+		const profilesResp = page.waitForResponse(r => r.url().includes('/api/media/profiles') && r.status() === 200);
 		await page.goto('/media/profiles');
+		await profilesResp;
 		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
 		await page.getByTestId('profile-card').first().click();
 
@@ -141,7 +150,10 @@ test.describe('Profile detail page', () => {
 
 	test('back to profiles link navigates correctly', async ({ page, injectMedia }) => {
 		await injectMedia({ guildId: GUILD, slug: 'profile-back', historyDays: 7 });
+		// Wait for the profiles API before checking for the card (avoids parallel-load race).
+		const profilesResp = page.waitForResponse(r => r.url().includes('/api/media/profiles') && r.status() === 200);
 		await page.goto('/media/profiles');
+		await profilesResp;
 		await expect(page.getByTestId('profile-card')).toBeVisible({ timeout: 10000 });
 		await page.getByTestId('profile-card').first().click();
 

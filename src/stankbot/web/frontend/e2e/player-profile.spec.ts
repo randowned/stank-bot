@@ -14,7 +14,7 @@ test.describe('Player profile session vs all-time', () => {
 	});
 
 	test('session and alltime show different values after activity in current session', async ({ page, injectStank, injectBreak, newSession }) => {
-		await newSession();
+		await newSession(GUILD);
 
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'TestPlayer');
@@ -31,7 +31,7 @@ test.describe('Player profile session vs all-time', () => {
 	});
 
 	test('session stats reflect activity in current session only', async ({ page, injectStank, newSession }) => {
-		await newSession();
+		await newSession(GUILD);
 
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'SessionPlayer');
@@ -59,7 +59,8 @@ test.describe('Player profile session vs all-time', () => {
 		expect(alltimeSpBefore).not.toBe('0');
 		expect(alltimePpBefore).not.toBe('0');
 
-		await newSession();
+		// Pass GUILD: newSession() defaults to mock guild 123456789, not the test's guild.
+		await newSession(GUILD);
 
 		await injectStank(GUILD, userId, 'Accumulator2');
 		await page.goto(`/player/${userId}`);
@@ -70,7 +71,7 @@ test.describe('Player profile session vs all-time', () => {
 	});
 
 	test('after rebuild-from-db, session and alltime still differ correctly', async ({ page, injectStank, newSession }) => {
-		await newSession();
+		await newSession(GUILD);
 
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'RebuildTestUser');
