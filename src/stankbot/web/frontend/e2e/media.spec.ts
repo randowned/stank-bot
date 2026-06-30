@@ -47,7 +47,10 @@ test.describe('Media page', () => {
 
 	test('shows media cards after injection', async ({ page, injectMedia }) => {
 		await injectMedia({ guildId: GUILD, slug: 'my-test-video', historyDays: 7 });
+		// Wait for the media API before checking for the card (avoids parallel-load race).
+		const mediaResp = page.waitForResponse(r => r.url().includes('/api/media') && r.url().endsWith('/api/media') && r.status() === 200);
 		await page.goto('/media');
+		await mediaResp;
 		await expect(page.getByTestId('page-header')).toBeVisible();
 		await expect(page.getByTestId('media-card')).toBeVisible({ timeout: 10000 });
 	});

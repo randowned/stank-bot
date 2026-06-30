@@ -64,6 +64,8 @@ test.describe('Board', () => {
 	});
 
 	test('chain break resets counter', async ({ page, injectStank, injectBreak }) => {
+		// Wait for the board page to fully load before injecting (avoids parallel-load race).
+		await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null);
 		await expect(page.locator('[data-testid="live-badge"]')).toHaveAttribute(
 			'title',
 			/Receiving live updates/
@@ -241,7 +243,10 @@ test.skip('random events update the board', async ({ page, startRandomEvents, st
 		await injectBreak(GUILD, BASE + 99, 'RecordBreaker');
 
 		// Record tiles only refresh on page load/reload (not via WS).
+		// Wait for the board API after reload so the tiles show the latest record.
+		const boardResp = page.waitForResponse(r => r.url().includes('/api/board') && r.status() === 200, { timeout: 10000 });
 		await page.reload();
+		await boardResp;
 
 		const sessionVal = page.locator('[data-testid="tile-session"]').locator('div').first();
 		await expect(sessionVal).toHaveText(/^3 \/ 3/);
@@ -260,9 +265,11 @@ test.skip('random events update the board', async ({ page, startRandomEvents, st
 		await injectStank(GUILD, BASE + 2, 'RollUserB');
 		await injectStank(GUILD, BASE + 3, 'RollUserC');
 		await injectBreak(GUILD, BASE + 99, 'RollBreaker');
+		// After chain break + reload, session tile shows the chain record.
+		// Wait for the board API after reload so the tiles show the latest record.
+		const boardAfterReload = page.waitForResponse(r => r.url().includes('/api/board') && r.status() === 200, { timeout: 10000 });
 		await page.reload();
-
-		// After chain break + reload, session tile shows the chain record
+		await boardAfterReload;
 		const sessionVal1 = page.locator('[data-testid="tile-session"]').locator('div').first();
 		await expect(sessionVal1).toHaveText(/^3 \/ 3/);
 

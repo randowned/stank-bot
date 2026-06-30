@@ -20,11 +20,13 @@ test.describe('Achievement gallery on player profile', () => {
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'AchievementPlayer');
 
-		await page.goto(`/player/${userId}`);
-		await page.waitForResponse(resp =>
+		// Register the response waiter BEFORE the goto so we don't miss the call.
+		const playerResp = page.waitForResponse(resp =>
 			resp.url().includes('/api/player/') && resp.status() === 200,
 			{ timeout: 10000 }
 		);
+		await page.goto(`/player/${userId}`);
+		await playerResp;
 		await expect(page.getByTestId('achievements-gallery')).toBeVisible();
 		// injectStank auto-awards BOTH first_stank AND chain_starter (the user
 		// is also the chain starter). Expect 2 unlocked.
