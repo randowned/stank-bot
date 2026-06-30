@@ -2,22 +2,17 @@ import { test as base, expect as baseExpect, type Page } from '@playwright/test'
 
 export const expect = baseExpect;
 
-// ---- Per-file DB reset to prevent cross-file data contamination ----
+// ---- Per-test DB reset to prevent cross-test data contamination ----
 // With workers=1, spec files run sequentially in one worker. The shared
-// SQLite mock DB accumulates data across files, causing assertion failures
-// (e.g. achievement count "2 of 10" instead of "1 of 10"). This resets the
-// mock backend DB whenever a new spec file starts.
+// SQLite mock DB accumulates data across tests within the same file,
+// causing assertion failures (e.g. achievement count "2 of 10" instead of
+// "1 of 10"). This resets the mock backend DB before every single test.
 
-let lastResetFile: string | undefined;
-
-base.beforeEach(async ({ request }, testInfo) => {
-  if (testInfo.file !== lastResetFile) {
-    lastResetFile = testInfo.file;
-    try {
-      await request.post('http://127.0.0.1:8000/api/mock/db/reset');
-    } catch {
-      // Backend may not be ready yet — first-file reset can race startup
-    }
+base.beforeEach(async ({ request }) => {
+  try {
+    await request.post('http://127.0.0.1:8000/api/mock/db/reset');
+  } catch {
+    // Backend may not be ready yet — first reset can race startup
   }
 });
 
@@ -84,6 +79,7 @@ export const test = base.extend<{
 	mockLogin: (user?: MockUser) => Promise<void>;
 	mockBotGuilds: (guilds: BotGuild[]) => Promise<void>;
 	newSession: () => Promise<void>;
+	resetDb: () => Promise<void>;
 	injectStank: (guildId: number, userId: number, displayName: string) => Promise<void>;
 	injectBreak: (guildId: number, userId: number, displayName: string) => Promise<void>;
 	injectReaction: (guildId: number, messageId: number, userId: number) => Promise<void>;
@@ -143,6 +139,13 @@ export const test = base.extend<{
 			// Break any active chain so the counter resets to 0, then start a new session
 			await page.request.post('/api/mock/break', { data: {} });
 			await page.request.post('/api/mock/session/end', { data: {} });
+			await page.reload();
+		});
+	},
+
+	resetDb: async ({ page }, use) => {
+		await use(async () => {
+			await page.request.post('/api/mock/db/reset');
 			await page.reload();
 		});
 	},

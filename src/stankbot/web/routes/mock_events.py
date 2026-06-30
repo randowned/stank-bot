@@ -377,6 +377,7 @@ async def mock_db_reset(
 
     Only available in dev-mock mode. Used between E2E spec files to prevent
     cross-file data contamination (shared SQLite DB accumulates data).
+    Re-seeds the default guild/altar/players after clearing.
     """
     _dev_only(request)
 
@@ -402,6 +403,14 @@ async def mock_db_reset(
         Record,
         TissueCount,
     )
+
+    # Stop the random event generator so it doesn't re-insert during cleanup
+    gen = getattr(request.app.state, "_mock_event_generator", None)
+    if gen is not None:
+        try:
+            await gen.stop()
+        except Exception:
+            pass
 
     async with session_scope(request.app.state.session_factory) as session:
         # Delete data tables — FK-safe order (children first)
@@ -435,6 +444,12 @@ async def mock_db_reset(
                 await session.execute(
                     text(f"DELETE FROM sqlite_sequence WHERE name='{table.__tablename__}'")
                 )
+
+    # Re-seed the base guild structure for the next test
+    config = request.app.state.config
+    bridge = _get_bridge(request)
+    guild_id = config.mock_default_guild_id or config.default_guild_id
+    await bridge.ensure_guild(guild_id)
 
     return MsgPackResponse({"success": True}, request)
 

@@ -35,16 +35,8 @@ test.describe('Admin templates preview', () => {
 });
 
 test.describe('Admin admins page', () => {
-	test.beforeEach(async ({ mockLogin, page }) => {
+	test.beforeEach(async ({ mockLogin }) => {
 		await mockLogin(adminUser);
-		// Clean up any stale admin roles/users from previous runs
-		const doc = await page.request.get('/api/admin/roles').then((r) => r.json()).catch(() => ({ role_ids: [], global_user_ids: [] }));
-		for (const uid of doc.global_user_ids || []) {
-			await page.request.post('/api/admin/roles/users/remove', { data: { user_id: Number(uid) } }).catch(() => {});
-		}
-		for (const rid of doc.role_ids || []) {
-			await page.request.post('/api/admin/roles/remove', { data: { role_id: Number(rid) } }).catch(() => {});
-		}
 	});
 
 	test('renders page with heading and content', async ({ page }) => {
