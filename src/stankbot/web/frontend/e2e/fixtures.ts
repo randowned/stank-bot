@@ -2,6 +2,25 @@ import { test as base, expect as baseExpect, type Page } from '@playwright/test'
 
 export const expect = baseExpect;
 
+// ---- Per-file DB reset to prevent cross-file data contamination ----
+// With workers=1, spec files run sequentially in one worker. The shared
+// SQLite mock DB accumulates data across files, causing assertion failures
+// (e.g. achievement count "2 of 10" instead of "1 of 10"). This resets the
+// mock backend DB whenever a new spec file starts.
+
+let lastResetFile: string | undefined;
+
+base.beforeEach(async ({ request }, testInfo) => {
+  if (testInfo.file !== lastResetFile) {
+    lastResetFile = testInfo.file;
+    try {
+      await request.post('http://127.0.0.1:8000/api/mock/db/reset');
+    } catch {
+      // Backend may not be ready yet — first-file reset can race startup
+    }
+  }
+});
+
 async function waitForBackend(page: Page, timeoutMs = 10000): Promise<void> {
 	const started = Date.now();
 	while (Date.now() - started < timeoutMs) {

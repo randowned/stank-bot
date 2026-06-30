@@ -10,7 +10,7 @@ import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import delete, select, text
 
 from stankbot.db.engine import session_scope
 from stankbot.db.models import SessionEndReason
@@ -367,6 +367,76 @@ async def mock_achievement(
         {"ok": True, "achievement_key": achievement_key, "count": count},
         request,
     )
+
+
+@router.post("/db/reset")
+async def mock_db_reset(
+    request: Request,
+) -> MsgPackResponse:
+    """Reset all mock data — clears events, sessions, media, and derived rows.
+
+    Only available in dev-mock mode. Used between E2E spec files to prevent
+    cross-file data contamination (shared SQLite DB accumulates data).
+    """
+    _dev_only(request)
+
+    from stankbot.db.models import (
+        Achievement,
+        Chain,
+        ChainMessage,
+        Cooldown,
+        Event,
+        Guild,
+        MediaItem,
+        MediaMilestone,
+        MediaOwner,
+        MediaOwnerMilestone,
+        MediaOwnerSnapshot,
+        MetricCache,
+        MetricSnapshot,
+        Player,
+        PlayerBadge,
+        PlayerChainTotal,
+        PlayerTotal,
+        ReactionAward,
+        Record,
+        TissueCount,
+    )
+
+    async with session_scope(request.app.state.session_factory) as session:
+        # Delete data tables — FK-safe order (children first)
+        tables = [
+            ReactionAward,
+            PlayerBadge,
+            ChainMessage,
+            MetricSnapshot,
+            MetricCache,
+            MediaMilestone,
+            MediaOwnerSnapshot,
+            MediaOwnerMilestone,
+            MediaOwner,
+            MediaItem,
+            TissueCount,
+            PlayerChainTotal,
+            PlayerTotal,
+            Cooldown,
+            Record,
+            Event,
+            Chain,
+            Player,
+            Achievement,
+            Guild,
+        ]
+        for table in tables:
+            await session.execute(delete(table))
+        # Reset auto-increment counters for clean IDs
+        if request.app.state.config.database_url.startswith("sqlite"):
+            for table in tables:
+                await session.execute(
+                    text(f"DELETE FROM sqlite_sequence WHERE name='{table.__tablename__}'")
+                )
+
+    return MsgPackResponse({"success": True}, request)
 
 
 @router.post("/achievement-broadcast")
