@@ -56,16 +56,8 @@
 		}
 	}
 
-	function onValidStickersChange(data: { stickerIds: number[]; displayStickerId: number | null }) {
-		selectedStickerIds = data.stickerIds;
-		// Clear display sticker if it's no longer in valid set
-		if (displayStickerId && !data.stickerIds.includes(displayStickerId)) {
-			displayStickerId = null;
-		}
-	}
-
-	function onDisplayStickerChange(data: { stickerIds: number[]; displayStickerId: number | null }) {
-		displayStickerId = data.displayStickerId;
+	function onValidStickersChange(stickerIds: number[]) {
+		selectedStickerIds = stickerIds;
 	}
 
 	async function saveAltar() {
