@@ -31,7 +31,6 @@
 	let pattern = $state('stank');
 	let emoji = $state('');
 	let selectedStickerIds = $state<number[]>([]);
-	let displayStickerId = $state<number | null>(null);
 
 	let channelIds = $state<string[]>([]);
 	let newChannel = $state('');
@@ -47,7 +46,6 @@
 				pattern = altar.sticker_name_pattern;
 				emoji = altar.reaction_emoji_display ?? '';
 				selectedStickerIds = altar.sticker_ids ?? [];
-				displayStickerId = altar.sticker_id ? Number(altar.sticker_id) : null;
 			}
 		} catch (err) {
 			altarMsg = toErrorMessage(err, 'Failed to load');
@@ -68,7 +66,7 @@
 				channel_id: channelId.trim(),
 				sticker_pattern: pattern,
 				sticker_ids: selectedStickerIds.length > 0 ? selectedStickerIds : null,
-				display_sticker_id: displayStickerId,
+				display_sticker_id: selectedStickerIds.length > 0 ? selectedStickerIds[0] : null,
 				reaction_emoji: emoji || null
 			});
 			await loadAltar();
@@ -149,28 +147,14 @@
 		</FormField>
 
 		<!-- Valid stickers (multi-select) -->
-		<FormField label="Valid stank stickers" hint="Select which stickers count as stanks. Click to toggle." for="altar-stickers">
+		<FormField label="Valid stank stickers" hint="Select which stickers count as stanks. The first selected sticker is the display sticker shown on leaderboards." for="altar-stickers">
 			<StickerPicker
 				guildId={altar?.guild_id ?? ''}
 				selectedIds={selectedStickerIds}
-				mode="multi"
 				onchange={onValidStickersChange}
 			/>
 		</FormField>
 
-		<!-- Display sticker (single-select from valid stickers) -->
-		{#if selectedStickerIds.length > 0}
-			<FormField label="Display sticker" hint="The sticker shown on leaderboards and embeds. Pick one from the valid set." for="altar-display-sticker">
-				<StickerPicker
-					guildId={altar?.guild_id ?? ''}
-					selectedIds={displayStickerId ? [displayStickerId] : []}
-					displayStickerId={displayStickerId}
-					validStickerIds={selectedStickerIds}
-					mode="single"
-					onchange={onDisplayStickerChange}
-				/>
-			</FormField>
-		{/if}
 
 		<!-- Advanced: show current sticker_name_pattern for transition UX -->
 		{#if pattern && pattern !== 'stank'}
