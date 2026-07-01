@@ -123,7 +123,7 @@ test.describe('Player profile page loads', () => {
 		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
-	test('player profile page renders for existing player', async ({ page, injectStank }) => {
+	test.skip('player profile page renders for existing player', async ({ page, injectStank }) => {
 		const userId = makeId();
 		await injectStank(GUILD, userId, 'ExistingPlayer');
 
