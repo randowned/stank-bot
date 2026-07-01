@@ -198,10 +198,20 @@
 
 <div bind:this={dropdownEl} class="relative">
 	<!-- Search input (autocomplete trigger) -->
-	<button
-		type="button"
+	<div
+		role="combobox"
+		aria-expanded={open}
+		aria-controls="emoji-dropdown"
+		tabindex="0"
 		class="w-full flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-transparent min-h-[42px] cursor-text"
 		onclick={() => { open = true; searchInputEl?.focus(); }}
+		onkeydown={(e: KeyboardEvent) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				open = !open;
+				if (open) searchInputEl?.focus();
+			}
+		}}
 	>
 		<div class="flex flex-wrap gap-1 flex-1 items-center">
 			<!-- Selected emoji chips -->
@@ -212,11 +222,13 @@
 					{:else}
 						{emoji.name}
 					{/if}
-					<button
-						type="button"
+					<span
+						role="button"
+						tabindex="0"
 						onclick={(e: MouseEvent) => { e.stopPropagation(); removeEmoji(idx); }}
-						class="ml-0.5 hover:text-danger text-muted"
-					>&times;</button>
+						onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); removeEmoji(idx); } }}
+						class="ml-0.5 hover:text-danger text-muted cursor-pointer"
+					>&times;</span>
 				</span>
 			{/each}
 			<input
@@ -228,11 +240,11 @@
 			/>
 		</div>
 		<span class="text-muted text-xs flex-shrink-0">{open ? '▲' : '▼'}</span>
-	</button>
+	</div>
 
 	<!-- Dropdown -->
 	{#if open}
-		<div class="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg">
+		<div id="emoji-dropdown" class="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg">
 			<div class="px-3 py-2 border-b border-border">
 				<Toggle label="Include default emojis" checked={showDefault} onchange={(v: boolean) => { showDefault = v; loadEmojis(); }} />
 			</div>
