@@ -30,11 +30,11 @@
 	let error = $state<string | null>(null);
 	let search = $state('');
 
-	let selected = $state<Set<number>>(new Set(_selectedIds.map(Number)));
+	let selected = $state(new SvelteSet<number>(_selectedIds.map(Number)));
 
 	// Sync from parent when prop changes (e.g., after save/reload)
 	$effect(() => {
-		const incoming = new Set(_selectedIds.map(Number));
+		const incoming = new SvelteSet<number>(_selectedIds.map(Number));
 		if (incoming.size !== selected.size || [...incoming].some(id => !selected.has(id))) {
 			selected = incoming;
 		}
