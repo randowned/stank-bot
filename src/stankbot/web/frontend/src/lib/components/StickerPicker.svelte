@@ -34,9 +34,10 @@
 
 	// Sync from parent when prop changes (e.g., after save/reload)
 	$effect(() => {
-		const incoming = new SvelteSet<number>(_selectedIds.map(Number));
+		const incoming = new Set<number>(_selectedIds.map(Number));
 		if (incoming.size !== selected.size || [...incoming].some(id => !selected.has(id))) {
-			selected = incoming;
+			selected.clear();
+			for (const id of incoming) selected.add(id);
 		}
 	});
 
