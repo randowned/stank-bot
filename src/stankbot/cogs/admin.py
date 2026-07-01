@@ -28,6 +28,7 @@ from stankbot.services import embed_builders
 from stankbot.services.permission_service import PermissionService
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
+from stankbot.services.template_engine import RenderContext, render_embed, substitute
 from stankbot.utils.emoji import emoji_to_markup, parse_reaction_emojis
 
 if TYPE_CHECKING:

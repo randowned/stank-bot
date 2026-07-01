@@ -17,6 +17,7 @@ Kind = Literal[
     "admin",
     "admin_settings",
     "admin_altar",
+    "admin_wiki",
     "admin_roles",
     "admin_audit",
     "admin_announcements",
@@ -60,6 +61,8 @@ def dashboard_url_for(
         return f"{base}/admin/settings"
     if kind == "admin_altar":
         return f"{base}/admin/altar"
+    if kind == "admin_wiki":
+        return f"{base}/admin/wiki"
     if kind == "admin_roles":
         return f"{base}/admin/roles"
     if kind == "admin_audit":
