@@ -4,6 +4,7 @@
 	import Input from '$lib/components/Input.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import { filterStickers, filterByValidIds } from '$lib/utils/sticker-selection';
 
 	interface Sticker {
 		id: string;
@@ -113,16 +114,12 @@
 		loadStickers();
 	});
 
-	let filtered = $derived(
-		search.trim()
-			? stickers.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
-			: stickers
-	);
+	let filtered = $derived(filterStickers(stickers, search));
 
 	// In single mode, only show stickers in the valid set
 	let eligible = $derived(
 		mode === 'single'
-			? filtered.filter(s => validStickerIds.includes(Number(s.id)))
+			? filterByValidIds(filtered, validStickerIds)
 			: filtered
 	);
 

@@ -3,6 +3,7 @@
 	import { toErrorMessage } from '$lib/api-utils';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import { parseEmojiValue, buildEmojiTag, type ParsedEmoji } from '$lib/utils/emoji-parser';
 
 	interface Emoji {
 		id: string | null;
@@ -12,12 +13,8 @@
 		type: 'custom' | 'default';
 	}
 
-	interface SelectedEmoji {
-		id: string | null;
-		name: string;
+	interface SelectedEmoji extends ParsedEmoji {
 		image_url: string | null;
-		type: 'custom' | 'default';
-		animated?: boolean;
 	}
 
 	interface Props {
@@ -38,40 +35,12 @@
 	let showDefault = $state(false);
 	let search = $state('');
 
-	let selected = $state<SelectedEmoji[]>(parseValue(_value));
+	let selected = $state<SelectedEmoji[]>(parseEmojiValue(_value).map(e => ({ ...e, image_url: null })));
 
 	// Dropdown state
 	let open = $state(false);
 	let dropdownEl = $state<HTMLDivElement>();
 	let searchInputEl = $state<HTMLInputElement>();
-
-	// --- Parse initial value into selected emojis ---------------------------
-
-	function parseValue(raw: string): SelectedEmoji[] {
-		if (!raw.trim()) return [];
-		const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
-		const results: SelectedEmoji[] = [];
-		for (const p of parts) {
-			const match = p.match(/^<(a?):([^:]+):(\d+)>$/);
-			if (match) {
-				results.push({
-					id: match[3],
-					name: match[2],
-					image_url: null, // populated from emoji list later
-					type: 'custom',
-					animated: match[1] === 'a'
-				});
-			} else {
-				results.push({
-					id: null,
-					name: p,
-					image_url: null,
-					type: 'default'
-				});
-			}
-		}
-		return results;
-	}
 
 	// --- Load emojis from API --------------------------------------------
 
@@ -104,21 +73,8 @@
 
 	// --- Emit the tag string to parent -----------------------------------
 
-	function buildTag(emojis: SelectedEmoji[]): string {
-		const parts: string[] = [];
-		for (const e of emojis) {
-			if (e.type === 'custom' && e.id) {
-				const prefix = e.animated ? 'a' : '';
-				parts.push(`<${prefix}:${e.name}:${e.id}>`);
-			} else {
-				parts.push(e.name);
-			}
-		}
-		return parts.join(', ');
-	}
-
 	function emit() {
-		onchange?.(buildTag(selected));
+		onchange?.(buildEmojiTag(selected));
 	}
 
 	// --- Selection -------------------------------------------------------
@@ -174,11 +130,11 @@
 
 	// Sync from external value prop changes (e.g., parent load)
 	$effect(() => {
-		const newParsed = parseValue(_value);
+		const newParsed = parseEmojiValue(_value);
 		// Only sync if the external value has genuinely changed
-		const currentTag = buildTag(selected);
-		if (_value !== currentTag && newParsed.length !== selected.length || _value !== buildTag(newParsed)) {
-			selected = newParsed;
+		const currentTag = buildEmojiTag(selected);
+		if (_value !== currentTag && newParsed.length !== selected.length || _value !== buildEmojiTag(newParsed)) {
+			selected = newParsed.map(e => ({ ...e, image_url: null }));
 			patchSelectedImages();
 		}
 	});
