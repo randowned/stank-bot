@@ -34,7 +34,6 @@
 	let stickers = $state<Sticker[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let showDefault = $state(false);
 	let search = $state('');
 
 	let selected = $state<Set<number>>(new Set(_selectedIds.map(Number)));
@@ -45,7 +44,7 @@
 		error = null;
 		try {
 			const res = await apiFetch<{ stickers: Sticker[] }>(
-				`/api/admin/guild-stickers?include_default=${showDefault}`
+				`/api/admin/guild-stickers`
 			);
 			stickers = res.stickers;
 			// Clear selections for stickers that no longer exist
@@ -74,8 +73,10 @@
 	function toggleSticker(id: number) {
 		if (selected.has(id)) {
 			selected.delete(id);
+			if (displayId === id) displayId = null;
 		} else {
 			selected.add(id);
+			if (displayId === null) displayId = id;
 		}
 		emit();
 	}
