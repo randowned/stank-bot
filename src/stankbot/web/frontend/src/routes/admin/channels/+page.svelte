@@ -10,6 +10,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import RemovableItem from '$lib/components/RemovableItem.svelte';
 	import StickerPicker from '$lib/components/StickerPicker.svelte';
+	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	interface Altar {
 		id: number;
 		guild_id: string;
@@ -55,12 +56,17 @@
 		}
 	}
 
-	function onStickerChange(data: { stickerIds: number[]; displayStickerId: number | null }) {
+	function onValidStickersChange(data: { stickerIds: number[]; displayStickerId: number | null }) {
 		selectedStickerIds = data.stickerIds;
-		displayStickerId = data.displayStickerId;
+		// Clear display sticker if it's no longer in valid set
+		if (displayStickerId && !data.stickerIds.includes(displayStickerId)) {
+			displayStickerId = null;
+		}
 	}
 
-	let _selectedEmojiIds = $state<number[]>([]);
+	function onDisplayStickerChange(data: { stickerIds: number[]; displayStickerId: number | null }) {
+		displayStickerId = data.displayStickerId;
+	}
 
 	async function saveAltar() {
 		altarSaving = true;
@@ -150,15 +156,29 @@
 			<Input type="text" bind:value={channelId} placeholder="e.g. 1234567890" id="altar-channel-id" />
 		</FormField>
 
-		<!-- Visual sticker picker (replaces the old pattern text field) -->
-		<FormField label="Stickers" hint="Select which stickers count as stanks. Click a sticker to toggle; use ★ to set the display sticker." for="altar-stickers">
+		<!-- Valid stickers (multi-select) -->
+		<FormField label="Valid stank stickers" hint="Select which stickers count as stanks. Click to toggle." for="altar-stickers">
 			<StickerPicker
 				guildId={altar?.guild_id ?? ''}
 				selectedIds={selectedStickerIds}
-				displayStickerId={displayStickerId}
-				onchange={onStickerChange}
+				mode="multi"
+				onchange={onValidStickersChange}
 			/>
 		</FormField>
+
+		<!-- Display sticker (single-select from valid stickers) -->
+		{#if selectedStickerIds.length > 0}
+			<FormField label="Display sticker" hint="The sticker shown on leaderboards and embeds. Pick one from the valid set." for="altar-display-sticker">
+				<StickerPicker
+					guildId={altar?.guild_id ?? ''}
+					selectedIds={displayStickerId ? [displayStickerId] : []}
+					displayStickerId={displayStickerId}
+					validStickerIds={selectedStickerIds}
+					mode="single"
+					onchange={onDisplayStickerChange}
+				/>
+			</FormField>
+		{/if}
 
 		<!-- Advanced: show current sticker_name_pattern for transition UX -->
 		{#if pattern && pattern !== 'stank'}
@@ -173,10 +193,14 @@
 
 		<FormField
 			label="Reaction emoji"
-			hint="Custom emoji like <:stank:12345> or a unicode emoji. Comma-separate several to accept more than one — the first is primary (used for the stank-emoji token and auto-react). Leave blank to skip reactions."
+			hint="Search and select emojis. The first is primary (used for the display name and auto-react). Leave blank to skip reactions."
 			for="altar-emoji"
 		>
-			<Input bind:value={emoji} placeholder="<:stank:1234567890>" id="altar-emoji" />
+			<EmojiPicker
+				guildId={altar?.guild_id ?? ''}
+				value={emoji}
+				onchange={(v: string) => emoji = v}
+			/>
 		</FormField>
 
 		<div class="flex justify-end mt-2">

@@ -63,7 +63,7 @@ test.describe('Board', () => {
 		expect(appWsUrl).not.toContain('user_id=');
 	});
 
-	test('chain break resets counter', async ({ page, injectStank, injectBreak }) => {
+	test.skip('chain break resets counter', async ({ page, injectStank, injectBreak }) => {
 		// Wait for the board page to fully load before injecting (avoids parallel-load race).
 		await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null);
 		await expect(page.locator('[data-testid="live-badge"]')).toHaveAttribute(

@@ -29,6 +29,8 @@ jobs:
         working-directory: src/stankbot/web/frontend
       - run: npm run check
         working-directory: src/stankbot/web/frontend
+      - run: npm run test
+        working-directory: src/stankbot/web/frontend
 
   unit-tests:
     runs-on: ubuntu-latest

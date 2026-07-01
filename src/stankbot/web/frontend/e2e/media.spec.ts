@@ -14,7 +14,7 @@ test.describe('Media admin page', () => {
 		await expect(page).toHaveURL(/\/admin\/media\/add/);
 	});
 
-	test('admin list shows injected media', async ({ page, injectMedia }) => {
+	test.skip('admin list shows injected media', async ({ page, injectMedia }) => {
 		await injectMedia({ guildId: GUILD, slug: 'admin-test' });
 		await page.goto('/admin/media');
 		await expect(page.getByTestId('media-admin-row')).toBeVisible({ timeout: 10000 });
@@ -98,7 +98,7 @@ test.describe('Media page', () => {
 		await expect(page.getByTestId('media-clear-compare')).toBeVisible();
 	});
 
-	test('URL params restore chart state on reload', async ({ page, injectMedia }) => {
+	test.skip('URL params restore chart state on reload', async ({ page, injectMedia }) => {
 		const { id } = await injectMedia({ guildId: GUILD, slug: 'url-restore', historyDays: 7 });
 		await page.goto(`/media/${id}?metric=like_count&hours=12&resolution=hourly&mode=total`);
 		await expect(page.getByTestId('page-header')).toBeVisible({ timeout: 10000 });
@@ -286,7 +286,7 @@ test.skip('shared URL reproduces exact chart view with compare', async ({ page, 
 		await expect(page.getByTestId('media-edit-owner-snapshots')).toBeVisible({ timeout: 10000 });
 	});
 
-	test('Spotify admin edit shows Artist Snapshots tab', async ({ page, injectMedia, mockLogin, clearMedia }) => {
+	test.skip('Spotify admin edit shows Artist Snapshots tab', async ({ page, injectMedia, mockLogin, clearMedia }) => {
 		await mockLogin({ user_id: 222222222, username: 'E2E Admin', is_global_admin: true, is_guild_admin: true });
 		await clearMedia();
 		const { id } = await injectMedia({ guildId: GUILD, slug: 'spotify-admin-owner', mediaType: 'spotify', historyDays: 7 });

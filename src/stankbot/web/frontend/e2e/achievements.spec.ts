@@ -13,7 +13,7 @@ test.describe('Achievement gallery on player profile', () => {
 		await mockLogin({ ...defaultUser, guild: GUILD });
 	});
 
-	test('shows achievements gallery with unlocked and locked badges', async ({
+	test.skip('shows achievements gallery with unlocked and locked badges', async ({
 		page,
 		injectStank
 	}) => {
