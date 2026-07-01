@@ -200,7 +200,7 @@
 
 	<!-- Dropdown -->
 	{#if open}
-		<div id="emoji-dropdown" class="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-border bg-background shadow-lg">
+		<div id="emoji-dropdown" class="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-border bg-panel shadow-lg">
 			<div class="px-3 py-2 border-b border-border">
 				<Toggle label="Include default emojis" checked={showDefault} onchange={(v: boolean) => { showDefault = v; loadEmojis(); }} />
 			</div>
