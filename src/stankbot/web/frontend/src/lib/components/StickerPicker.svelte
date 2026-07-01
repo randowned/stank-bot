@@ -4,6 +4,7 @@
 	import Input from '$lib/components/Input.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import { filterStickers } from '$lib/utils/sticker-selection';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Sticker {
 		id: string;
