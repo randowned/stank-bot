@@ -212,7 +212,7 @@ def _altar_dict(altar: Any) -> dict[str, Any]:
         "channel_id": str(altar.channel_id),
         "sticker_name_pattern": altar.sticker_name_pattern,
         "sticker_id": str(altar.sticker_id) if altar.sticker_id else None,
-        "sticker_ids": altar.sticker_ids or [],
+        "sticker_ids": [str(id) for id in (altar.sticker_ids or [])],
         "reaction_emoji_id": str(altar.reaction_emoji_id) if altar.reaction_emoji_id else None,
         "reaction_emoji_name": altar.reaction_emoji_name,
         # Comma-joined <:name:id> markup (or unicode glyph) for every accepted
@@ -240,8 +240,8 @@ async def get_altar(
 class AltarSetPayload(BaseModel):
     channel_id: int
     sticker_pattern: str = "stank"
-    sticker_ids: list[int] | None = None
-    display_sticker_id: int | None = None
+    sticker_ids: list[str] | None = None
+    display_sticker_id: str | None = None
     reaction_emoji: str | None = None
 
 
@@ -261,6 +261,12 @@ async def altar_set(
     reaction_emojis = specs if len(specs) > 1 else None
 
     await guilds_repo.ensure(session, guild_id)
+    converted_sticker_ids: list[int] | None = (
+        [int(sid) for sid in payload.sticker_ids] if payload.sticker_ids else None
+    )
+    converted_display_id: int | None = (
+        int(payload.display_sticker_id) if payload.display_sticker_id else None
+    )
     altar_row, created = await altars_repo.upsert(
         session,
         guild_id=guild_id,
@@ -270,8 +276,8 @@ async def altar_set(
         reaction_emoji_name=primary["name"],
         reaction_emoji_animated=primary["animated"],
         reaction_emojis=reaction_emojis,
-        sticker_id=payload.display_sticker_id,
-        sticker_ids=payload.sticker_ids,
+        sticker_id=converted_display_id,
+        sticker_ids=converted_sticker_ids,
     )
     await audit_repo.append(
         session,

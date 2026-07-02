@@ -15,8 +15,8 @@
 
 	interface Props {
 		guildId: string;
-		selectedIds: number[];
-		onchange?: (stickerIds: number[]) => void;
+		selectedIds: string[];
+		onchange?: (stickerIds: string[]) => void;
 	}
 
 	let {
@@ -30,11 +30,11 @@
 	let error = $state<string | null>(null);
 	let search = $state('');
 
-	let selected = new SvelteSet<number>(_selectedIds.map(Number));
+	let selected = new SvelteSet<string>(_selectedIds);
 
 	// Sync from parent when prop changes (e.g., after save/reload)
 	$effect(() => {
-		const incoming = new Set<number>(_selectedIds.map(Number));
+		const incoming = new Set<string>(_selectedIds);
 		if (incoming.size !== selected.size || [...incoming].some(id => !selected.has(id))) {
 			selected.clear();
 			for (const id of incoming) selected.add(id);
@@ -50,7 +50,7 @@
 			);
 			stickers = res.stickers;
 			// Clear selections for stickers that no longer exist
-			const validIds = new Set(stickers.map(s => Number(s.id)).filter(Boolean));
+			const validIds = new Set(stickers.map(s => s.id).filter(Boolean));
 			for (const sid of selected) {
 				if (!validIds.has(sid)) selected.delete(sid);
 			}
@@ -66,7 +66,7 @@
 		onchange?.([...selected]);
 	}
 
-	function toggleSticker(id: number) {
+	function toggleSticker(id: string) {
 		if (selected.has(id)) {
 			selected.delete(id);
 		} else {
@@ -77,8 +77,7 @@
 
 	function selectAll() {
 		for (const s of stickers) {
-			const id = Number(s.id);
-			if (id) selected.add(id);
+			if (s.id) selected.add(s.id);
 		}
 		emit();
 	}
@@ -138,11 +137,10 @@
 	{:else}
 		<div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
 			{#each filtered as sticker (sticker.id)}
-				{@const id = Number(sticker.id)}
-				{@const isSelected = id ? selected.has(id) : false}
+				{@const isSelected = sticker.id ? selected.has(sticker.id) : false}
 				<button
 					type="button"
-					onclick={() => id && toggleSticker(id)}
+					onclick={() => sticker.id && toggleSticker(sticker.id)}
 					class="relative group rounded-lg border-2 p-1 aspect-square flex flex-col items-center justify-center transition-all
 						{isSelected
 							? 'border-accent bg-accent/10'
