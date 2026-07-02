@@ -38,11 +38,14 @@ let deferredBeforeInstallPrompt: BeforeInstallPromptEvent | null = null;
 function createPwaStore() {
 	const isStandalone =
 		typeof window !== 'undefined' &&
+		typeof window.matchMedia === 'function' &&
 		(window.matchMedia('(display-mode: standalone)').matches ||
 			( navigator as typeof navigator & { standalone?: boolean }).standalone === true);
 
 	const wasDismissed =
-		typeof window !== 'undefined' && localStorage.getItem(STORAGE_KEY) === 'true';
+		typeof window !== 'undefined' &&
+		typeof localStorage !== 'undefined' &&
+		localStorage.getItem(STORAGE_KEY) === 'true';
 
 	const { subscribe, update } = writable<PwaState>({
 		showInstallToast: false,
