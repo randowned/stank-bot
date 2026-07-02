@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from stankbot.db.models import Player, Record, RecordScope
+from stankbot.db.models import Chain, Event, EventType, Player, Record, RecordScope
 from stankbot.db.repositories import chains as chains_repo
 from stankbot.db.repositories import events as events_repo
 from stankbot.db.repositories import reaction_awards as reaction_awards_repo
@@ -88,10 +88,35 @@ async def build_board_state(
     )
     user_ids = [uid for uid, _, _ in board_rows]
 
-    # Chainbreaker (all-time PP leader)
-    breaker_pair = await events_repo.top_pp_user(session, guild_id)
-    if breaker_pair is not None:
-        user_ids.append(breaker_pair[0])
+    # Last broken chain's breaker (not all-time PP leader)
+    last_breaker_uid: int | None = None
+    last_break_pp: int = 0
+    stmt = (
+        select(Chain)
+        .where(
+            Chain.guild_id == guild_id,
+            Chain.altar_id == altar.id,
+            Chain.broken_at.is_not(None),
+        )
+        .order_by(Chain.id.desc())
+        .limit(1)
+    )
+    last_broken_chain = (await session.execute(stmt)).scalar_one_or_none()
+    if last_broken_chain is not None and last_broken_chain.broken_by_user_id is not None:
+        last_breaker_uid = int(last_broken_chain.broken_by_user_id)
+        pp_stmt = (
+            select(Event.delta)
+            .where(
+                Event.guild_id == guild_id,
+                Event.chain_id == last_broken_chain.id,
+                Event.type == EventType.PP_BREAK,
+                Event.user_id == last_breaker_uid,
+            )
+            .limit(1)
+        )
+        pp_row = (await session.execute(pp_stmt)).scalar_one_or_none()
+        last_break_pp = int(pp_row) if pp_row is not None else 0
+        user_ids.append(last_breaker_uid)
     # Chain starter for the current chain
     starter_uid = current_chain.starter_user_id if current_chain else None
     if starter_uid is not None:
@@ -125,14 +150,13 @@ async def build_board_state(
         )
 
     breaker_row: PlayerRow | None = None
-    if breaker_pair is not None:
-        bid, pp = breaker_pair
+    if last_breaker_uid is not None:
         breaker_row = PlayerRow(
-            user_id=bid,
-            display_name=_truncate(names.get(bid, (str(bid), None))[0], name_max),
+            user_id=last_breaker_uid,
+            display_name=_truncate(names.get(last_breaker_uid, (str(last_breaker_uid), None))[0], name_max),
             earned_sp=0,
-            punishments=pp,
-            discord_avatar=names.get(bid, (str(bid), None))[1],
+            punishments=last_break_pp,
+            discord_avatar=names.get(last_breaker_uid, (str(last_breaker_uid), None))[1],
         )
 
     # Next reset
