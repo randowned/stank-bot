@@ -17,7 +17,7 @@
 		channel_id: string;
 		sticker_name_pattern: string;
 		sticker_id: string | null;
-		sticker_ids: number[];
+		sticker_ids: string[];
 		reaction_emoji_name: string | null;
 		reaction_emoji_display: string | null;
 		enabled: boolean;
@@ -30,7 +30,7 @@
 	let channelId = $state('');
 	let legacyPattern = $state('');
 	let emoji = $state('');
-	let selectedStickerIds = $state<number[]>([]);
+	let selectedStickerIds = $state<string[]>([]);
 
 	let channelIds = $state<string[]>([]);
 	let newChannel = $state('');
@@ -54,7 +54,7 @@
 		}
 	}
 
-	function onValidStickersChange(stickerIds: number[]) {
+	function onValidStickersChange(stickerIds: string[]) {
 		selectedStickerIds = stickerIds;
 	}
 
