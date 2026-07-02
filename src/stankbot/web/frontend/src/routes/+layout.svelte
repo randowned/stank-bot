@@ -14,6 +14,7 @@
 	import type { WsEvent } from '$lib/stores';
 	import { page } from '$app/stores';
 	import { navigating } from '$app/stores';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { connect, disconnect } from '$lib/ws';
 	import type { User, GuildInfo } from '$lib/types';
 	import UserMenu from '$lib/components/UserMenu.svelte';
@@ -118,6 +119,14 @@
 	}
 
 	void browser;
+
+	beforeNavigate(() => {
+		document.documentElement.style.scrollBehavior = 'auto';
+	});
+
+	afterNavigate(() => {
+		document.documentElement.style.scrollBehavior = 'smooth';
+	});
 
 	const pathname = $derived($page.url.pathname);
 	const isAdminRoute = $derived(pathname.startsWith(`${base}/admin`) || pathname.startsWith('/admin'));
