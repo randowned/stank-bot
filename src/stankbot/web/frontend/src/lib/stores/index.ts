@@ -9,4 +9,5 @@ export { onlineUsers, type OnlineUser } from './onlineUsers';
 export { providersByType, loadProviders } from './providers';
 export { mediaHistoryCache, mediaMetricUpdates, type MediaMetricUpdate } from './media';
 export { ownerMetricUpdates, type OwnerMetricUpdate } from './media';
+export { pwaState } from './pwa';
 export type { Toast, ToastKind } from '$lib/types';

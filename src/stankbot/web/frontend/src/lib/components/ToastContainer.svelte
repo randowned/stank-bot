@@ -4,9 +4,12 @@
 	interface Props {
 		updateToast?: { serverVersion: string; clientVersion: string } | null;
 		onreload?: () => void;
+		installToast?: boolean;
+		oninstall?: () => void;
+		ondismissinstall?: () => void;
 	}
 
-	let { updateToast = null, onreload }: Props = $props();
+	let { updateToast = null, onreload, installToast = false, oninstall, ondismissinstall }: Props = $props();
 </script>
 
 {#if $toasts.length > 0}
@@ -46,6 +49,36 @@
 				data-testid="update-reload-btn"
 			>
 				Reload
+			</button>
+		</div>
+	</div>
+{/if}
+
+<!-- Install PWA toast (persistent, top-center) -->
+{#if installToast}
+	<div
+		class="fixed flex flex-col items-center w-full top-4 z-[61] pointer-events-auto"
+		data-testid="install-toast"
+		role="alert"
+	>
+		<div
+			class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg backdrop-blur-md bg-accent/95 text-bg max-w-sm w-full"
+		>
+			<span class="text-sm sm:text-base flex-1">Install the app</span>
+			<button
+				onclick={oninstall}
+				class="px-3 py-2 rounded-md bg-bg/20 hover:bg-bg/30 font-semibold text-sm transition-colors whitespace-nowrap"
+				data-testid="install-btn"
+			>
+				Install
+			</button>
+			<button
+				onclick={ondismissinstall}
+				class="flex items-center justify-center w-7 h-7 rounded-md hover:bg-bg/20 transition-colors shrink-0"
+				aria-label="Dismiss install prompt"
+				data-testid="install-dismiss-btn"
+			>
+				&times;
 			</button>
 		</div>
 	</div>

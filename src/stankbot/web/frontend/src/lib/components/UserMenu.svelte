@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 	import { page } from '$app/stores';
+	import { pwaState } from '$lib/stores';
 	import { apiPost } from '$lib/api';
 	import { toErrorMessage } from '$lib/api-utils';
 	import type { User, GuildInfo } from '$lib/types';
@@ -100,6 +101,13 @@
 		<span>👤</span>
 		<span>My Profile</span>
 	</DropdownItem>
+
+	{#if $pwaState.dismissedInstall && !$pwaState.isInstalled && !$pwaState.isStandalone}
+		<DropdownItem onclick={() => pwaState.triggerInstall()}>
+			<span>📱</span>
+			<span>Add to Home screen</span>
+		</DropdownItem>
+	{/if}
 
 	{#if switchable.length > 1}
 		<GuildSwitcher

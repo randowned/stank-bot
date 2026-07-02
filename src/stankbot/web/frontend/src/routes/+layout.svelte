@@ -8,7 +8,8 @@
 		guilds,
 		addToast,
 		lastWsEvent,
-		adminSidebarOpen
+		adminSidebarOpen,
+		pwaState
 	} from '$lib/stores';
 	import type { WsEvent } from '$lib/stores';
 	import { page } from '$app/stores';
@@ -108,6 +109,14 @@
 		window.location.reload();
 	}
 
+	function handleInstall() {
+		pwaState.triggerInstall();
+	}
+
+	function handleDismissInstall() {
+		pwaState.dismissInstallToast();
+	}
+
 	void browser;
 
 	const pathname = $derived($page.url.pathname);
@@ -194,6 +203,12 @@
 		{@render children()}
 	</main>
 
-	<ToastContainer {updateToast} onreload={reloadPage} />
+	<ToastContainer
+		{updateToast}
+		onreload={reloadPage}
+		installToast={$pwaState.showInstallToast}
+		oninstall={handleInstall}
+		ondismissinstall={handleDismissInstall}
+	/>
 	<MilestoneOverlay bind:entries={milestoneQueue} />
 </div>
