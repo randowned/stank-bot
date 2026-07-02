@@ -259,6 +259,27 @@ Members post messages containing the `:Stank:` emoji/sticker in a designated **a
 - **WebSocket client:** [src/stankbot/web/frontend/src/lib/ws.ts](src/stankbot/web/frontend/src/lib/ws.ts) — connection lifecycle, msgpack encoding, `MsgType` enum shared with backend.
 - **Shared utilities:** [src/stankbot/web/frontend/src/lib/format.ts](src/stankbot/web/frontend/src/lib/format.ts) — `formatNumber()` for M/K suffix display, `formatDuration()` for `XhYm` duration formatting. [src/stankbot/web/frontend/src/lib/api-utils.ts](src/stankbot/web/frontend/src/lib/api-utils.ts) — `toErrorMessage()` for standardized error extraction, `loadWithFallback()` for page load error resilience.
 
+## Snowflake ID precision (Discord)
+
+Discord Snowflake IDs are 64-bit integers (~10^18-10^19), which exceeds JavaScript's `Number.MAX_SAFE_INTEGER` (2^53, ~9e15). Converting a Snowflake with `Number(str)` in JS silently truncates the value, making stored IDs never match the real Discord ID.
+
+**When this bites you:** Any frontend code that receives a Snowflake ID from the API as a string (e.g. `sticker.id` from `/api/admin/guild-stickers`) and passes it through `Number()`. The truncated ID gets saved to the DB, and backend matching (`sticker_id_matches`) compares the truncated value against the full-precision ID from Discord — always false.
+
+**Rules:**
+- Never use `Number()` on a value that could be a Snowflake ID in JS/TS.
+- Keep Snowflake IDs as `string` throughout all frontend code.
+- Convert to Python `int` only at the API boundary (Python handles big ints natively).
+- The `/api/admin/guild-stickers` endpoint returns `"id": str(s.id)` — treat it as an opaque string.
+- The `_altar_dict` helper returns `sticker_ids` as `list[str]` for the same reason.
+
+**Affected patterns:** Sticker IDs, channel IDs, guild IDs — any Discord Snowflake crossing the frontend/API boundary.
+
+**Reference:**
+- PR #48 — fix(web): preserve Snowflake sticker IDs as strings to avoid truncation
+- `src/stankbot/web/frontend/src/lib/components/StickerPicker.svelte`
+- `src/stankbot/web/frontend/src/routes/admin/channels/+page.svelte`
+- `src/stankbot/web/routes/admin.py` (`_altar_dict`, `AltarSetPayload`)
+
 ## Reference files
 
 - [pyproject.toml](pyproject.toml) — dependencies, version, tool config.
