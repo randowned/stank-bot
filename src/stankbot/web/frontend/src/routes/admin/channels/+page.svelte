@@ -28,7 +28,7 @@
 	let altarSaving = $state(false);
 	let altarMsg = $state<string | null>(null);
 	let channelId = $state('');
-	let pattern = $state('stank');
+	let legacyPattern = $state('');
 	let emoji = $state('');
 	let selectedStickerIds = $state<number[]>([]);
 
@@ -43,7 +43,7 @@
 			altar = res.altar;
 			if (altar) {
 				channelId = altar.channel_id;
-				pattern = altar.sticker_name_pattern;
+				legacyPattern = altar.sticker_name_pattern;
 				emoji = altar.reaction_emoji_display ?? '';
 				selectedStickerIds = altar.sticker_ids ?? [];
 			}
@@ -64,7 +64,7 @@
 		try {
 			await apiPost('/api/admin/altar/set', {
 				channel_id: channelId.trim(),
-				sticker_pattern: pattern,
+				sticker_pattern: legacyPattern,
 				sticker_ids: selectedStickerIds.length > 0 ? selectedStickerIds : null,
 				display_sticker_id: selectedStickerIds.length > 0 ? selectedStickerIds[0] : null,
 				reaction_emoji: emoji || null
@@ -155,17 +155,13 @@
 			/>
 		</FormField>
 
-
-		<!-- Advanced: show current sticker_name_pattern for transition UX -->
-		{#if pattern && pattern !== 'stank'}
-			<FormField
-				label="Sticker pattern (legacy)"
-				hint="Previously configured name pattern. Kept as fallback during transition. Will be removed after all guilds migrate to sticker IDs."
-				for="altar-pattern-legacy"
-			>
-				<Input bind:value={pattern} id="altar-pattern-legacy" disabled />
-			</FormField>
-		{/if}
+		<FormField
+			label="Sticker name pattern (legacy)"
+			hint="Fallback text-based matching: comma-separated, case-insensitive substring. Empty = name matching disabled."
+			for="altar-pattern-legacy"
+		>
+			<Input bind:value={legacyPattern} id="altar-pattern-legacy" placeholder="e.g. stank, maphra wink" />
+		</FormField>
 
 		<FormField
 			label="Reaction emoji"

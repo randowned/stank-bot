@@ -265,7 +265,7 @@ async def altar_set(
         session,
         guild_id=guild_id,
         channel_id=payload.channel_id,
-        sticker_name_pattern=payload.sticker_pattern.strip().lower() or "stank",
+        sticker_name_pattern=payload.sticker_pattern.strip().lower(),
         reaction_emoji_id=primary["id"],
         reaction_emoji_name=primary["name"],
         reaction_emoji_animated=primary["animated"],
