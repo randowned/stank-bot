@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import discord
+import httpx
 from discord.ext import commands
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -68,9 +69,15 @@ class StankBot(commands.Bot):
         spot_id = config.spotify_client_id.get_secret_value() if config.spotify_client_id else None
         spot_secret = config.spotify_client_secret.get_secret_value() if config.spotify_client_secret else None
 
+        # Shared HTTP client for media providers — saves one connection pool
+        # (~5-8MB) versus each provider creating its own.
+        self._http_client = httpx.AsyncClient()
+
         self.media_registry = MediaProviderRegistry()
-        self.media_registry.register(YouTubeProvider(api_key=yt_key))
-        self.media_registry.register(SpotifyProvider(client_id=spot_id, client_secret=spot_secret))
+        self.media_registry.register(YouTubeProvider(api_key=yt_key, http_client=self._http_client))
+        self.media_registry.register(SpotifyProvider(
+            client_id=spot_id, client_secret=spot_secret, http_client=self._http_client,
+        ))
         self.media_scheduler = MediaMetricsScheduler(self, self.media_registry)
 
         self._bot_guilds = []
@@ -162,3 +169,5 @@ class StankBot(commands.Bot):
         await super().close()
         await self.engine.dispose()
         await self.media_registry.close()
+        if self._http_client is not None:
+            await self._http_client.aclose()

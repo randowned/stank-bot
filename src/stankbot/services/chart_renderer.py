@@ -7,6 +7,7 @@ so images look consistent in Discord embeds.
 
 from __future__ import annotations
 
+import functools
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -19,6 +20,10 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # Font loading — prefer Liberation Sans (clean, Arial-family); fall back to
 # DejaVu and OS defaults.  Set CHART_FONT_PATH env var to override entirely.
+#
+# Fonts are loaded LAZILY (not at import time) via the cached _load_font()
+# helper.  The first chart render that actually needs a font triggers the
+# filesystem lookup — until then, ~2-5MB of font data is never allocated.
 # ---------------------------------------------------------------------------
 
 import os as _os
@@ -34,20 +39,25 @@ _FONT_PATHS = [
 ]
 
 
+@functools.cache
 def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Load a font at the given size, with result cached.
+
+    Font files are not loaded at import time — only on first chart render
+    that actually needs them. This saves ~2-5MB of always-resident font
+    data when the chart endpoint is not hit.
+    """
     for path in _FONT_PATHS:
         if path and Path(path).exists():
             return ImageFont.truetype(path, size)
     return ImageFont.load_default()
 
 
-_FONT_TITLE = _load_font(36)
-_FONT_LABEL = _load_font(18)
-_FONT_TICK = _load_font(14)
+def _font_avg_width(size: int) -> float:
+    """Average character width for a font size, computed lazily."""
+    font = _load_font(size)
+    return font.getlength("0") if hasattr(font, "getlength") else (8 if size == 18 else 6)
 
-# Pre-compute average char widths for text measurement
-_FONT_LABEL_AVG_W = _FONT_LABEL.getlength("0") if hasattr(_FONT_LABEL, "getlength") else 8
-_FONT_TICK_AVG_W = _FONT_TICK.getlength("0") if hasattr(_FONT_TICK, "getlength") else 6
 
 # ---------------------------------------------------------------------------
 # Layout constants (16:9 canvas)
@@ -131,8 +141,8 @@ def _normalize_timestamps(raw: list[Any]) -> list[datetime]:
 def _empty_chart(message: str, title: str, width: int, height: int) -> bytes:
     img = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(img)
-    draw.text((width / 2 - 80, height / 2), message, fill=LABEL_COLOR, font=_FONT_LABEL)
-    draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=_FONT_TITLE)
+    draw.text((width / 2 - 80, height / 2), message, fill=LABEL_COLOR, font=_load_font(18))
+    draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=_load_font(36))
     return _save_bytes(img)
 
 
@@ -147,6 +157,12 @@ def _render_line_chart(
     """Core single-line chart drawing — generic, no ORM dependency."""
     img = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(img)
+
+    font_label = _load_font(18)
+    font_tick = _load_font(14)
+    font_title = _load_font(36)
+    font_label_avg_w = _font_avg_width(18)
+    font_tick_avg_w = _font_avg_width(14)
 
     vmin = min(values)
     vmax = max(values)
@@ -173,8 +189,8 @@ def _render_line_chart(
         y = px_y(val)
         draw.line([(CHART_LEFT, y), (CHART_RIGHT, y)], fill=GRID, width=1)
         label = _format_number(val)
-        tw = _FONT_LABEL_AVG_W * len(label)
-        draw.text((CHART_LEFT - tw - 8, y - _FONT_LABEL_AVG_W * 0.6), label, fill=LABEL_COLOR, font=_FONT_LABEL)
+        tw = font_label_avg_w * len(label)
+        draw.text((CHART_LEFT - tw - 8, y - font_label_avg_w * 0.6), label, fill=LABEL_COLOR, font=font_label)
 
     # Vertical day-boundary lines + X labels
     show_date = t_span >= 86400
@@ -187,8 +203,8 @@ def _render_line_chart(
             if CHART_LEFT <= cx <= CHART_RIGHT:
                 draw.line([(int(cx), CHART_TOP), (int(cx), CHART_BOTTOM)], fill=GRID, width=1)
                 lbl = day.strftime("%b %d")
-                tw = _FONT_TICK_AVG_W * len(lbl)
-                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 4), lbl, fill=LABEL_COLOR, font=_FONT_TICK)
+                tw = font_tick_avg_w * len(lbl)
+                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 4), lbl, fill=LABEL_COLOR, font=font_tick)
             day += td(days=1)
 
     if t_span <= 86400 * 2:
@@ -198,8 +214,8 @@ def _render_line_chart(
             cx = px_x(tick_dt)
             if CHART_LEFT <= cx <= CHART_RIGHT:
                 lbl = tick_dt.strftime("%b %d %H:%M" if show_date else "%H:%M")
-                tw = _FONT_TICK_AVG_W * len(lbl)
-                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 18), lbl, fill=LABEL_COLOR, font=_FONT_TICK)
+                tw = font_tick_avg_w * len(lbl)
+                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 18), lbl, fill=LABEL_COLOR, font=font_tick)
             tick_dt += td(hours=2) if t_span > 43200 else td(hours=1)
 
     # Data line
@@ -214,7 +230,7 @@ def _render_line_chart(
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=LINE)
 
     # Title
-    draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=_FONT_TITLE)
+    draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=font_title)
 
     return _save_bytes(img)
 
@@ -315,13 +331,19 @@ def render_compare_chart(
             pts.append((dt, float(p["y"])))
         parsed.append(pts)
 
+    font_label = _load_font(18)
+    font_tick = _load_font(14)
+    font_title = _load_font(36)
+    font_label_avg_w = _font_avg_width(18)
+    font_tick_avg_w = _font_avg_width(14)
+
     valid = [(s, pts) for s, pts in zip(series, parsed, strict=False) if pts]
     img = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(img)
 
     if not valid:
-        draw.text((width / 2 - 80, height / 2), "No data available", fill=LABEL_COLOR, font=_FONT_LABEL)
-        draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=_FONT_TITLE)
+        draw.text((width / 2 - 80, height / 2), "No data available", fill=LABEL_COLOR, font=font_label)
+        draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=font_title)
         return _save_bytes(img)
 
     all_dts = [dt for _, pts in valid for dt, _ in pts]
@@ -348,8 +370,8 @@ def render_compare_chart(
         y = px_y(val)
         draw.line([(CHART_LEFT, y), (chart_right, y)], fill=GRID, width=1)
         lbl = _format_number(val)
-        tw = _FONT_LABEL_AVG_W * len(lbl)
-        draw.text((CHART_LEFT - tw - 8, y - _FONT_LABEL_AVG_W * 0.6), lbl, fill=LABEL_COLOR, font=_FONT_LABEL)
+        tw = font_label_avg_w * len(lbl)
+        draw.text((CHART_LEFT - tw - 8, y - font_label_avg_w * 0.6), lbl, fill=LABEL_COLOR, font=font_label)
 
     # X-axis labels
     show_date = t_span >= 86400
@@ -361,8 +383,8 @@ def render_compare_chart(
             if CHART_LEFT <= cx <= chart_right:
                 draw.line([(int(cx), CHART_TOP), (int(cx), CHART_BOTTOM)], fill=GRID, width=1)
                 lbl = day.strftime("%b %d")
-                tw = _FONT_TICK_AVG_W * len(lbl)
-                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 4), lbl, fill=LABEL_COLOR, font=_FONT_TICK)
+                tw = font_tick_avg_w * len(lbl)
+                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 4), lbl, fill=LABEL_COLOR, font=font_tick)
             day += td(days=1)
     if t_span <= 86400 * 2:
         from datetime import timedelta as td
@@ -371,8 +393,8 @@ def render_compare_chart(
             cx = px_x(tick_dt)
             if CHART_LEFT <= cx <= chart_right:
                 lbl = tick_dt.strftime("%b %d %H:%M" if show_date else "%H:%M")
-                tw = _FONT_TICK_AVG_W * len(lbl)
-                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 18), lbl, fill=LABEL_COLOR, font=_FONT_TICK)
+                tw = font_tick_avg_w * len(lbl)
+                draw.text((int(cx) - tw // 2, CHART_BOTTOM + 18), lbl, fill=LABEL_COLOR, font=font_tick)
             tick_dt += td(hours=2) if t_span > 43200 else td(hours=1)
 
     # Series lines + dots
@@ -396,10 +418,10 @@ def render_compare_chart(
         lx = leg_x + idx * legend_item_w
         draw.rectangle([lx - 2, leg_y - 2, lx + legend_item_w - 4, leg_y + 16], fill=BG)
         draw.ellipse([lx, leg_y + 2, lx + 10, leg_y + 12], fill=color)
-        draw.text((lx + 14, leg_y), label, fill=LABEL_COLOR, font=_FONT_TICK)
+        draw.text((lx + 14, leg_y), label, fill=LABEL_COLOR, font=font_tick)
 
     # Title + Y-axis label
-    draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=_FONT_TITLE)
+    draw.text((PAD_LEFT, 12), title, fill=TITLE_COLOR, font=font_title)
 
     return _save_bytes(img)
 

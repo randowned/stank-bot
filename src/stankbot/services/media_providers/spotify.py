@@ -40,10 +40,12 @@ class SpotifyProvider(MediaProvider):
         self,
         client_id: str | None = None,
         client_secret: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._client_id = client_id
         self._client_secret = client_secret
-        self._client: httpx.AsyncClient | None = None
+        self._client = http_client
+        self._owns_client = http_client is None
         self._token: str | None = None
         self._token_expires_at: float = 0.0
 
@@ -53,10 +55,11 @@ class SpotifyProvider(MediaProvider):
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
             self._client = httpx.AsyncClient()
+            self._owns_client = True
         return self._client
 
     async def close(self) -> None:
-        if self._client is not None:
+        if self._owns_client and self._client is not None:
             await self._client.aclose()
             self._client = None
 
