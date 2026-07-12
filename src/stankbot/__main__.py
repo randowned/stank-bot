@@ -97,8 +97,9 @@ async def run() -> None:
             )
         if config.enable_web:
             log.info("Web dashboard on http://%s", config.web_bind)
-            assert isinstance(bot, StankBot)
-            tasks.append(asyncio.create_task(_run_web(bot, config)))
+            if not use_mock:
+                assert isinstance(bot, StankBot)
+            tasks.append(asyncio.create_task(_run_web(bot, config)))  # type: ignore[arg-type]
 
         # Graceful shutdown: Railway (and most container platforms) send
         # SIGTERM before killing the container. Catch it so ``async with
