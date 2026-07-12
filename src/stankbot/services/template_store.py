@@ -36,11 +36,11 @@ async def load(key: str, session: AsyncSession, guild_id: int) -> dict[str, Any]
 
     guild_data = await SettingsService(session).get(guild_id, key)
     if guild_data is not None:
-        return guild_data
+        return guild_data  # type: ignore[no-any-return]
     default = ALL_DEFAULTS.get(key)
     if default is None:
         return {}
-    return dict(default)  # type: ignore[no-any-return]
+    return dict(default)
 
 
 def load_default(key: str) -> dict[str, Any]:

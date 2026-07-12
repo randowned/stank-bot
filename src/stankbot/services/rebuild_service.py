@@ -131,7 +131,7 @@ async def _replay_altar(
     channel = guild.get_channel(altar.channel_id)
     if channel is None:
         try:
-            channel = await bot.fetch_channel(altar.channel_id)
+            channel = await bot.fetch_channel(altar.channel_id)  # type: ignore[assignment]
         except (discord.NotFound, discord.Forbidden):
             log.warning(
                 "rebuild: altar %d channel %d unreachable; skipping",

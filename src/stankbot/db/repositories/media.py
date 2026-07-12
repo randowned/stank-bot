@@ -566,7 +566,7 @@ async def get_owners_for_guild(
                 "cover_url": owner.cover_url,
                 "media_items": [],
             }
-        owner_map[owner.id]["media_items"].append({  # type: ignore[index]
+        owner_map[owner.id]["media_items"].append({  # type: ignore[attr-defined]
             "id": item.id,
             "title": item.title,
             "name": item.name,
@@ -579,10 +579,10 @@ async def get_owners_for_guild(
         for m in metrics.values():
             if isinstance(m, dict):
                 mt = m.get("fetched_at", "")
-                if mt and mt > latest_ts:
-                    latest_ts = str(mt)
-        summary["metrics"] = metrics  # type: ignore[index]
-        summary["fetched_at"] = latest_ts  # type: ignore[index]
+                if isinstance(mt, str) and mt > latest_ts:
+                    latest_ts = mt
+        summary["metrics"] = metrics
+        summary["fetched_at"] = latest_ts
 
     return list(owner_map.values())
 

@@ -175,7 +175,7 @@ async def session_ids_where_user_has_sp(
         .having(func.sum(Event.delta) > 0)
         .order_by(Event.session_id.asc())
     )
-    return list((await session.execute(stmt)).scalars().all())
+    return list((await session.execute(stmt)).scalars().all())  # type: ignore[arg-type]
 
 
 async def count_session_starts(session: AsyncSession, guild_id: int, *, up_to_id: int) -> int:

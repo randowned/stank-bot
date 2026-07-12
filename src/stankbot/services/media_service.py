@@ -990,8 +990,8 @@ class MediaService:
                 continue
             val = int(m.get("value", 0)) if m else 0
             mt = m.get("fetched_at", "") if m else ""
-            if mt and mt > latest_ts:
-                latest_ts = str(mt)
+            if isinstance(mt, str) and mt > latest_ts:
+                latest_ts = mt
             d = defs_by_key.get(key, {})
             serialized_metrics.append({
                 "key": key,
