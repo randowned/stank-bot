@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +25,7 @@ log = logging.getLogger(__name__)
 
 async def _compute_stank_streak(
     session: AsyncSession, guild_id: int, user_id: int
-) -> dict:
+) -> dict[str, int]:
     """Return ``{"current": int, "longest": int}`` bounded to last 90 days."""
     from datetime import date, timedelta
 
@@ -72,12 +73,12 @@ async def ping(request: Request) -> MsgPackResponse:
 @router.get("/api/guilds")
 async def api_guilds(
     request: Request,
-    user: dict = Depends(require_global_admin),
+    user: dict[str, Any] = Depends(require_global_admin),
 ) -> MsgPackResponse:
     """Return bot guilds for global admins (guild switcher)."""
     from stankbot.web.tools import _is_owner, get_active_guild_id
 
-    bot_guilds: list[dict] = getattr(request.app.state, "bot_guilds", [])
+    bot_guilds: list[dict[str, Any]] = getattr(request.app.state, "bot_guilds", [])
     active_gid = get_active_guild_id(request)
 
     def icon_url(guild_id: int, icon_hash: str | None) -> str | None:
@@ -108,7 +109,7 @@ async def api_board(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ) -> MsgPackResponse:
@@ -155,9 +156,9 @@ async def api_board(
     rows = (await session.execute(stmt)).scalars().all()
 
     user_ids = [r.user_id for r in rows]
-    name_avatar_map: dict = {}
-    per_user_reactions_session: dict = {}
-    per_user_stanks_session: dict = {}
+    name_avatar_map: dict[int, tuple[str, str | None]] = {}
+    per_user_reactions_session: dict[int, int] = {}
+    per_user_stanks_session: dict[int, int] = {}
 
     if user_ids:
         name_avatar_map = await players_repo.display_names_and_avatars(session, guild_id, user_ids)
@@ -169,8 +170,8 @@ async def api_board(
             per_user_stanks_session[uid] = r.stanks_in_session
 
     # Chain counters from player_chain_totals
-    per_user_reactions_chain: dict = {}
-    per_user_stanks_chain: dict = {}
+    per_user_reactions_chain: dict[int, int] = {}
+    per_user_stanks_chain: dict[int, int] = {}
     if session_id is not None:
         live_chain = await chains_repo.current_chain(session, guild_id, altar.id)
         if live_chain is not None:
@@ -179,14 +180,14 @@ async def api_board(
                 .where(
                     PlayerChainTotal.guild_id == guild_id,
                     PlayerChainTotal.chain_id == live_chain.id,
-                    PlayerChainTotal.user_id.in_(user_ids) if user_ids else False,
+                    PlayerChainTotal.user_id.in_(user_ids) if user_ids else True,  # type: ignore[arg-type]
                 )
             )
             chain_rows = (await session.execute(chain_totals_stmt)).scalars().all()
-            for r in chain_rows:
-                uid = int(r.user_id)
-                per_user_reactions_chain[uid] = r.reactions_in_chain
-                per_user_stanks_chain[uid] = r.stanks_in_chain
+            for ct in chain_rows:
+                uid = int(ct.user_id)
+                per_user_reactions_chain[uid] = ct.reactions_in_chain
+                per_user_stanks_chain[uid] = ct.stanks_in_chain
 
     rankings = []
     for r in rows:
@@ -217,8 +218,8 @@ async def api_player(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
-):
+    _user: dict[str, Any] = Depends(require_guild_member),
+) -> MsgPackResponse:
     from stankbot.db.repositories import events as events_repo
     from stankbot.db.repositories import players as players_repo
     from stankbot.services import achievements as achievements_svc
@@ -289,7 +290,7 @@ async def api_players_batch(
     ids: str = Query(..., description="Comma-separated user IDs"),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
 ) -> MsgPackResponse:
     from stankbot.db.repositories import players as players_repo
 
@@ -319,7 +320,7 @@ async def api_player_history(
     window: str = Query("30d", description="History window, e.g. 30d, 7d"),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
 ) -> MsgPackResponse:
     from datetime import timedelta
 
@@ -388,7 +389,7 @@ async def api_achievements(
     user_id: str | None = Query(None, description="Optional user to mark earned badges"),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
 ) -> MsgPackResponse:
     from stankbot.services import achievements as achievements_svc
 
@@ -421,7 +422,7 @@ async def api_player_chains(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
 ) -> MsgPackResponse:
     from sqlalchemy import func, select
 
@@ -474,7 +475,7 @@ async def api_chain(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
 ) -> MsgPackResponse:
     from stankbot.db.models import Altar, Chain
     from stankbot.db.repositories import chains as chains_repo
@@ -589,7 +590,7 @@ async def api_sessions(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
 ) -> MsgPackResponse:
     from sqlalchemy import case, func, select
 
@@ -634,7 +635,7 @@ async def api_sessions(
         .where(Event.guild_id == guild_id, Event.session_id.in_(session_ids))
         .group_by(Event.session_id)
     )
-    stats_map: dict = {}
+    stats_map: dict[int, dict[str, Any]] = {}
     for row in (await session.execute(stats_stmt)).all():
         stats_map[int(row[0])] = {
             "unique_stankers": int(row[1] or 0),
@@ -666,7 +667,7 @@ async def api_session(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    _user: dict = Depends(require_guild_member),
+    _user: dict[str, Any] = Depends(require_guild_member),
 ) -> MsgPackResponse:
     from sqlalchemy import case, func, select
 

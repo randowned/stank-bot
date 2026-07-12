@@ -52,7 +52,7 @@ def _ok(request: Request, extra: dict[str, Any] | None = None) -> MsgPackRespons
 async def api_switch_guild(
     request: Request,
     guild_id: int = Query(...),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
     session: AsyncSession = Depends(get_db),
 ) -> MsgPackResponse:
     """Switch the active guild for the current session."""
@@ -144,7 +144,7 @@ async def save_settings(
     payload: SettingsPayload = msgpack_body(SettingsPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     svc = SettingsService(session)
     for key in _SIMPLE_INT_KEYS:
@@ -251,7 +251,7 @@ async def altar_set(
     payload: AltarSetPayload = msgpack_body(AltarSetPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     # Parse the (comma-separated) emoji field into accepted-emoji specs. The
     # first is the primary (drives {stank_emoji} + auto-react); the bare name —
@@ -298,7 +298,7 @@ async def altar_remove(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     altar_row = await altars_repo.for_guild(session, guild_id, enabled_only=False)
     if altar_row is None:
@@ -647,7 +647,7 @@ async def announcements_add(
     payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.db.models import ChannelBinding, ChannelPurpose
 
@@ -675,7 +675,7 @@ async def announcements_remove(
     payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.db.models import ChannelBinding, ChannelPurpose
 
@@ -778,7 +778,7 @@ async def save_template(
     payload: TemplateSavePayload = msgpack_body(TemplateSavePayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.services.default_templates import ALL_DEFAULTS
     from stankbot.services.template_engine import TemplateError, validate_template_variables
@@ -954,7 +954,7 @@ async def new_session(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     await guilds_repo.ensure(session, guild_id)
     svc = SessionService(session)
@@ -983,7 +983,7 @@ async def reset_guild(
     payload: ResetPayload = msgpack_body(ResetPayload),
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     """Wipe all event/chain/cooldown/record state for the guild.
 
@@ -1026,7 +1026,7 @@ async def rebuild(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.services import rebuild_service
 
@@ -1081,7 +1081,7 @@ async def rebuild_from_db(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.db.repositories import player_chain_totals as pct_repo
     from stankbot.db.repositories import player_totals as pt_repo

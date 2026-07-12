@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-import msgpack
+import msgpack  # type: ignore[import-untyped]
 from fastapi import Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
@@ -36,7 +36,7 @@ class MsgPackResponse(JSONResponse):
 
     def render(self, content: Any) -> bytes:
         if self._use_msgpack:
-            return self._packed
+            return self._packed  # type: ignore[no-any-return]
         return super().render(content)
 
 
@@ -62,7 +62,7 @@ def msgpack_body(model: type[BaseModel]) -> Callable[..., Any]:
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"invalid body: {exc}") from exc
 
-    return Depends(_parse)
+    return Depends(_parse)  # type: ignore[no-any-return]
 
 
 __all__ = ["MsgPackResponse", "_accepts_msgpack", "msgpack_body"]

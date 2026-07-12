@@ -42,9 +42,9 @@ class _JsonFormatter(logging.Formatter):
         gid = log_guild_id.get()
         uid = log_user_id.get()
         if gid is not None:
-            payload["guild_id"] = gid
+            payload["guild_id"] = str(gid)
         if uid is not None:
-            payload["user_id"] = uid
+            payload["user_id"] = str(uid)
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
         return json.dumps(payload, default=str)

@@ -10,6 +10,7 @@ react with.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,7 +73,7 @@ async def upsert(
     reaction_emoji_id: int | None = None,
     reaction_emoji_name: str | None = None,
     reaction_emoji_animated: bool = False,
-    reaction_emojis: list | None = None,
+    reaction_emojis: list[Any] | None = None,
     sticker_id: int | None = None,
     sticker_ids: list[int] | None = None,
 ) -> tuple[Altar, bool]:

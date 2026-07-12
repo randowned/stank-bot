@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -110,7 +111,7 @@ class GuildSetting(Base):
         BigInteger, ForeignKey("guilds.id", ondelete="CASCADE"), primary_key=True
     )
     key: Mapped[str] = mapped_column(String(80), primary_key=True)
-    value_json: Mapped[dict | list | str | int | float | bool | None] = mapped_column(
+    value_json: Mapped[dict[str, Any] | list[Any] | str | int | float | bool | None] = mapped_column(
         JSON, nullable=True
     )
     updated_at: Mapped[datetime] = mapped_column(
@@ -164,7 +165,7 @@ class GuildMember(Base):
         BigInteger, ForeignKey("guilds.id", ondelete="CASCADE"), primary_key=True
     )
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    role_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    role_ids: Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list)
     permissions: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     nick: Mapped[str | None] = mapped_column(String(100), nullable=True)
     username: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -212,7 +213,7 @@ class Altar(Base):
     # ID-based matching: a sticker is a stank if its ID is in this JSON list.
     # Replaces `sticker_name_pattern` once all guilds migrate. NULL = not yet
     # configured; empty list = configured with no IDs (OR-fallback to name).
-    sticker_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    sticker_ids: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     # Substring match (case-insensitive) against incoming sticker names. May
     # hold several comma-separated patterns — a sticker is a stank if ANY
     # pattern is a substring of its name. See utils.stank_match.
@@ -233,7 +234,7 @@ class Altar(Base):
     # the bonus. List of {"id": int|None, "name": str|None, "animated": bool}
     # with the primary emoji (reaction_emoji_* above) as element 0. NULL when
     # only one emoji is configured (then the single columns are the source).
-    reaction_emojis: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    reaction_emojis: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(120))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -254,7 +255,7 @@ class Altar(Base):
     )
 
     @property
-    def reaction_emoji_specs(self) -> list[dict]:
+    def reaction_emoji_specs(self) -> list[dict[str, Any]]:
         """Accepted reaction emojis, primary first.
 
         Falls back to the single ``reaction_emoji_*`` columns when
@@ -371,7 +372,7 @@ class Event(Base):
     reason: Mapped[str | None] = mapped_column(String(200))
     message_id: Mapped[int | None] = mapped_column(BigInteger)
     custom_event_key: Mapped[str | None] = mapped_column(String(64))
-    payload_json: Mapped[dict | list | None] = mapped_column(JSON)
+    payload_json: Mapped[dict[str, Any] | list[Any] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -533,7 +534,7 @@ class Achievement(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     icon: Mapped[str | None] = mapped_column(String(200))
-    rule_json: Mapped[dict | list] = mapped_column(JSON, nullable=False)
+    rule_json: Mapped[dict[str, Any] | list[Any]] = mapped_column(JSON, nullable=False)
     is_global: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -783,7 +784,7 @@ class AuditLog(Base):
     )
     actor_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     action: Mapped[str] = mapped_column(String(80), nullable=False)
-    payload_json: Mapped[dict | list | None] = mapped_column(JSON)
+    payload_json: Mapped[dict[str, Any] | list[Any] | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
