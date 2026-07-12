@@ -33,7 +33,7 @@ _API_BASE = "https://discord.com/api/v10"
 
 
 @router.get("/login")
-async def login(
+async def login(  # type: ignore[no-untyped-def]
     request: Request,
     config=Depends(get_config),
 ) -> RedirectResponse:
@@ -63,7 +63,7 @@ async def login(
 
 
 @router.get("/callback")
-async def callback(
+async def callback(  # type: ignore[no-untyped-def]
     request: Request,
     code: str | None = None,
     state: str | None = None,
@@ -111,7 +111,7 @@ async def callback(
 
 
 @router.get("/mock-login")
-async def mock_login_get(
+async def mock_login_get(  # type: ignore[no-untyped-def]
     request: Request,
     config=Depends(get_config),
 ) -> RedirectResponse:
@@ -130,7 +130,7 @@ async def mock_login_get(
 
 
 @router.post("/mock-login")
-async def mock_login_post(
+async def mock_login_post(  # type: ignore[no-untyped-def]
     request: Request,
     config=Depends(get_config),
 ) -> MsgPackResponse:
@@ -174,7 +174,7 @@ async def auth_check(request: Request) -> MsgPackResponse:
     if user is None:
         return MsgPackResponse(None, request)
 
-    config = request.app.state.config
+    config: AppConfig = request.app.state.config  # type: ignore[no-any-return]
     guild_id = get_active_guild_id(request)
     uid = int(user["id"])
 

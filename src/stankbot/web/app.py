@@ -39,7 +39,7 @@ WEB_DIR = Path(os.environ.get("WEB_DIR", str(Path(__file__).parent / "frontend")
 
 
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: type[Request]) -> Response:
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -66,7 +66,7 @@ class _RateLimitMiddleware(BaseHTTPMiddleware):
         window.append(now)
         return True
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: type[Request]) -> Response:
         path = request.url.path
         if not path.startswith("/api/"):
             return await call_next(request)
@@ -83,7 +83,7 @@ class _RateLimitMiddleware(BaseHTTPMiddleware):
 class _SPAStaticFiles(StaticFiles):
     """Serve index.html for any unmatched path (SPA fallback)."""
 
-    async def get_response(self, path: str, scope):
+    async def get_response(self, path: str, scope: dict[str, object]) -> Response:
         try:
             return await super().get_response(path, scope)
         except HTTPException as exc:
@@ -170,11 +170,11 @@ def build_app(
         log.info("Mock event API mounted at /api/mock")
 
     @app.exception_handler(_LoginRedirect)
-    async def _login_redirect_handler(_: Request, exc: _LoginRedirect):
+    async def _login_redirect_handler(_: Request, exc: _LoginRedirect) -> Response:
         return exc.response
 
     @app.exception_handler(_NotInGuild)
-    async def _not_in_guild_handler(_: Request, exc: _NotInGuild):
+    async def _not_in_guild_handler(_: Request, exc: _NotInGuild) -> Response:
         return exc.response
 
     build_dir = WEB_DIR / "build"
