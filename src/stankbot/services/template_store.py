@@ -40,7 +40,7 @@ async def load(key: str, session: AsyncSession, guild_id: int) -> dict[str, Any]
     default = ALL_DEFAULTS.get(key)
     if default is None:
         return {}
-    return dict(default)
+    return dict(default)  # type: ignore[no-any-return]
 
 
 def load_default(key: str) -> dict[str, Any]:

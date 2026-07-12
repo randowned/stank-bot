@@ -21,6 +21,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from stankbot.config import AppConfig
 from stankbot.web.tools import get_config
 from stankbot.web.transport import MsgPackResponse
 
@@ -38,8 +39,7 @@ async def login(  # type: ignore[no-untyped-def]
     config=Depends(get_config),
 ) -> RedirectResponse:
     if config.env == "dev-mock" and config.mock_auth:
-        next_url = request.query_params.get("next", "/")
-        return RedirectResponse(f"/auth/mock-login?next={next_url}", status_code=302)
+        return RedirectResponse(f"/auth/mock-login?next={request.query_params.get('next', '/')}", status_code=302)
 
     if config.oauth_client_secret is None:
         raise HTTPException(
@@ -174,7 +174,7 @@ async def auth_check(request: Request) -> MsgPackResponse:
     if user is None:
         return MsgPackResponse(None, request)
 
-    config: AppConfig = request.app.state.config  # type: ignore[no-any-return]
+    config: AppConfig = request.app.state.config
     guild_id = get_active_guild_id(request)
     uid = int(user["id"])
 

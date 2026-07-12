@@ -8,9 +8,8 @@ full markup is re-derived as ``Altar.display_name`` on upsert.
 
 from __future__ import annotations
 
-from typing import Any
-
 import re
+from typing import Any
 
 _CUSTOM_EMOJI_RE = re.compile(r"<(a?):([A-Za-z0-9_~]+):(\d+)>")
 

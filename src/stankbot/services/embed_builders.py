@@ -304,7 +304,7 @@ async def display_name_of(
     if user_id is None:
         return "—"
     player = await players_repo.get(session, guild_id, user_id)
-    return player.display_name if player else str(user_id)
+    return player.display_name or str(user_id) if player else str(user_id)
 
 
 async def current_record(

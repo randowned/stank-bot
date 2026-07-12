@@ -37,7 +37,7 @@ async def _get_enabled_providers(
     session: AsyncSession,
     guild_id: int,
 ) -> list[str]:
-    return await SettingsService(session).get(
+    return await SettingsService(session).get(  # type: ignore[no-any-return]
         guild_id, Keys.MEDIA_PROVIDERS_ENABLED, ["youtube", "spotify"]
     )
 
