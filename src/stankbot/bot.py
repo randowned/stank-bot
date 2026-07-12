@@ -139,7 +139,7 @@ class StankBot(commands.Bot):
                 resp = await client.get(
                     "https://discord.com/api/v10/users/@me/guilds",
                     headers={
-                        "Authorization": f"Bot {self.config.discord_token.get_secret_value()}",
+                        "Authorization": f"Bot {self.config.discord_token.get_secret_value()}",  # type: ignore[union-attr]
                     },
                 )
             if resp.status_code != 200:
@@ -150,7 +150,7 @@ class StankBot(commands.Bot):
                 self._bot_guilds.clear()
                 self._bot_guilds.extend(
                     {
-                        "id": int(g["id"]),
+                        "id": int(str(g["id"])),
                         "name": str(g.get("name", "")),
                         "icon": g.get("icon"),
                     }

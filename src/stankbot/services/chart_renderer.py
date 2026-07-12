@@ -309,7 +309,7 @@ _SERIES_COLORS = [
 
 def render_compare_chart(
     *,
-    series: list[dict],  # [{"label": str, "points": [{"x": str, "y": int|float}]}]
+    series: list[dict[str, Any]],  # [{"label": str, "points": [{"x": str, "y": int|float}]}]
     title: str,
     metric_label: str,
     width: int = WIDTH,

@@ -85,7 +85,7 @@ class AppConfig(BaseSettings):
     def _parse_owner_id(cls, value: object) -> int | None:
         if value in (None, ""):
             return None
-        return int(value)  # type: ignore[arg-type]
+        return int(value)  # type: ignore[call-overload, no-any-return]
 
     @field_validator("discord_token", mode="before")
     @classmethod
