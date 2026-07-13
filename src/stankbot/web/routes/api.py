@@ -127,7 +127,7 @@ async def api_board(
         return MsgPackResponse(state, request)
 
     # Paginated rankings only — fetch from player_totals cache directly.
-    from sqlalchemy import select
+    from sqlalchemy import false, select
 
     from stankbot.db.models import PlayerChainTotal, PlayerTotal
     from stankbot.db.repositories import altars as altars_repo
@@ -180,7 +180,7 @@ async def api_board(
                 .where(
                     PlayerChainTotal.guild_id == guild_id,
                     PlayerChainTotal.chain_id == live_chain.id,
-                    PlayerChainTotal.user_id.in_(user_ids) if user_ids else True,  # type: ignore[arg-type]
+                    PlayerChainTotal.user_id.in_(user_ids) if user_ids else false(),
                 )
             )
             chain_rows = (await session.execute(chain_totals_stmt)).scalars().all()
