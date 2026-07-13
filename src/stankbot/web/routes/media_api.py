@@ -37,7 +37,7 @@ async def _get_enabled_providers(
     session: AsyncSession,
     guild_id: int,
 ) -> list[str]:
-    return await SettingsService(session).get(
+    return await SettingsService(session).get(  # type: ignore[no-any-return]
         guild_id, Keys.MEDIA_PROVIDERS_ENABLED, ["youtube", "spotify"]
     )
 
@@ -543,7 +543,8 @@ async def get_media_chart(
             for d in history
         ]
         buf = render_media_chart(
-            snapshots=render_snaps, title=item.title or "Item",
+            snapshots=render_snaps,  # type: ignore[arg-type]
+            title=item.title or "Item",
             metric_label=metric_label, mode=render_mode,
         )
         # Cache key for single chart

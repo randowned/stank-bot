@@ -49,7 +49,7 @@ async def fetch_guild_member(
                 },
             }
 
-    token = config.discord_token.get_secret_value()
+    token = config.discord_token.get_secret_value()  # type: ignore[union-attr]
     if not token:
         return None
 
@@ -100,7 +100,7 @@ def _is_mock_auth(request: Request) -> bool:
 
 
 def get_config(request: Request) -> AppConfig:
-    return request.app.state.config
+    return request.app.state.config  # type: ignore[no-any-return]
 
 
 async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
@@ -183,10 +183,10 @@ async def require_guild_member(
         user = current_user(request)
         if user is not None:
             return user
-        config: AppConfig = request.app.state.config
+        mock_cfg: AppConfig = request.app.state.config
         return {
-            "id": config.mock_default_user_id,
-            "username": config.mock_default_user_name,
+            "id": mock_cfg.mock_default_user_id,
+            "username": mock_cfg.mock_default_user_name,
             "avatar": None,
         }
     user = current_user(request)

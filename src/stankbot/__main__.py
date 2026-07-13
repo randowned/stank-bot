@@ -87,16 +87,19 @@ async def run() -> None:
     async with bot:
         tasks: list[asyncio.Task[object]] = []
         if not use_mock:
+            assert isinstance(bot, StankBot)
             tasks.append(
                 asyncio.create_task(
                     _start_bot_with_retry(
-                        bot, config.discord_token.get_secret_value()
+                        bot, config.discord_token.get_secret_value()  # type: ignore[union-attr]
                     )
                 )
             )
         if config.enable_web:
             log.info("Web dashboard on http://%s", config.web_bind)
-            tasks.append(asyncio.create_task(_run_web(bot, config)))
+            if not use_mock:
+                assert isinstance(bot, StankBot)
+            tasks.append(asyncio.create_task(_run_web(bot, config)))  # type: ignore[arg-type]
 
         # Graceful shutdown: Railway (and most container platforms) send
         # SIGTERM before killing the container. Catch it so ``async with

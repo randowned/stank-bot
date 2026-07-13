@@ -15,11 +15,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from stankbot.db.models import SessionEndReason
 from stankbot.db.repositories import altars as altars_repo
 from stankbot.db.repositories import audit_log as audit_repo
 from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services.permission_service import PermissionService
-from stankbot.services.session_service import SessionEndReason, SessionService
+from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import LABELS, Keys, SettingsService
 from stankbot.utils.emoji import emoji_to_markup, parse_reaction_emojis
 from stankbot.utils.time_utils import utc_isoformat
@@ -52,7 +53,7 @@ def _ok(request: Request, extra: dict[str, Any] | None = None) -> MsgPackRespons
 async def api_switch_guild(
     request: Request,
     guild_id: int = Query(...),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
     session: AsyncSession = Depends(get_db),
 ) -> MsgPackResponse:
     """Switch the active guild for the current session."""
@@ -141,10 +142,10 @@ class SettingsPayload(BaseModel):
 @router.post("/settings")
 async def save_settings(
     request: Request,
-    payload: SettingsPayload = msgpack_body(SettingsPayload),
+    payload: SettingsPayload = msgpack_body(SettingsPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     svc = SettingsService(session)
     for key in _SIMPLE_INT_KEYS:
@@ -248,10 +249,10 @@ class AltarSetPayload(BaseModel):
 @router.post("/altar/set")
 async def altar_set(
     request: Request,
-    payload: AltarSetPayload = msgpack_body(AltarSetPayload),
+    payload: AltarSetPayload = msgpack_body(AltarSetPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     # Parse the (comma-separated) emoji field into accepted-emoji specs. The
     # first is the primary (drives {stank_emoji} + auto-react); the bare name —
@@ -273,8 +274,8 @@ async def altar_set(
         channel_id=payload.channel_id,
         sticker_name_pattern=payload.sticker_pattern.strip().lower(),
         reaction_emoji_id=primary["id"],
-        reaction_emoji_name=primary["name"],
-        reaction_emoji_animated=primary["animated"],
+        reaction_emoji_name=primary["name"],  # type: ignore[arg-type]
+        reaction_emoji_animated=primary["animated"],  # type: ignore[arg-type]
         reaction_emojis=reaction_emojis,
         sticker_id=converted_display_id,
         sticker_ids=converted_sticker_ids,
@@ -298,7 +299,7 @@ async def altar_remove(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     altar_row = await altars_repo.for_guild(session, guild_id, enabled_only=False)
     if altar_row is None:
@@ -465,7 +466,7 @@ class UserIdPayload(BaseModel):
 @router.post("/roles/users/add")
 async def users_add(
     request: Request,
-    payload: UserIdPayload = msgpack_body(UserIdPayload),
+    payload: UserIdPayload = msgpack_body(UserIdPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     _admin: dict = Depends(require_guild_admin),
 ) -> MsgPackResponse:
@@ -477,7 +478,7 @@ async def users_add(
 @router.post("/roles/users/remove")
 async def users_remove(
     request: Request,
-    payload: UserIdPayload = msgpack_body(UserIdPayload),
+    payload: UserIdPayload = msgpack_body(UserIdPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     _admin: dict = Depends(require_guild_admin),
 ) -> MsgPackResponse:
@@ -493,7 +494,7 @@ class RoleIdPayload(BaseModel):
 @router.post("/roles/add")
 async def roles_add(
     request: Request,
-    payload: RoleIdPayload = msgpack_body(RoleIdPayload),
+    payload: RoleIdPayload = msgpack_body(RoleIdPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
@@ -506,7 +507,7 @@ async def roles_add(
 @router.post("/roles/remove")
 async def roles_remove(
     request: Request,
-    payload: RoleIdPayload = msgpack_body(RoleIdPayload),
+    payload: RoleIdPayload = msgpack_body(RoleIdPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
     _admin: dict = Depends(require_guild_admin),
@@ -644,10 +645,10 @@ class AnnouncementPayload(BaseModel):
 @router.post("/announcements")
 async def announcements_add(
     request: Request,
-    payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),
+    payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.db.models import ChannelBinding, ChannelPurpose
 
@@ -672,10 +673,10 @@ async def announcements_add(
 @router.post("/announcements/remove")
 async def announcements_remove(
     request: Request,
-    payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),
+    payload: AnnouncementPayload = msgpack_body(AnnouncementPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.db.models import ChannelBinding, ChannelPurpose
 
@@ -775,10 +776,10 @@ class TemplateSavePayload(BaseModel):
 async def save_template(
     key: str,
     request: Request,
-    payload: TemplateSavePayload = msgpack_body(TemplateSavePayload),
+    payload: TemplateSavePayload = msgpack_body(TemplateSavePayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.services.default_templates import ALL_DEFAULTS
     from stankbot.services.template_engine import TemplateError, validate_template_variables
@@ -901,7 +902,7 @@ _PREVIEW_CONTEXTS: dict[str, dict[str, Any]] = {
 async def preview_template(
     key: str,
     request: Request,
-    payload: TemplatePreviewPayload = msgpack_body(TemplatePreviewPayload),
+    payload: TemplatePreviewPayload = msgpack_body(TemplatePreviewPayload),  # type: ignore[assignment]
     _admin: dict = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.services.default_templates import ALL_DEFAULTS
@@ -954,7 +955,7 @@ async def new_session(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     await guilds_repo.ensure(session, guild_id)
     svc = SessionService(session)
@@ -980,10 +981,10 @@ class ResetPayload(BaseModel):
 @router.post("/reset")
 async def reset_guild(
     request: Request,
-    payload: ResetPayload = msgpack_body(ResetPayload),
+    payload: ResetPayload = msgpack_body(ResetPayload),  # type: ignore[assignment]
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     """Wipe all event/chain/cooldown/record state for the guild.
 
@@ -1026,7 +1027,7 @@ async def rebuild(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.services import rebuild_service
 
@@ -1081,7 +1082,7 @@ async def rebuild_from_db(
     request: Request,
     session: AsyncSession = Depends(get_db),
     guild_id: int = Depends(get_active_guild_id),
-    user: dict = Depends(require_guild_admin),
+    user: dict[str, Any] = Depends(require_guild_admin),
 ) -> MsgPackResponse:
     from stankbot.db.repositories import player_chain_totals as pct_repo
     from stankbot.db.repositories import player_totals as pt_repo

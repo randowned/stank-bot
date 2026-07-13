@@ -13,7 +13,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from stankbot.db.models import Event, EventType
@@ -175,7 +175,7 @@ async def session_ids_where_user_has_sp(
         .having(func.sum(Event.delta) > 0)
         .order_by(Event.session_id.asc())
     )
-    return list((await session.execute(stmt)).scalars().all())
+    return list((await session.execute(stmt)).scalars().all())  # type: ignore[arg-type]
 
 
 async def count_session_starts(session: AsyncSession, guild_id: int, *, up_to_id: int) -> int:
@@ -259,7 +259,7 @@ async def events_for_chain(session: AsyncSession, guild_id: int, chain_id: int) 
 
 async def wipe_guild_events(session: AsyncSession, guild_id: int) -> None:
     """Destructive — used by ``/stank-admin rebuild-from-history``."""
-    await session.execute(Event.__table__.delete().where(Event.guild_id == guild_id))
+    await session.execute(delete(Event).where(Event.guild_id == guild_id))
 
 
 _SP_TYPES = (

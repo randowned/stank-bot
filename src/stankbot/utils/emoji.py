@@ -9,6 +9,7 @@ full markup is re-derived as ``Altar.display_name`` on upsert.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 _CUSTOM_EMOJI_RE = re.compile(r"<(a?):([A-Za-z0-9_~]+):(\d+)>")
 
@@ -32,14 +33,14 @@ def parse_reaction_emoji(raw: str | None) -> tuple[int | None, str | None, bool]
     return None
 
 
-def parse_reaction_emojis(raw: str | None) -> list[dict]:
+def parse_reaction_emojis(raw: str | None) -> list[dict[str, Any]]:
     """Parse a comma-separated emoji arg into a list of ``{id, name, animated}``.
 
     Unparseable entries are skipped; duplicates (same id, or same glyph name)
     are dropped, preserving order. Custom-emoji tags and unicode glyphs never
     contain commas, so splitting on ``,`` is safe.
     """
-    specs: list[dict] = []
+    specs: list[dict[str, Any]] = []
     seen: set[tuple[int | None, str | None]] = set()
     for part in (raw or "").split(","):
         parsed = parse_reaction_emoji(part)
@@ -54,7 +55,7 @@ def parse_reaction_emojis(raw: str | None) -> list[dict]:
     return specs
 
 
-def emoji_to_markup(spec: dict) -> str:
+def emoji_to_markup(spec: dict[str, Any]) -> str:
     """Render one ``{id, name, animated}`` spec as Discord markup / glyph."""
     emoji_id = spec.get("id")
     name = spec.get("name") or ""
@@ -65,7 +66,7 @@ def emoji_to_markup(spec: dict) -> str:
 
 
 def emoji_specs_match(
-    specs: list[dict], *, event_id: int | None, event_name: str | None
+    specs: list[dict[str, Any]], *, event_id: int | None, event_name: str | None
 ) -> bool:
     """True if an incoming reaction (event_id/event_name) matches any spec."""
     for spec in specs:

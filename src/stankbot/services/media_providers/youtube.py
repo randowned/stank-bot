@@ -47,9 +47,14 @@ class YouTubeProvider(MediaProvider):
         MetricDef("total_comment_count", "Total Comments", "number", "💬"),
     ]
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        http_client: httpx.AsyncClient | None = None,
+    ) -> None:
         self._api_key = api_key
-        self._client: httpx.AsyncClient | None = None
+        self._client = http_client
+        self._owns_client = http_client is None
 
     def is_configured(self) -> bool:
         return bool(self._api_key)
@@ -57,10 +62,11 @@ class YouTubeProvider(MediaProvider):
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
             self._client = httpx.AsyncClient()
+            self._owns_client = True
         return self._client
 
     async def close(self) -> None:
-        if self._client is not None:
+        if self._owns_client and self._client is not None:
             await self._client.aclose()
             self._client = None
 

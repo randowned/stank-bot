@@ -10,10 +10,11 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 import msgpack
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from stankbot.utils.time_utils import utc_isoformat
 
@@ -138,9 +139,9 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
     """Fetch current board state as a dict for WebSocket and HTTP clients."""
     from sqlalchemy import select
 
+    from stankbot.db.models import PlayerTotal
     from stankbot.db.repositories import altars as altars_repo
     from stankbot.db.repositories import player_chain_totals as pct_repo
-    from stankbot.db.repositories import player_totals as pt_repo
     from stankbot.db.repositories import reaction_awards as reaction_awards_repo
     from stankbot.services.board_service import build_board_state
     from stankbot.services.session_service import SessionService
@@ -163,30 +164,30 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
     live_chain = await chains_repo.current_chain(session, guild_id, altar.id)
 
     # Session-level per-user counters from player_totals
-    per_user_reactions_session: dict = {}
-    per_user_stanks_session: dict = {}
+    per_user_reactions_session: dict[int, int] = {}
+    per_user_stanks_session: dict[int, int] = {}
     if session_id is not None:
         stmt = (
-            select(pt_repo.PlayerTotal)
+            select(PlayerTotal)
             .where(
-                pt_repo.PlayerTotal.guild_id == guild_id,
-                pt_repo.PlayerTotal.session_id == session_id,
+                PlayerTotal.guild_id == guild_id,
+                PlayerTotal.session_id == session_id,
             )
         )
-        rows = (await session.execute(stmt)).scalars().all()
-        for r in rows:
-            uid = int(r.user_id)
-            per_user_reactions_session[uid] = r.reactions_in_session
-            per_user_stanks_session[uid] = r.stanks_in_session
+        session_rows = (await session.execute(stmt)).scalars().all()
+        for s_row in session_rows:
+            uid = int(s_row.user_id)
+            per_user_reactions_session[uid] = s_row.reactions_in_session
+            per_user_stanks_session[uid] = s_row.stanks_in_session
 
     # Chain-level per-user counters from player_chain_totals
-    per_user_reactions_chain: dict = {}
-    per_user_stanks_chain: dict = {}
+    per_user_reactions_chain: dict[int, int] = {}
+    per_user_stanks_chain: dict[int, int] = {}
     if live_chain is not None:
         chain_totals = await pct_repo.get_for_chain(session, guild_id, live_chain.id)
-        for uid, r in chain_totals.items():
-            per_user_reactions_chain[uid] = r.reactions_in_chain
-            per_user_stanks_chain[uid] = r.stanks_in_chain
+        for uid, ct in chain_totals.items():
+            per_user_reactions_chain[uid] = ct.reactions_in_chain
+            per_user_stanks_chain[uid] = ct.stanks_in_chain
 
     # Total session reactions for the tile (fallback to events table if needed)
     session_reactions = (
@@ -196,7 +197,9 @@ async def get_board_state(session: AsyncSession, guild_id: int, guild_name: str)
 
     chain_length = state.current
 
-    def row_to_dict(r):
+    from stankbot.services.board_renderer import PlayerRow
+
+    def row_to_dict(r: PlayerRow) -> dict[str, Any]:
         earned = r.earned_sp
         punishments = r.punishments
         uid = int(r.user_id)
@@ -271,12 +274,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         from stankbot.web.tools import fetch_guild_member
         async with session_scope(session_factory) as db_session:
             if int(user.get("id", 0)) != owner_id:
-                member_data = await fetch_guild_member(config, guild_id, int(user["id"]), session=db_session)
+                member_data = await fetch_guild_member(config, guild_id, int(user["id"]), session=db_session)  # type: ignore[arg-type]
                 if member_data is None:
                     await websocket.close(code=4003, reason="Not in guild")
                     return
             else:
-                member_data = await fetch_guild_member(config, guild_id, int(user["id"]), session=db_session)
+                member_data = await fetch_guild_member(config, guild_id, int(user["id"]), session=db_session)  # type: ignore[arg-type]
     else:
         member_data = None
 
@@ -408,8 +411,8 @@ async def notify_chain_update(
     )
 
 
-async def notify_rank_update(guild_id: int, rankings: list, reactions: int | None = None, session_reactions: int | None = None) -> None:
-    payload: dict = {"rankings": rankings, "updated_at": datetime.now(UTC).isoformat()}
+async def notify_rank_update(guild_id: int, rankings: list[Any], reactions: int | None = None, session_reactions: int | None = None) -> None:
+    payload: dict[str, Any] = {"rankings": rankings, "updated_at": datetime.now(UTC).isoformat()}
     if reactions is not None:
         payload["reactions"] = reactions
     if session_reactions is not None:
@@ -417,7 +420,7 @@ async def notify_rank_update(guild_id: int, rankings: list, reactions: int | Non
     await manager.broadcast_json(guild_id, {"t": MSG_TYPE_RANK_UPDATE, "d": payload})
 
 
-async def broadcast_rank_update(session_factory, guild_id: int, limit: int = 20) -> None:
+async def broadcast_rank_update(session_factory: async_sessionmaker[AsyncSession], guild_id: int, limit: int = 20) -> None:
     """Build the leaderboard payload and broadcast it.
 
     Safe to call from cogs / the event bridge — opens its own session to

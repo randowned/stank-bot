@@ -80,7 +80,7 @@ async def user_summary(
     broken = await events_repo.chains_broken(session, guild_id, user_id, session_id=session_id)
     last = await events_repo.last_stank_at(session, guild_id, user_id)
     player = await players_repo.get(session, guild_id, user_id)
-    name = player.display_name if player else str(user_id)
+    name = (player.display_name or str(user_id)) if player else str(user_id)
     return UserSummary(
         user_id=user_id,
         display_name=name,

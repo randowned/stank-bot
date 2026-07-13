@@ -15,7 +15,7 @@ import logging
 
 from stankbot.bot import StankBot
 from stankbot.config import load_config
-from stankbot.logging import setup_logging
+from stankbot.logging import configure_logging as setup_logging
 from stankbot.services import rebuild_service
 
 log = logging.getLogger("stankbot.rebuild")
@@ -34,7 +34,7 @@ async def _run(guild_id: int) -> None:
     async def progress(msg: str) -> None:
         log.info(msg)
 
-    task = asyncio.create_task(bot.start(config.discord_token))
+    task = asyncio.create_task(bot.start(config.discord_token.get_secret_value()))  # type: ignore[union-attr]
     try:
         await asyncio.wait_for(ready.wait(), timeout=30)
         report = await rebuild_service.rebuild(

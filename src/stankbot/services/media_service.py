@@ -500,7 +500,7 @@ class MediaService:
                     prev = raw_points[0]["y"]
                     for _i, pt in enumerate(raw_points):
                         cur = pt["y"]
-                        pt["y"] = cur - prev  # type: ignore[operator]
+                        pt["y"] = cur - prev
                         prev = cur
                     raw_points = raw_points[1:]
                 elif delta:
@@ -967,7 +967,7 @@ class MediaService:
         """Return display metadata for owner metrics from owner_metrics only."""
         defs: list[dict[str, str]] = []
         if provider and hasattr(provider, "owner_metrics"):
-            for m in provider.owner_metrics:  # type: ignore[union-attr]
+            for m in provider.owner_metrics:
                 defs.append({"key": m.key, "label": m.label, "icon": m.icon, "format": m.format})
         return defs
 
@@ -990,8 +990,8 @@ class MediaService:
                 continue
             val = int(m.get("value", 0)) if m else 0
             mt = m.get("fetched_at", "") if m else ""
-            if mt and mt > latest_ts:
-                latest_ts = str(mt)
+            if isinstance(mt, str) and mt > latest_ts:
+                latest_ts = mt
             d = defs_by_key.get(key, {})
             serialized_metrics.append({
                 "key": key,

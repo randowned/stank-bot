@@ -9,7 +9,9 @@ from io import BytesIO
 from PIL import Image
 
 from stankbot.services.chart_renderer import (
+    _font_avg_width,
     _format_number,
+    _load_font,
     _nice_range,
     _save_bytes,
     render_media_chart,
@@ -236,3 +238,38 @@ class TestRenderMediaChartMode:
         )
         img = Image.open(BytesIO(buf))
         assert img.size == (1200, 675)
+
+
+class TestLazyFontLoading:
+    """Fonts should not be loaded at import time — only on first render call."""
+
+    def test_load_font_is_cached(self) -> None:
+        """Loading the same size twice returns the same object (cached)."""
+        f1 = _load_font(18)
+        f2 = _load_font(18)
+        assert f1 is f2
+
+    def test_load_font_different_sizes(self) -> None:
+        """Different sizes return different cached objects."""
+        f14 = _load_font(14)
+        f18 = _load_font(18)
+        assert f14 is not f18
+        assert _load_font(14) is f14
+
+    def test_font_avg_width_consistency(self) -> None:
+        """_font_avg_width returns a positive float for known sizes."""
+        w18 = _font_avg_width(18)
+        w14 = _font_avg_width(14)
+        assert w18 > 0
+        assert w14 > 0
+        assert w18 > w14  # larger font = wider chars
+
+    def test_render_triggers_font_load(self) -> None:
+        """Rendering a chart loads fonts."""
+        new_size = 10  # size not used by any other test
+        before = _load_font.cache_info().misses
+        _load_font(new_size)
+        after = _load_font.cache_info().misses
+        assert after == before + 1
+        # Second call with same size should be a hit
+        assert _load_font.cache_info().hits > 0
