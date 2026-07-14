@@ -118,12 +118,26 @@ module = [
 ]
 disable_error_code = ["type-arg", "import-untyped"]
 
+# Voice detection — numpy and faster-whisper have no type stubs.
+[[tool.mypy.overrides]]
+module = [
+    "stankbot.utils.grit_detector",
+]
+disable_error_code = ["import-not-found"]
+
+[[tool.mypy.overrides]]
+module = [
+    "stankbot.services.voice_service",
+]
+ignore_errors = true
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.6",
     "mypy>=1.11",
+    "numpy>=2",
 ]
 voice = [
     "faster-whisper>=1.1",
