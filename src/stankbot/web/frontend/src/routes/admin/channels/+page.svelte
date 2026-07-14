@@ -206,7 +206,7 @@
 			hint="Comma-separated phrases that count as a stank when spoken in a voice message. Leave empty to disable voice stank detection."
 			for="altar-voice-keywords"
 		>
-			<Input bind:value={voiceKeywords} id="altar-voice-keywords" placeholder="e.g. stank, stinky" />
+			<Input bind:value={voiceKeywords} id="altar-voice-keywords" placeholder="e.g. stank, circle with me" />
 		</FormField>
 
 		<FormField
