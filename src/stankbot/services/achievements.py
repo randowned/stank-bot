@@ -200,21 +200,20 @@ async def _chainbreaker_dubious(
 async def _comeback_kid(
     session: AsyncSession, guild_id: int, user_id: int
 ) -> bool:
-    sp, pp = await events_repo.sp_pp_totals(session, guild_id, user_id)
-    if sp - pp <= 0:
-        return False
-    # Must have been in the red at some point. Reconstruct by walking
-    # events chronologically and tracking the running net.
+    """True if the user went negative and recovered within a single session.
+
+    Resets the running net at each session boundary so only intra-session
+    dips are considered. A session where the user's net never went negative,
+    or ended in the red, does not qualify.
+    """
     stmt = (
-        select(Event.type, Event.delta)
+        select(Event.type, Event.delta, Event.session_id)
         .where(
             Event.guild_id == guild_id,
             Event.user_id == user_id,
         )
-        .order_by(Event.id.asc())
+        .order_by(Event.session_id.asc().nullsfirst(), Event.id.asc())
     )
-    running = 0
-    ever_negative = False
     _sp_types = {
         EventType.SP_BASE.value,
         EventType.SP_POSITION_BONUS.value,
@@ -224,15 +223,30 @@ async def _comeback_kid(
         EventType.SP_TEAM_PLAYER.value,
         EventType.SP_FOURTH_PLACE.value,
     }
+    running = 0
+    ever_negative = False
+    current_session: int | None = None
+
     async for row in await session.stream(stmt):
-        t, delta = row
+        t, delta, sid = row
+
+        # Session boundary — check if the just-finished session qualifies.
+        if current_session is not None and sid != current_session:
+            if ever_negative and running > 0:
+                return True
+            running = 0
+            ever_negative = False
+
+        current_session = sid
         if t in _sp_types:
             running += int(delta or 0)
         elif t == EventType.PP_BREAK.value:
             running -= int(delta or 0)
         if running < 0:
             ever_negative = True
-    return ever_negative
+
+    # Last session.
+    return ever_negative and running > 0
 
 
 async def _perfect_session(
