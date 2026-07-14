@@ -8,4 +8,4 @@
 # an altar. Bot functions normally without it.
 
 [phases.setup]
-nixPkgs = ["ffmpeg"]
+aptPkgs = ["ffmpeg"]
