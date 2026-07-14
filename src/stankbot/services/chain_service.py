@@ -62,6 +62,7 @@ class StankInput:
     author_id: int
     author_display_name: str
     is_stank: bool  # cog determined whether the message content = the sticker
+    source: str = "sticker"  # "sticker" | "voice" — how the stank was submitted
     bonus_sp: int = 0  # bonus SP from voice grit detection
     created_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
@@ -315,6 +316,22 @@ class ChainService:
                 created_at=msg.created_at,
             )
             sp_awarded += msg.bonus_sp
+
+        # Voice stank marker event (zero-delta, for achievement tracking).
+        if msg.source == "voice":
+            await events_repo.append(
+                self.session,
+                guild_id=msg.guild_id,
+                type=EventType.VOICE_STANK,
+                user_id=msg.author_id,
+                altar_id=msg.altar.id,
+                session_id=session_id,
+                chain_id=current.id,
+                message_id=msg.message_id,
+                custom_event_key=msg.altar.custom_event_key,
+                reason="voice stank",
+                created_at=msg.created_at,
+            )
 
         new_length, new_unique = await chains_repo.chain_length_and_unique(
             self.session, current.id

@@ -69,6 +69,8 @@ class EventType(StrEnum):
     CHAIN_BREAK = "chain_break"
     # Achievements
     ACHIEVEMENT_UNLOCKED = "achievement_unlocked"
+    # Voice stank markers
+    VOICE_STANK = "voice_stank"
 
 
 class SessionEndReason(StrEnum):

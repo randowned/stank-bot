@@ -234,8 +234,11 @@ class ChainListener(commands.Cog):
                 )
 
             # Voice message fallback — only when voice keywords configured.
+            stank_source = "sticker"
             if not is_stank and altar.voice_keywords and not message.content.strip():
                 is_stank, bonus_sp = await _is_stank_voice(message, altar)
+                if is_stank:
+                    stank_source = "voice"
 
             stank_input = StankInput(
                 guild_id=message.guild.id,
@@ -244,6 +247,7 @@ class ChainListener(commands.Cog):
                 author_id=message.author.id,
                 author_display_name=message.author.display_name,
                 is_stank=is_stank,
+                source=stank_source,
                 bonus_sp=bonus_sp,
                 created_at=message.created_at,
             )

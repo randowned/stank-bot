@@ -297,6 +297,38 @@ async def _team_player(
     return (await session.execute(stmt)).scalar_one_or_none() is not None
 
 
+async def _voice_stank(
+    session: AsyncSession, guild_id: int, user_id: int
+) -> bool:
+    """True if the user has ever submitted a voice stank."""
+    stmt = (
+        select(Event.id)
+        .where(
+            Event.guild_id == guild_id,
+            Event.user_id == user_id,
+            Event.type == EventType.VOICE_STANK,
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none() is not None
+
+
+async def _gritty_voice(
+    session: AsyncSession, guild_id: int, user_id: int
+) -> bool:
+    """True if the user has ever earned a grit bonus on a voice stank."""
+    stmt = (
+        select(Event.id)
+        .where(
+            Event.guild_id == guild_id,
+            Event.user_id == user_id,
+            Event.type == EventType.SP_GRIT_BONUS,
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none() is not None
+
+
 # --- catalog --------------------------------------------------------------
 
 
@@ -365,6 +397,20 @@ _RULES: tuple[AchievementDef, ...] = (
         description="Last stank of one shift, first stank of the next.",
         icon="🤝",
         rule=_team_player,
+    ),
+    AchievementDef(
+        key="voice_stank",
+        name="Vocal Stank",
+        description="Submitted a stank via voice message.",
+        icon="🎤",
+        rule=_voice_stank,
+    ),
+    AchievementDef(
+        key="gritty_voice",
+        name="Grit Master",
+        description="Delivered a gritty voice stank with bonus SP.",
+        icon="🔥",
+        rule=_gritty_voice,
     ),
     AchievementDef(
         key="chainbreaker",
