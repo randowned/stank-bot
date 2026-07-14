@@ -47,7 +47,8 @@ When delegating, brief the agent self-contained: state the goal, name the files/
 - Prefer editing existing code to adding new files. The project is intentionally multi-file, but resist inventing new modules when an existing one is the right home.
 - Do not invent abstractions (base classes, plugin interfaces, DI frameworks) until a second concrete implementation forces the shape.
 - **Shell execution runs in PowerShell on Windows.** The Bash tool uses PowerShell, not git-bash or bash. Avoid bash syntax (`&&`, `2>&1`, `seq`, `$!`) — it will fail.
-- **Use `.mjs` scripts (Node.js) for multi-process management.** Starting backend + frontend together from a raw shell is fragile. Use or create `.mjs` scripts like `scripts/run-e2e.mjs` (spawns backend, health-polls, kills on exit). See `scripts/agent-browser.mjs` for browser-launch workflow.
+- Use `.mjs` scripts (Node.js) for multi-process management. Starting backend + frontend together from a raw shell is fragile. Use or create `.mjs` scripts like `scripts/run-e2e.mjs` (spawns backend, health-polls, kills on exit). See `scripts/agent-browser.mjs` for browser-launch workflow.
+- **ffmpeg must be on PATH at runtime** when voice detection is enabled (used by faster-whisper for Opus → PCM decoding). Install via `sudo apt install ffmpeg` on Ubuntu/Debian, `winget install ffmpeg` on Windows, or `brew install ffmpeg` on macOS.
 - **PowerShell quick reference:**
   - `curl` is aliased to `Invoke-WebRequest` (different flags). Use `curl.exe` for the real curl binary.
   - `$pid` is a reserved automatic variable — use `$bpid`, `$fpid` etc. for stored PIDs.

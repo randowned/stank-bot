@@ -766,6 +766,16 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
         display_sticker_id=(
             "Single sticker ID used for embed thumbnail rendering (must be in sticker_ids list)."
         ),
+        voice_keywords=(
+            "Comma-separated phrases that count as stank in voice messages. "
+            "Leave empty to disable voice detection."
+        ),
+        grit_bonus=(
+            "Bonus SP awarded when a voice stank delivery exceeds the grit threshold (easter egg!)."
+        ),
+        grit_threshold=(
+            "Minimum grit score (0.0–1.0) to award the grit bonus. Higher = harder to trigger."
+        ),
     )
     @requires_admin()
     async def altar_set(
@@ -776,6 +786,9 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
         reaction_emoji: str | None = None,
         sticker_ids: str | None = None,
         display_sticker_id: str | None = None,
+        voice_keywords: str | None = None,
+        grit_bonus: int | None = None,
+        grit_threshold: float | None = None,
     ) -> None:
         if interaction.guild is None:
             return
@@ -831,6 +844,12 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
                         ephemeral=True,
                     )
                     return
+            # Parse voice keywords (comma-separated string → list)
+            parsed_voice_keywords: list[str] | None = None
+            if voice_keywords:
+                parsed_voice_keywords = [
+                    kw.strip() for kw in voice_keywords.split(",") if kw.strip()
+                ]
             altar_row, created = await altars_repo.upsert(
                 session,
                 guild_id=interaction.guild.id,
@@ -842,6 +861,9 @@ class StankAdmin(commands.GroupCog, name="stank-admin"):
                 reaction_emojis=reaction_emojis,
                 sticker_id=parsed_display_id,
                 sticker_ids=parsed_sticker_ids,
+                voice_keywords=parsed_voice_keywords,
+                voice_grit_bonus=grit_bonus,
+                voice_grit_threshold=grit_threshold,
             )
             await audit_repo.append(
                 session,
