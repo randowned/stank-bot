@@ -32,6 +32,41 @@ _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice")
 _whisper_model: object | None = None
 
 
+# ---------------------------------------------------------------------------
+# Availability check
+# ---------------------------------------------------------------------------
+
+
+def voice_available() -> tuple[bool, str]:
+    """Check if voice detection dependencies are available at runtime.
+
+    Returns
+    -------
+    tuple[bool, str]
+        (True, "") if all deps are present, or (False, reason) with a
+        user-facing explanation of what's missing.
+    """
+    try:
+        import numpy  # noqa: F401
+    except ImportError:
+        return False, "numpy not installed (required by faster-whisper)"
+
+    import shutil
+
+    if shutil.which("ffmpeg") is None:
+        return False, "ffmpeg not found on PATH (required for audio decoding)"
+
+    try:
+        import faster_whisper  # noqa: F401
+    except ImportError:
+        return (
+            False,
+            "faster-whisper not installed (install via `uv sync --group voice`)",
+        )
+
+    return True, ""
+
+
 @dataclass(slots=True)
 class VoiceResult:
     """Result of analysing a single voice message."""

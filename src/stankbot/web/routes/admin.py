@@ -22,6 +22,7 @@ from stankbot.db.repositories import guilds as guilds_repo
 from stankbot.services.permission_service import PermissionService
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import LABELS, Keys, SettingsService
+from stankbot.services.voice_service import voice_available
 from stankbot.utils.emoji import emoji_to_markup, parse_reaction_emojis
 from stankbot.utils.time_utils import utc_isoformat
 from stankbot.web.tools import (
@@ -227,6 +228,8 @@ def _altar_dict(altar: Any) -> dict[str, Any]:
         "voice_keywords": altar.voice_keywords,
         "voice_grit_bonus": altar.voice_grit_bonus,
         "voice_grit_threshold": float(altar.voice_grit_threshold),
+        "voice_available": voice_available()[0],
+        "voice_unavailable_reason": voice_available()[1] if not voice_available()[0] else None,
     }
 
 
