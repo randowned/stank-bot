@@ -97,6 +97,66 @@ def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
     )
 
 
+# ---------------------------------------------------------------------------
+# Voice message stank detection
+# ---------------------------------------------------------------------------
+
+
+def _is_voice_message(message: discord.Message) -> bool:
+    """Check if a message is a Discord voice message."""
+    if not message.attachments:
+        return False
+    return any(
+        getattr(att, "is_voice_message", False) for att in message.attachments
+    )
+
+
+async def _is_stank_voice(message: discord.Message, altar: Altar) -> tuple[bool, int]:
+    """Check if a voice message's transcription matches altar voice keywords.
+
+    Returns
+    -------
+    tuple[bool, int]
+        (is_stank, bonus_sp) where bonus_sp is the grit bonus SP awarded.
+    """
+    keywords = altar.voice_keywords
+    if not keywords:
+        return False, 0
+    if not _is_voice_message(message):
+        return False, 0
+    att = message.attachments[0]
+    try:
+        audio_bytes = await att.read()
+    except Exception:
+        log.warning("failed to download voice message %d", message.id)
+        return False, 0
+
+    try:
+        from stankbot.services.voice_service import analyze as analyze_voice  # lazy import
+
+        result = await analyze_voice(
+            audio_bytes,
+            altar,
+            keywords=keywords,
+            grit_threshold=float(altar.voice_grit_threshold),
+            grit_bonus=altar.voice_grit_bonus or 0,
+        )
+    except Exception:
+        log.exception("voice analysis failed for message %d", message.id)
+        return False, 0
+
+    if result.is_stank:
+        log.info(
+            "voice stank: msg=%d user=%d text=%r grit=%.2f bonus=%d",
+            message.id,
+            message.author.id,
+            result.text,
+            result.grit_score,
+            result.bonus_sp,
+        )
+    return result.is_stank, result.bonus_sp
+
+
 def _is_altar_reaction(emoji: discord.PartialEmoji, altar: Altar) -> bool:
     """True if a reaction emoji is any of the ones configured for this altar."""
     return emoji_specs_match(
@@ -158,6 +218,7 @@ class ChainListener(commands.Cog):
                 avatar=message.author.avatar.key if message.author.avatar else None,
             )
             is_stank = _is_stank_message(message, altar)
+            bonus_sp = 0
             if (
                 not is_stank
                 and message.stickers
@@ -171,6 +232,14 @@ class ChainListener(commands.Cog):
                     altar.sticker_name_pattern,
                     [s.name for s in message.stickers],
                 )
+
+            # Voice message fallback — only when voice keywords configured.
+            stank_source = "sticker"
+            if not is_stank and altar.voice_keywords and not message.content.strip():
+                is_stank, bonus_sp = await _is_stank_voice(message, altar)
+                if is_stank:
+                    stank_source = "voice"
+
             stank_input = StankInput(
                 guild_id=message.guild.id,
                 altar=altar,
@@ -178,6 +247,8 @@ class ChainListener(commands.Cog):
                 author_id=message.author.id,
                 author_display_name=message.author.display_name,
                 is_stank=is_stank,
+                source=stank_source,
+                bonus_sp=bonus_sp,
                 created_at=message.created_at,
             )
             result = await chain_svc.process(stank_input, config)

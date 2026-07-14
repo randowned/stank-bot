@@ -76,6 +76,9 @@ async def upsert(
     reaction_emojis: list[Any] | None = None,
     sticker_id: int | None = None,
     sticker_ids: list[int] | None = None,
+    voice_keywords: list[str] | None = None,
+    voice_grit_bonus: int | None = None,
+    voice_grit_threshold: float | None = None,
 ) -> tuple[Altar, bool]:
     """Create or update the guild's altar. Returns (altar, created).
 
@@ -103,6 +106,9 @@ async def upsert(
             sticker_id=sticker_id,
             sticker_ids=sticker_ids,
             display_name=display_name,
+            voice_keywords=voice_keywords,
+            voice_grit_bonus=voice_grit_bonus or 0,
+            voice_grit_threshold=voice_grit_threshold or 0.6,
         )
         session.add(altar)
         await session.flush()
@@ -119,5 +125,11 @@ async def upsert(
     if sticker_ids is not None:
         altar.sticker_ids = sticker_ids
     altar.display_name = display_name
+    if voice_keywords is not None:
+        altar.voice_keywords = voice_keywords
+    if voice_grit_bonus is not None:
+        altar.voice_grit_bonus = voice_grit_bonus
+    if voice_grit_threshold is not None:
+        altar.voice_grit_threshold = voice_grit_threshold
     await session.flush()
     return altar, False

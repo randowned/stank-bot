@@ -24,6 +24,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -31,6 +32,7 @@ from sqlalchemy import (
     UniqueConstraint,
     false,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -58,6 +60,7 @@ class EventType(StrEnum):
     SP_REACTION = "sp_reaction"
     SP_TEAM_PLAYER = "sp_team_player"
     SP_FOURTH_PLACE = "sp_fourth_place"
+    SP_GRIT_BONUS = "sp_grit_bonus"
     PP_BREAK = "pp_break"
     # Lifecycle (zero-delta marker events)
     SESSION_START = "session_start"
@@ -66,6 +69,8 @@ class EventType(StrEnum):
     CHAIN_BREAK = "chain_break"
     # Achievements
     ACHIEVEMENT_UNLOCKED = "achievement_unlocked"
+    # Voice stank markers
+    VOICE_STANK = "voice_stank"
 
 
 class SessionEndReason(StrEnum):
@@ -249,6 +254,15 @@ class Altar(Base):
     cooldown_seconds_override: Mapped[int | None] = mapped_column(Integer)
 
     custom_event_key: Mapped[str | None] = mapped_column(String(64))
+
+    # Voice detection — optional per-altar configuration
+    voice_keywords: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    voice_grit_bonus: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=text("0")
+    )
+    voice_grit_threshold: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.6, server_default=text("0.6")
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

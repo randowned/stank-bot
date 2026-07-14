@@ -22,6 +22,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "msgpack>=1.0",
     "Pillow>=10.0",
+    "numpy>=2",
+    "faster-whisper>=1.1",
 ]
 
 [project.optional-dependencies]
@@ -117,6 +119,15 @@ module = [
     "stankbot.web.ws",
 ]
 disable_error_code = ["type-arg", "import-untyped"]
+
+# Voice detection modules — numpy and faster-whisper have no type stubs.
+[[tool.mypy.overrides]]
+module = ["stankbot.utils.grit_detector"]
+disable_error_code = ["import-not-found"]
+
+[[tool.mypy.overrides]]
+module = ["stankbot.services.voice_service"]
+ignore_errors = true
 
 [dependency-groups]
 dev = [
