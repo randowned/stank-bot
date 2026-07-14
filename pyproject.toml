@@ -22,6 +22,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "msgpack>=1.0",
     "Pillow>=10.0",
+    "numpy>=2",
+    "faster-whisper>=1.1",
 ]
 
 [project.optional-dependencies]
@@ -133,8 +135,4 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "ruff>=0.6",
     "mypy>=1.11",
-    "numpy>=2",
-]
-voice = [
-    "faster-whisper>=1.1",
 ]
