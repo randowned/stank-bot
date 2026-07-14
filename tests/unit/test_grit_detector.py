@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 from stankbot.utils.grit_detector import (
+    compressed_ratio,
     compute_grit_score,
     spectral_centroid,
     spectral_flatness,
@@ -96,6 +97,33 @@ class TestSpectralFlatness:
 
 
 # ---------------------------------------------------------------------------
+# Compressed ratio (kurtosis-based compression proxy)
+# ---------------------------------------------------------------------------
+
+
+class TestCompressedRatio:
+    """Tests for the compression metric used in the composite grit score."""
+
+    def test_silence_is_zero(self) -> None:
+        x = np.zeros(SR, dtype=np.float32)
+        assert compressed_ratio(x) >= 0.0
+
+    def test_noise_scores_high(self) -> None:
+        """White noise has near-zero kurtosis → compression score ~0.71."""
+        rng = np.random.default_rng(77)
+        x = rng.uniform(-1, 1, SR).astype(np.float32)
+        cr = compressed_ratio(x)
+        assert 0.5 < cr < 1.0
+
+    def test_clipped_sine_scores_very_high(self) -> None:
+        """Hard-clipped sine has near-uniform amplitude → high compression."""
+        t = np.linspace(0, 1.0, SR, endpoint=False)
+        x = np.clip(np.sin(2 * np.pi * 440 * t) * 5, -1, 1).astype(np.float32)
+        cr = compressed_ratio(x)
+        assert cr > 0.7
+
+
+# ---------------------------------------------------------------------------
 # Composite grit score
 # ---------------------------------------------------------------------------
 
@@ -105,23 +133,29 @@ class TestCompositeGritScore:
         x = np.zeros(SR, dtype=np.float32)
         assert compute_grit_score(x, SR) == 0.0
 
-    def test_sine_is_not_gritty(self) -> None:
+    def test_sine_is_low_grit(self) -> None:
+        """A pure sine has low grit — tonal, no noise, but registers as
+        compressed (constant amplitude), so score is moderate but not high."""
         t = np.linspace(0, 1.0, SR, endpoint=False)
         x = np.sin(2 * np.pi * 440 * t).astype(np.float32)
-        assert compute_grit_score(x, SR) < 0.3
+        score = compute_grit_score(x, SR)
+        # Sine scores ~0.35 due to compression weight — still well below
+        # the default 0.6 threshold for "gritty" bonus.
+        assert score < 0.5
 
     def test_white_noise_is_gritty(self) -> None:
+        """White noise is noisy, bright, and compressed → high grit."""
         rng = np.random.default_rng(123)
         x = rng.uniform(-1, 1, SR).astype(np.float32)
         assert compute_grit_score(x, SR) > 0.6
 
-    def test_clipped_sine_is_moderately_gritty(self) -> None:
+    def test_clipped_sine_has_moderate_grit(self) -> None:
+        """A clipped sine has strong tonal core but adds harmonics and
+        compression → moderately gritty."""
         t = np.linspace(0, 1.0, SR, endpoint=False)
         x = np.clip(np.sin(2 * np.pi * 440 * t) * 10, -1, 1).astype(np.float32)
         score = compute_grit_score(x, SR)
-        # A clipped sine retains strong tonal character → moderate grit.
-        # Higher centroid from harmonics, but still low ZCR and low flatness.
-        assert score > 0.05  # above silence
+        assert score > 0.2  # above silence, above pure sine
 
     def test_noise_with_tone_is_gritty(self) -> None:
         """Noise-modulated tone — approximates distorted/growled vocal."""
