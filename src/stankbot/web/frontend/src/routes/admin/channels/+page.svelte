@@ -11,6 +11,7 @@
 	import RemovableItem from '$lib/components/RemovableItem.svelte';
 	import StickerPicker from '$lib/components/StickerPicker.svelte';
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
+
 	interface Altar {
 		id: number;
 		guild_id: string;
@@ -21,6 +22,11 @@
 		reaction_emoji_name: string | null;
 		reaction_emoji_display: string | null;
 		enabled: boolean;
+		voice_keywords: string[] | null;
+		voice_grit_bonus: number;
+		voice_grit_threshold: number;
+		voice_available: boolean;
+		voice_unavailable_reason: string | null;
 	}
 
 	let altar = $state<Altar | null>(null);
@@ -31,6 +37,10 @@
 	let legacyPattern = $state('');
 	let emoji = $state('');
 	let selectedStickerIds = $state<string[]>([]);
+
+	let voiceKeywords = $state('');
+	let voiceGritBonus = $state<number>(0);
+	let voiceGritThreshold = $state<number>(0.6);
 
 	let channelIds = $state<string[]>([]);
 	let newChannel = $state('');
@@ -46,6 +56,9 @@
 				legacyPattern = altar.sticker_name_pattern;
 				emoji = altar.reaction_emoji_display ?? '';
 				selectedStickerIds = altar.sticker_ids ?? [];
+				voiceKeywords = (altar.voice_keywords ?? []).join(', ');
+				voiceGritBonus = altar.voice_grit_bonus;
+				voiceGritThreshold = altar.voice_grit_threshold;
 			}
 		} catch (err) {
 			altarMsg = toErrorMessage(err, 'Failed to load');
@@ -67,7 +80,10 @@
 				sticker_pattern: legacyPattern,
 				sticker_ids: selectedStickerIds.length > 0 ? selectedStickerIds : null,
 				display_sticker_id: selectedStickerIds.length > 0 ? selectedStickerIds[0] : null,
-				reaction_emoji: emoji || null
+				reaction_emoji: emoji || null,
+				voice_keywords: voiceKeywords.trim() ? voiceKeywords.split(',').map(s => s.trim()).filter(s => s) : null,
+				voice_grit_bonus: voiceGritBonus,
+				voice_grit_threshold: voiceGritThreshold
 			});
 			await loadAltar();
 			altarMsg = 'Altar saved.';
@@ -173,6 +189,40 @@
 				value={emoji}
 				onchange={(v: string) => emoji = v}
 			/>
+		</FormField>
+
+		<hr class="my-4 border-border" />
+
+		<h3 class="text-sm font-semibold mb-2">Voice stank detection</h3>
+
+		{#if altar && !altar.voice_available}
+			<div class="text-xs text-warning bg-warning/10 border border-warning/30 rounded-md p-2 mb-3">
+				⚠ Voice detection unavailable: {altar.voice_unavailable_reason ?? 'missing dependencies'}
+			</div>
+		{/if}
+
+		<FormField
+			label="Voice keywords"
+			hint="Comma-separated phrases that count as a stank when spoken in a voice message. Leave empty to disable voice stank detection."
+			for="altar-voice-keywords"
+		>
+			<Input bind:value={voiceKeywords} id="altar-voice-keywords" placeholder="e.g. stank, stinky" />
+		</FormField>
+
+		<FormField
+			label="Grit bonus (SP)"
+			hint="Bonus SP awarded when a voice stank delivery exceeds the grit threshold (easter egg!). 0 = disabled."
+			for="altar-grit-bonus"
+		>
+			<Input type="number" bind:value={voiceGritBonus} id="altar-grit-bonus" min={0} />
+		</FormField>
+
+		<FormField
+			label="Grit threshold"
+			hint="Minimum grit score (0.0–1.0) to award the bonus. Higher = harder to trigger. Default: 0.6."
+			for="altar-grit-threshold"
+		>
+			<Input type="number" bind:value={voiceGritThreshold} id="altar-grit-threshold" min={0} max={1} step={0.05} />
 		</FormField>
 
 		<div class="flex justify-end mt-2">
