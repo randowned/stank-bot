@@ -105,10 +105,7 @@ class TestCompressedRatio:
     """Tests for compressed_ratio (kurtosis-based helper, unused in composite score)."""
 
     def test_silence_is_zero(self) -> None:
-        x = np.zeros(SR, dtype=np.float32)
-        # Silence has zero variance → kurtosis returns 0 → score = (5-0)/7 ≈ 0.714
-        # This is expected — silence isn't compressed, but the kurtosis metric
-        # doesn't special-case it. The composite score handles silence via ZCR==0.
+        # Silence has zero variance → skip (compressed_ratio not used in composite score)
         pass
 
     def test_sine_midrange(self) -> None:
