@@ -297,7 +297,42 @@ async def test_comeback_kid_team_player_genuine_comeback(session: Any) -> None:
     assert await _comeback_kid(session, 1, 100) is True
 
 
-# ── evaluate_session_close (fourth place) ─────────────────────────────────
+async def test_comeback_kid_multisession_recovery(session: Any) -> None:
+    """Negative in session 10, recovers by end → qualifies."""
+    await _event(session, user_id=100, type=EventType.PP_BREAK, delta=30, session_id=10)
+    await _event(session, user_id=100, type=EventType.SP_BASE, delta=50, session_id=10)
+
+    assert await _comeback_kid(session, 1, 100) is True
+
+
+async def test_comeback_kid_multisession_negative_stays_negative(session: Any) -> None:
+    """Negative in session 10, stays negative → no comeback."""
+    sid10 = 10
+    await _event(session, user_id=100, type=EventType.PP_BREAK, delta=50, session_id=sid10)
+    await _event(session, user_id=100, type=EventType.SP_BASE, delta=10, session_id=sid10)
+
+    assert await _comeback_kid(session, 1, 100) is False
+
+
+async def test_comeback_kid_multisession_positive_after_negative_prior(session: Any) -> None:
+    """Session 9: negative stay negative.  Session 10: positive only, never dips here.
+    The all-time net is negative at some point but no single session had recovery.
+    The positive session 10 never dipped, so no comeback."""
+    await _event(session, user_id=100, type=EventType.PP_BREAK, delta=30, session_id=9)
+    await _event(session, user_id=100, type=EventType.SP_BASE, delta=5, session_id=9)
+    await _event(session, user_id=100, type=EventType.SP_BASE, delta=20, session_id=10)
+
+    assert await _comeback_kid(session, 1, 100) is False
+
+
+async def test_comeback_kid_multisession_first_negative_then_comeback(session: Any) -> None:
+    """Session 9: negative stays negative.  Session 10: negative then recovers → qualifies."""
+    await _event(session, user_id=100, type=EventType.PP_BREAK, delta=30, session_id=9)
+    await _event(session, user_id=100, type=EventType.SP_BASE, delta=5, session_id=9)
+    await _event(session, user_id=100, type=EventType.PP_BREAK, delta=15, session_id=10)
+    await _event(session, user_id=100, type=EventType.SP_BASE, delta=40, session_id=10)
+
+    assert await _comeback_kid(session, 1, 100) is True
 
 
 async def _seed_player_total(

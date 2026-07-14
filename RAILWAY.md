@@ -52,3 +52,83 @@ Railway pings `/healthz` every 30s. The endpoint returns `200 OK` with `{"status
 ## Manual deploy trigger
 
 Deploys are triggered by pushing to `main`. The release workflow (`deploy.yml`) bumps the version, creates a release PR, and after merge triggers a Railway deploy.
+
+## Railway CLI
+
+Install the CLI:
+
+```bash
+curl -fsSL https://railway.app/install.sh | sh
+# adds to ~/.railway/bin/railway
+```
+
+Add `~/.railway/bin` to your PATH or use the full path.
+
+### Authentication
+
+**Log in interactively:**
+
+```bash
+railway login --browserless
+# → Go to https://railway.com/activate and enter the code shown
+```
+
+This persists credentials to `~/.railway/` and allows full CLI access (including SSH).
+
+**Project tokens (CI/automation only):**
+
+Create a **Project Token** in the Railway dashboard (Project → Tokens). Tokens are scoped to a single project and can only perform project-level actions (deploy, variable read, status). They cannot run account-level commands (`whoami`, SSH key management).
+
+```bash
+# Use a project token for status / variable queries
+RAILWAY_TOKEN=<token> railway status
+RAILWAY_TOKEN=<token> railway variable list --json
+```
+
+### SSH into the service
+
+The production database is **SQLite** on the persistent volume at `/data/stankbot.db`.
+
+```bash
+# 1. Add an SSH key (needs account-level auth, not project token)
+railway ssh keys add -k ~/.ssh/id_ed25519 -n my-key-name
+
+# 2. Configure SSH host alias (writes to ~/.ssh/config)
+railway ssh config --identity-file ~/.ssh/id_ed25519
+
+# 3. SSH in and query the DB
+ssh railway-stank-bot 'python3 -c "
+import sqlite3
+conn = sqlite3.connect(\"/data/stankbot.db\")
+# ... queries ...
+"'
+```
+
+To query via SSH without setting up a config entry:
+
+```bash
+ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 -p 22 \
+  <user>@ssh.railway.com \
+  <command>
+```
+
+You can find the user/host alias by running `railway ssh config --identity-file ~/.ssh/id_ed25519 --dry-run`.
+
+### Production database
+
+| Property | Value |
+|----------|-------|
+| Engine | SQLite (no PostgreSQL) |
+| Path | `/data/stankbot.db` (persistent volume) |
+| Volume | `stank-bot-volume` (5 GB, ~735 MB used) |
+| Access | SSH only (no direct tunnel) |
+
+The `DATABASE_URL` is **not set** in Railway env vars — the bot uses the default `sqlite+aiosqlite:///./data/stankbot.db` and relies on the volume mount at `/data/`.
+
+### Read-only querying (safe)
+
+When investigating production data, pipe a Python script via SSH. The volume is on-disk SQLite — no replication lag, no connection pool pressure:
+
+```bash
+cat query.py | ssh railway-stank-bot python3
+```
