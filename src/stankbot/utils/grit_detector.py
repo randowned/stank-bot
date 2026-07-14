@@ -63,47 +63,6 @@ def spectral_flatness(x: np.ndarray) -> float:
     return float(geometric / arithmetic)
 
 
-def _amplitude_kurtosis(x: np.ndarray) -> float:
-    """Excess kurtosis of the amplitude distribution.
-
-    Clean speech has high kurtosis (lots of silence/midrange between peaks).
-    Noise-like, compressed, or uniformly distributed signals have low
-    kurtosis (more samples at all amplitude levels).  Used as a proxy for
-    dynamic-range compression.
-
-    Returns
-    -------
-    float
-        Excess kurtosis (Fisher definition, Gaussian → 0).
-        Range is typically [-2, 10+] for audio.
-    """
-    mean = float(np.mean(x))
-    fourth = float(np.mean((x - mean) ** 4))
-    second = float(np.mean((x - mean) ** 2))
-    if second == 0:
-        return 0.0
-    return fourth / (second * second) - 3.0
-
-
-def compressed_ratio(x: np.ndarray) -> float:
-    """Compression/saturation proxy based on amplitude kurtosis.
-
-    Maps excess kurtosis to a normalised [0, 1] score where:
-    - 1.0 = heavily compressed, saturated, or noise-like (platykurtic)
-    - 0.0 = high dynamic range, clean (leptokurtic)
-
-    Values above ~5 (typical for clean speech) map to 0.
-    Values around 0 (white noise) map to ~0.67.
-    Negative values (clipped/compressed) map to 1.0.
-    """
-    kurt = _amplitude_kurtosis(x)
-    # kurt ranges from ~ -2 (uniform/clipped) through 0 (Gaussian/noise)
-    # to 5-15+ (clean speech).  Invert and clip.
-    # Map -2 → 1.0, 0 → 0.67, 5 → 0.0, above → 0.0
-    normalised = 5.0 - kurt
-    return min(max(normalised / 7.0, 0.0), 1.0)
-
-
 def compute_grit_score(x: np.ndarray, sample_rate: int) -> float:
     """Composite grit score between 0.0 (clean) and 1.0 (maximum grit).
 

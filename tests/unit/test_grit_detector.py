@@ -10,7 +10,6 @@ import numpy as np
 import pytest
 
 from stankbot.utils.grit_detector import (
-    compressed_ratio,
     compute_grit_score,
     spectral_centroid,
     spectral_flatness,
@@ -94,41 +93,6 @@ class TestSpectralFlatness:
         x = rng.uniform(-1, 1, SR).astype(np.float32)
         # White noise — flat spectrum → high flatness
         assert spectral_flatness(x) > 0.7
-
-
-# ---------------------------------------------------------------------------
-# Compressed ratio
-# ---------------------------------------------------------------------------
-
-
-class TestCompressedRatio:
-    """Tests for compressed_ratio (kurtosis-based helper, unused in composite score)."""
-
-    def test_silence_is_zero(self) -> None:
-        # Silence has zero variance → skip (compressed_ratio not used in composite score)
-        pass
-
-    def test_sine_midrange(self) -> None:
-        t = np.linspace(0, 1.0, SR, endpoint=False)
-        x = np.sin(2 * np.pi * 440 * t).astype(np.float32)
-        cr = compressed_ratio(x)
-        # Sine has kurtosis ≈ -1.5, score = (5-(-1.5))/7 ≈ 0.93
-        assert 0.8 < cr < 1.0
-
-    def test_clipped_sine_is_compressed(self) -> None:
-        t = np.linspace(0, 1.0, SR, endpoint=False)
-        x = np.sin(2 * np.pi * 440 * t).astype(np.float32)
-        x_clipped = np.clip(x * 5, -1, 1)
-        cr = compressed_ratio(x_clipped)
-        # Clipped signal has near-uniform amplitude → low kurtosis → high score
-        assert cr > 0.8
-
-    def test_noise_midrange(self) -> None:
-        rng = np.random.default_rng(77)
-        x = rng.uniform(-1, 1, SR).astype(np.float32)
-        cr = compressed_ratio(x)
-        # Uniform noise has kurtosis ≈ -1.2 → score ≈ 0.89
-        assert 0.5 < cr < 1.0
 
 
 # ---------------------------------------------------------------------------
