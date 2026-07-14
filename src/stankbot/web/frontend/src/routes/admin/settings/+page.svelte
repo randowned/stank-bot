@@ -68,11 +68,13 @@ import { toErrorMessage } from '$lib/api-utils';
 		try {
 			const values: Record<string, unknown> = {};
 			for (const k of INT_KEYS) {
-				if (ints[k].trim()) values[k] = Number(ints[k]);
+				const v = String(ints[k] ?? '');
+				if (v.trim()) values[k] = Number(v);
 			}
 			for (const k of BEHAVIOR_BOOL_KEYS) values[k] = bools[k];
 			for (const k of LIST_KEYS) {
-				if (lists[k].trim()) values[k] = lists[k];
+				const v = String(lists[k] ?? '');
+				if (v.trim()) values[k] = v;
 			}
 			await apiPost('/api/admin/settings', { values });
 			saveMsg = 'Saved.';
