@@ -125,3 +125,6 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
 ]
+voice = [
+    "faster-whisper>=1.1",
+]

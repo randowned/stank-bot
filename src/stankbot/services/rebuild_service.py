@@ -106,6 +106,37 @@ def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
     )
 
 
+async def _is_stank_voice_rebuild(
+    message: discord.Message, altar: Altar
+) -> bool:
+    """Best-effort voice stank detection for rebuild replay.
+
+    Voice message attachments may have expired CDN URLs, so this is
+    wrapped in try/except at the call site. No grit analysis during
+    rebuild — just keyword detection.
+    """
+    keywords = altar.voice_keywords
+    if not keywords:
+        return False
+    if not message.attachments:
+        return False
+    if not getattr(message.attachments[0], "is_voice_message", False):
+        return False
+    att = message.attachments[0]
+    audio_bytes = await att.read()
+    if not audio_bytes:
+        return False
+    from stankbot.services.voice_service import analyze as analyze_voice
+
+    result = await analyze_voice(
+        audio_bytes,
+        altar,
+        keywords=keywords,
+        grit_bonus=0,  # no grit bonus during rebuild
+    )
+    return result.is_stank
+
+
 def _reaction_matches(reaction: discord.Reaction, altar: Altar) -> bool:
     emoji = reaction.emoji
     if isinstance(emoji, str):
@@ -158,6 +189,16 @@ async def _replay_altar(
             await session_svc.ensure_started(guild.id, when=message.created_at)
             config = await settings.effective_scoring(guild.id, altar)
 
+            is_stank = _is_stank_message(message, altar)
+            if not is_stank and altar.voice_keywords and not message.content.strip():
+                try:
+                    is_stank = await _is_stank_voice_rebuild(message, altar)
+                except Exception:
+                    log.warning(
+                        "rebuild: voice detection failed for msg %d, treating as non-stank",
+                        message.id,
+                    )
+
             result = await chain_svc.process(
                 StankInput(
                     guild_id=guild.id,
@@ -165,7 +206,7 @@ async def _replay_altar(
                     message_id=message.id,
                     author_id=message.author.id,
                     author_display_name=message.author.display_name,
-                    is_stank=_is_stank_message(message, altar),
+                    is_stank=is_stank,
                     created_at=message.created_at,
                 ),
                 config,

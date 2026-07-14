@@ -224,6 +224,9 @@ def _altar_dict(altar: Any) -> dict[str, Any]:
         or None,
         "reaction_emoji_animated": bool(altar.reaction_emoji_animated),
         "enabled": bool(getattr(altar, "enabled", True)),
+        "voice_keywords": altar.voice_keywords,
+        "voice_grit_bonus": altar.voice_grit_bonus,
+        "voice_grit_threshold": float(altar.voice_grit_threshold),
     }
 
 
@@ -244,6 +247,9 @@ class AltarSetPayload(BaseModel):
     sticker_ids: list[str] | None = None
     display_sticker_id: str | None = None
     reaction_emoji: str | None = None
+    voice_keywords: list[str] | None = None
+    voice_grit_bonus: int | None = None
+    voice_grit_threshold: float | None = None
 
 
 @router.post("/altar/set")
@@ -279,6 +285,9 @@ async def altar_set(
         reaction_emojis=reaction_emojis,
         sticker_id=converted_display_id,
         sticker_ids=converted_sticker_ids,
+        voice_keywords=payload.voice_keywords,
+        voice_grit_bonus=payload.voice_grit_bonus,
+        voice_grit_threshold=payload.voice_grit_threshold,
     )
     await audit_repo.append(
         session,
