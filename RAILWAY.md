@@ -1,49 +1,54 @@
 # Railway Deployment
 
-stank-bot is deployed on [Railway](https://railway.app) using Nixpacks (Railway's default build system).
+stank-bot is deployed on [Railway](https://railway.app). The deploy config is in [`railway.json`](../railway.json) at the repo root.
 
-## Build
+## Builder: Dockerfile
 
-Railway auto-detects the Python project via `pyproject.toml` and runs:
+Railway builds using a **Dockerfile** (`deploy/docker/Dockerfile`), **not** Nixpacks. The `railway.json` specifies:
 
-```bash
-uv sync
+```json
+"builder": "DOCKERFILE",
+"dockerfilePath": "deploy/docker/Dockerfile"
 ```
 
-This installs all `[project] dependencies`, including `numpy` and `faster-whisper` for voice message stank detection.
+This means `nixpacks.toml` — if present — is ignored. All system dependencies must be added to the Dockerfile.
 
-## System dependencies
+### Adding system packages
 
-System packages are declared in [`nixpacks.toml`](nixpacks.toml) at the project root:
+Edit `deploy/docker/Dockerfile` and add the package name to the `apt-get install` line:
 
-```toml
-[phases.setup]
-aptPkgs = ["ffmpeg"]
+```dockerfile
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gosu fonts-dejavu-core fonts-liberation ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 ```
 
-**ffmpeg** is required for voice stank detection (Opus → PCM audio decoding via faster-whisper). The bot works without it — voice messages simply aren't classified as stanks if ffmpeg is missing — but the admin dashboard shows a warning banner.
+## Voice detection dependencies
 
-## Environment variables
-
-Defined in Railway's dashboard (not committed):
-
-| Variable | Required | Description |
+| Dependency | Where | How installed |
 |---|---|---|
-| `DATABASE_URL` | ✅ | Postgres connection string (or SQLite path) |
-| `DISCORD_TOKEN` | ✅ | Discord bot token |
-| `ENABLE_WEB` | | Set `false` to disable the dashboard |
-| `ENV` | | Set `dev-mock` for local testing only |
+| `ffmpeg` | system package | Dockerfile `apt-get install ffmpeg` |
+| `numpy` | `[project] dependencies` | `pip install .` / `uv sync` |
+| `faster-whisper` | `[project] dependencies` | `pip install .` / `uv sync` |
 
-## Deploy process
+Voice detection gracefully degrades if deps are missing — the altar settings page shows a warning banner with the reason.
 
-Deploys are triggered by the **Deploy** workflow (`.github/workflows/deploy.yml`):
+## Checking Railway logs
 
-1. A maintainer manually triggers the workflow with a version bump type (`patch`/`minor`/`major`)
-2. The workflow bumps the version in `pyproject.toml` and opens a release PR
-3. Merging the release PR triggers Railway's auto-deploy from the `main` branch
+1. Go to [Railway dashboard](https://railway.app/dashboard)
+2. Select the stank-bot project
+3. Click **Deployments** → select the latest deployment
+4. Click **View logs** — you'll see build logs and runtime logs
 
-## Database migrations
+Common log patterns:
+- `"ffmpeg not found on PATH"` — ffmpeg missing from the Docker image
+- `"nacl not installed, voice not available"` — harmless, discord.py warning about voice channel (VC) support, not voice messages
+- `ModuleNotFoundError: No module named 'numpy'` / `'faster_whisper'` — missing Python dependency
 
-Alembic migrations run automatically on Railway. The `[phases.setup]` section in `nixpacks.toml` can run setup commands if needed, but migrations are handled by the application at startup.
+## Healthcheck
 
-See [`AGENTS.md`](AGENTS.md) for migration conventions.
+Railway pings `/healthz` every 30s. The endpoint returns `200 OK` with `{"status": "ok"}` when the bot is alive. If the bot fails healthchecks for 300s (configurable via `railway.json`), Railway restarts it.
+
+## Manual deploy trigger
+
+Deploys are triggered by pushing to `main`. The release workflow (`deploy.yml`) bumps the version, creates a release PR, and after merge triggers a Railway deploy.
