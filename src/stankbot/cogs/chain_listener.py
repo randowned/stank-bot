@@ -39,7 +39,6 @@ except ImportError:
     _V2_NOTIFICATIONS_AVAILABLE = False
 from stankbot.services.session_service import SessionService
 from stankbot.services.settings_service import Keys, SettingsService
-from stankbot.services.voice_service import analyze as analyze_voice
 from stankbot.utils.emoji import emoji_specs_match
 from stankbot.utils.stank_match import sticker_id_matches, sticker_name_matches
 from stankbot.utils.time_utils import humanize_duration
@@ -133,6 +132,8 @@ async def _is_stank_voice(message: discord.Message, altar: Altar) -> tuple[bool,
         return False, 0
 
     try:
+        from stankbot.services.voice_service import analyze as analyze_voice  # lazy import
+
         result = await analyze_voice(
             audio_bytes,
             altar,

@@ -204,7 +204,7 @@ class TestIsStankVoice:
         async def fake_analyze(*args, **kwargs) -> VoiceResult:
             return VoiceResult(is_stank=True, text="stank", grit_score=0.5, bonus_sp=0)
         monkeypatch.setattr(
-            "stankbot.cogs.chain_listener.analyze_voice",
+            "stankbot.services.voice_service.analyze",
             fake_analyze,
         )
         is_stank, bonus = await _is_stank_voice(make_voice_message(), altar_with_voice)
@@ -217,7 +217,7 @@ class TestIsStankVoice:
         async def fake_analyze(*args, **kwargs) -> VoiceResult:
             return VoiceResult(is_stank=False, text="hello world", grit_score=0.3, bonus_sp=0)
         monkeypatch.setattr(
-            "stankbot.cogs.chain_listener.analyze_voice",
+            "stankbot.services.voice_service.analyze",
             fake_analyze,
         )
         is_stank, bonus = await _is_stank_voice(make_voice_message(), altar_with_voice)
@@ -230,7 +230,7 @@ class TestIsStankVoice:
         async def fake_analyze(*args, **kwargs) -> VoiceResult:
             return VoiceResult(is_stank=True, text="stank", grit_score=0.85, bonus_sp=2)
         monkeypatch.setattr(
-            "stankbot.cogs.chain_listener.analyze_voice",
+            "stankbot.services.voice_service.analyze",
             fake_analyze,
         )
         is_stank, bonus = await _is_stank_voice(make_voice_message(), altar_with_voice)
@@ -243,7 +243,7 @@ class TestIsStankVoice:
         async def fake_analyze(*args, **kwargs) -> VoiceResult:
             return VoiceResult(is_stank=True, text="stank", grit_score=0.3, bonus_sp=0)
         monkeypatch.setattr(
-            "stankbot.cogs.chain_listener.analyze_voice",
+            "stankbot.services.voice_service.analyze",
             fake_analyze,
         )
         is_stank, bonus = await _is_stank_voice(make_voice_message(), altar_with_voice)
@@ -263,7 +263,7 @@ class TestIsStankVoice:
         async def _broken(*args, **kwargs):
             raise Exception("whisper error")
         monkeypatch.setattr(
-            "stankbot.cogs.chain_listener.analyze_voice",
+            "stankbot.services.voice_service.analyze",
             _broken,
         )
         is_stank, bonus = await _is_stank_voice(make_voice_message(), altar_with_voice)
