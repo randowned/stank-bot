@@ -24,7 +24,7 @@ These rules override any default behavior. Follow them strictly.
 - **Never auto-execute `/update-docs`** — only run when the user explicitly invokes it.
 
 ### Debugging production
-- Prod issues on Railway: use `/triage <problem description>`. It pulls logs, checks `/healthz`, walks the invariants, and narrows to a subsystem.
+- Prod issues on Railway: use `/triage <problem description>`. It pulls logs, checks `/healthz`, walks the invariants, and narrows to a subsystem. See [RAILWAY.md](RAILWAY.md) for deploy config, logs access, and common error patterns.
 
 ### Subagents
 Use subagents (the `Agent` tool with `Explore`, `Plan`, or `general-purpose`) when the work genuinely benefits from delegation.
