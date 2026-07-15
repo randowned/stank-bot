@@ -12,6 +12,7 @@ editor before they hit Discord.
 
 from __future__ import annotations
 
+import random
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -120,7 +121,7 @@ def render_embed(
           "description": str,
           "color": "#RRGGBB" | int,
           "thumbnail": url-str,
-          "image": url-str,
+          "image": url-str | list[url-str],
           "author": {"name": str, "icon": url-str},
           "footer": str,
           "timestamp": "auto" | ISO8601 | None,
@@ -146,8 +147,12 @@ def render_embed(
         embed.color = color
     if (thumbnail := template.get("thumbnail")) and (resolved := sub(str(thumbnail), ctx)):
         embed.set_thumbnail(url=resolved)
-    if (image := template.get("image")) and (resolved := sub(str(image), ctx)):
-        embed.set_image(url=resolved)
+    raw_image = template.get("image")
+    if raw_image:
+        if isinstance(raw_image, list):
+            raw_image = random.choice(raw_image) if raw_image else ""
+        if resolved := sub(str(raw_image), ctx):
+            embed.set_image(url=resolved)
     if (author := template.get("author")) and isinstance(author, dict):
         name = author.get("name")
         icon = author.get("icon")

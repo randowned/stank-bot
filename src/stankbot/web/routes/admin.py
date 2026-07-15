@@ -811,6 +811,9 @@ async def save_template(
         for k, v in payload.data.items():
             if isinstance(v, str):
                 validate_template_variables(v)
+            elif isinstance(v, list) and all(isinstance(item, str) for item in v):
+                for item in v:
+                    validate_template_variables(item)
             elif k == "fields" and isinstance(v, list):
                 for field in v:
                     if not isinstance(field, dict):

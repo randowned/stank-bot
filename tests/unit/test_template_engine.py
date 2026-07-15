@@ -76,3 +76,55 @@ def test_render_embed_builds_fields_and_footer() -> None:
     assert embed.fields[1].inline is True
     assert embed.footer is not None
     assert embed.footer.text == "v2.0.0"
+
+
+def test_render_embed_image_string() -> None:
+    """Single string image works as before."""
+    template = {"image": "{image_url}"}
+    ctx = RenderContext(variables={"image_url": "https://example.com/img.png"})
+    embed = render_embed(template, ctx)
+    assert embed.image is not None
+    assert embed.image.url == "https://example.com/img.png"
+
+
+def test_render_embed_image_array_picks_one() -> None:
+    """Array of images picks one at random."""
+    template = {"image": ["https://example.com/a.png", "https://example.com/b.png"]}
+    ctx = RenderContext(variables={})
+    results: set[str] = set()
+    for _ in range(40):
+        embed = render_embed(template, ctx)
+        assert embed.image is not None
+        assert embed.image.url is not None
+        results.add(embed.image.url)
+    assert results == {"https://example.com/a.png", "https://example.com/b.png"}
+
+
+def test_render_embed_image_array_single_element() -> None:
+    """Array with one element always picks that one."""
+    template = {"image": ["https://example.com/only.png"]}
+    ctx = RenderContext(variables={})
+    embed = render_embed(template, ctx)
+    assert embed.image is not None
+    assert embed.image.url == "https://example.com/only.png"
+
+
+def test_render_embed_image_array_empty_is_noop() -> None:
+    """Empty array is falsy — no image set."""
+    template = {"image": []}
+    ctx = RenderContext(variables={})
+    embed = render_embed(template, ctx)
+    assert embed.image is None or embed.image.url is None
+
+
+def test_render_embed_image_array_with_variables() -> None:
+    """Array elements are template strings — resolved after pick."""
+    template = {"image": ["{a}", "{b}"]}
+    ctx = RenderContext(variables={"a": "https://a.png", "b": "https://b.png"})
+    results: set[str] = set()
+    for _ in range(40):
+        embed = render_embed(template, ctx)
+        assert embed.image is not None
+        assert embed.image.url is not None
+        results.add(embed.image.url)
+    assert results == {"https://a.png", "https://b.png"}
