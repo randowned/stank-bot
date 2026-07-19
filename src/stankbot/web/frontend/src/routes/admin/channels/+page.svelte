@@ -42,6 +42,21 @@
 	let voiceGritBonus = $state<number>(0);
 	let voiceGritThreshold = $state<number>(0.6);
 
+	interface Wiki {
+		id: number;
+		wiki_channel_id: string;
+		wiki_watch_channel_ids: string[] | null;
+		enabled: boolean;
+	}
+
+	let wiki = $state<Wiki | null>(null);
+	let wikiLoaded = $state(false);
+	let wikiChannelId = $state('');
+	let wikiWatchChannelIds = $state<string[]>([]);
+	let newWatchChannel = $state('');
+	let wikiMsg = $state<string | null>(null);
+	let wikiSaving = $state(false);
+
 	let channelIds = $state<string[]>([]);
 	let newChannel = $state('');
 	let annError = $state<string | null>(null);
@@ -123,8 +138,57 @@
 		}
 	}
 
+	async function loadWiki() {
+		wikiLoaded = false;
+		try {
+			const res = await apiFetch<{ wiki: Wiki | null }>('/api/admin/wiki');
+			wiki = res.wiki;
+			if (wiki) {
+				wikiChannelId = wiki.wiki_channel_id;
+				wikiWatchChannelIds = wiki.wiki_watch_channel_ids || [];
+			}
+		} catch (err) {
+			wikiMsg = toErrorMessage(err, 'Failed to load');
+		} finally {
+			wikiLoaded = true;
+		}
+	}	
+
+	async function saveWiki() {
+		wikiSaving = true;
+		wikiMsg = null;
+		try {
+			await apiPost('/api/admin/wiki/set', {
+				// Discord IDs are 64-bit snowflakes — Number() rounds them past
+				// JS's safe-integer range, so send the raw string (backend coerces).
+				wiki_channel_id: wikiChannelId.trim(),
+				wiki_watch_channel_ids: wikiWatchChannelIds.length > 0 ? wikiWatchChannelIds : null,
+			});
+			await loadWiki();
+			wikiMsg = 'Wiki saved.';
+		} catch (err) {
+			wikiMsg = toErrorMessage(err, 'Save failed');
+		} finally {
+			wikiSaving = false;
+		}
+	}
+
+	async function addWatchChannel() {
+		if (!newWatchChannel.trim()) return;
+		const id = newWatchChannel.trim();
+		if (!wikiWatchChannelIds.includes(id)) {
+			wikiWatchChannelIds = [...wikiWatchChannelIds, id];
+		}
+		newWatchChannel = '';
+	}
+
+	async function removeWatchChannel(id: string) {
+		wikiWatchChannelIds = wikiWatchChannelIds.filter(ch => ch !== id);
+	}
+
 	onMount(() => {
 		loadAltar();
+		loadWiki();
 		loadAnnouncements();
 	});
 </script>
@@ -248,5 +312,48 @@
 		<div class="flex justify-end mt-2">
 			<Button onclick={addAnnouncement}>Add</Button>
 		</div>
+	</Card>
+
+	<Card title="Wiki">
+		{#if !wikiLoaded}
+			<div class="space-y-3">
+				<div>
+					<div class="h-3 bg-border/60 animate-pulse rounded w-20 mb-1"></div>
+					<div class="h-9 bg-border/60 animate-pulse rounded w-full"></div>
+				</div>
+				<div>
+					<div class="h-3 bg-border/60 animate-pulse rounded w-24 mb-1"></div>
+					<div class="h-9 bg-border/60 animate-pulse rounded w-full"></div>
+				</div>
+				<div class="flex justify-end">
+					<div class="h-9 w-12 bg-border/60 animate-pulse rounded-md"></div>
+				</div>
+			</div>
+		{:else}
+			<FormField label="Wiki Channel ID" required hint="Right-click channel in Discord → Copy Channel ID" for="wiki-channel-id">
+				<Input type="text" bind:value={wikiChannelId} placeholder="e.g. 1234567890" id="wiki-channel-id" />
+			</FormField>
+
+			<FormField label="Watch channels for auto-linking" hint="The bot will add an ℹ️ reaction when posts mention wiki entry titles in these channels." for="wiki-watch-channels">
+				<div class="mb-3">
+					<ul class="space-y-1 mb-3">
+						{#each wikiWatchChannelIds as id (id)}
+							<RemovableItem onremove={() => removeWatchChannel(id)}>
+								<span class="font-mono">{id}</span>
+							</RemovableItem>
+						{:else}
+							<li class="text-muted text-sm">No watch channels configured.</li>
+						{/each}
+					</ul>
+					<Input bind:value={newWatchChannel} type="text" placeholder="Discord channel ID" />
+					<Button onclick={addWatchChannel} class="mt-2 w-full">Add channel</Button>
+				</div>
+			</FormField>
+
+			<div class="flex justify-end mt-4">
+				<Button onclick={saveWiki} loading={wikiSaving}>Save</Button>
+			</div>
+			{#if wikiMsg}<p class="text-sm text-muted mt-3">{wikiMsg}</p>{/if}
+		{/if}
 	</Card>
 </div>

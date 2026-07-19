@@ -41,6 +41,7 @@ def build_intents() -> discord.Intents:
 _COG_MODULES: tuple[str, ...] = (
     "stankbot.cogs.chain_listener",
     "stankbot.cogs.stank_commands",
+    "stankbot.cogs.wiki",
     "stankbot.cogs.preview",
     "stankbot.cogs.media_commands",
     "stankbot.cogs.fun_commands",

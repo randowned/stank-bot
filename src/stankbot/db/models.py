@@ -802,3 +802,26 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+# ---------------------------------------------------------------------------
+# Wiki
+# ---------------------------------------------------------------------------
+
+class Wiki(Base):
+    """The guild's wiki - a (channel) binding.
+    """
+
+    __tablename__ = "wiki"
+    __table_args__ = (
+        UniqueConstraint("guild_id", name="uq_wiki_guild"),
+        Index("ix_wiki_guild_enabled", "guild_id", "enabled"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("guilds.id", ondelete="CASCADE"), nullable=False
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    wiki_channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    wiki_watch_channel_ids: Mapped[list | None] = mapped_column(JSON, nullable=True, default=None)
