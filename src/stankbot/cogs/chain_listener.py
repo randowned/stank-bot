@@ -76,11 +76,12 @@ TIMEOUT_REACTION = "⏳"  # stank attempt inside the restank cooldown
 INVALID_REACTION = "❌"  # chain break / noise
 
 # Outcome → fixed reaction. VALID_STANK is absent on purpose: it uses the
-# altar's configured emoji. Missing outcomes (DUPLICATE) get no reaction.
+# altar's configured emoji.
 _OUTCOME_REACTIONS: dict[ChainOutcome, str] = {
     ChainOutcome.COOLDOWN: TIMEOUT_REACTION,
     ChainOutcome.CHAIN_BREAK: INVALID_REACTION,
     ChainOutcome.NOISE: INVALID_REACTION,
+    ChainOutcome.DUPLICATE: INVALID_REACTION,
 }
 
 
@@ -356,9 +357,9 @@ class ChainListener(commands.Cog):
         """React to an altar message according to its chain outcome.
 
         Valid stanks reuse the altar's configured emoji (``_auto_react``).
-        Cooldowns get :data:`TIMEOUT_REACTION`, chain breaks and noise get
-        :data:`INVALID_REACTION`. Outcomes absent from ``_OUTCOME_REACTIONS``
-        (duplicates) get no reaction.
+        Cooldowns get :data:`TIMEOUT_REACTION`; chain breaks, noise and
+        duplicates get :data:`INVALID_REACTION`. Outcomes absent from
+        ``_OUTCOME_REACTIONS`` get no reaction.
         """
         if outcome == ChainOutcome.VALID_STANK:
             await self._auto_react(message, altar)

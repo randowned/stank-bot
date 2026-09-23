@@ -1,7 +1,7 @@
 """Outcome reactions — every altar message gets exactly one bot reaction.
 
 Valid stank → the altar's configured emoji; cooldown (timeout) → hourglass;
-chain break / noise → cross. Duplicates get nothing.
+chain break / noise / duplicate → cross.
 """
 
 from __future__ import annotations
@@ -142,10 +142,10 @@ class TestOutcomeReactionDispatch:
         await listener._react_to_outcome(msg, None, ChainOutcome.NOISE)
         assert reacted_with(msg) == [INVALID_REACTION]
 
-    async def test_duplicate_gets_no_reaction(self, listener) -> None:  # type: ignore[no-untyped-def]
+    async def test_duplicate_gets_cross(self, listener) -> None:  # type: ignore[no-untyped-def]
         msg = make_message()
         await listener._react_to_outcome(msg, None, ChainOutcome.DUPLICATE)
-        msg.add_reaction.assert_not_awaited()
+        assert reacted_with(msg) == [INVALID_REACTION]
 
 
 class TestHandleMessageReactions:
