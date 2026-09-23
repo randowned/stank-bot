@@ -70,6 +70,20 @@ class _RecentMessageIds:
 
 _recent_messages = _RecentMessageIds()
 
+# Fixed reaction glyphs for non-valid outcomes. The valid-stank emoji stays
+# per-altar configurable (``Altar.reaction_emoji_*``); these two are fixed.
+TIMEOUT_REACTION = "⏳"  # stank attempt inside the restank cooldown
+INVALID_REACTION = "❌"  # chain break / noise
+
+# Outcome → fixed reaction. VALID_STANK is absent on purpose: it uses the
+# altar's configured emoji.
+_OUTCOME_REACTIONS: dict[ChainOutcome, str] = {
+    ChainOutcome.COOLDOWN: TIMEOUT_REACTION,
+    ChainOutcome.CHAIN_BREAK: INVALID_REACTION,
+    ChainOutcome.NOISE: INVALID_REACTION,
+    ChainOutcome.DUPLICATE: INVALID_REACTION,
+}
+
 
 def _is_stank_message(message: discord.Message, altar: Altar) -> bool:
     """A 'stank' is a sticker whose ID is in ``altar.sticker_ids`` OR whose
@@ -253,9 +267,13 @@ class ChainListener(commands.Cog):
             )
             result = await chain_svc.process(stank_input, config)
 
+            # Every altar message gets exactly one outcome reaction: the
+            # altar's configured emoji for a valid stank, the hourglass for a
+            # cooldown, the cross for a break/noise.
+            if not maintenance:
+                await self._react_to_outcome(message, altar, result.outcome)
+
             if result.outcome == ChainOutcome.VALID_STANK:
-                if not maintenance:
-                    await self._auto_react(message, altar)
                 if _V2_NOTIFICATIONS_AVAILABLE and not maintenance:
                     await notify_chain_update(
                         message.guild.id,
@@ -268,7 +286,6 @@ class ChainListener(commands.Cog):
 
             if result.outcome == ChainOutcome.COOLDOWN:
                 if not maintenance:
-                    await self._auto_react(message, altar)
                     await self._post_cooldown(
                         session,
                         message,
@@ -333,6 +350,27 @@ class ChainListener(commands.Cog):
             await broadcast_rank_update(self.bot.session_factory, payload.guild_id)
 
     # ---- announcement helpers -------------------------------------------
+
+    async def _react_to_outcome(
+        self, message: discord.Message, altar: Altar, outcome: ChainOutcome
+    ) -> None:
+        """React to an altar message according to its chain outcome.
+
+        Valid stanks reuse the altar's configured emoji (``_auto_react``).
+        Cooldowns get :data:`TIMEOUT_REACTION`; chain breaks, noise and
+        duplicates get :data:`INVALID_REACTION`. Outcomes absent from
+        ``_OUTCOME_REACTIONS`` get no reaction.
+        """
+        if outcome == ChainOutcome.VALID_STANK:
+            await self._auto_react(message, altar)
+            return
+        emoji = _OUTCOME_REACTIONS.get(outcome)
+        if emoji is None:
+            return
+        try:
+            await message.add_reaction(emoji)
+        except discord.DiscordException:
+            log.exception("failed to react to altar message outcome=%s", outcome)
 
     async def _auto_react(
         self, message: discord.Message, altar: Altar
